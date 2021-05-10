@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "misc.h"
+
 static inline
 int sa3len(int n)
 {
@@ -232,16 +234,6 @@ int * skew_rec(int n, int x[], int asize)
     int *sa = merge(n, x, sa12, sa3);
     free(sa12); free(sa3);
     return sa;
-}
-
-static 
-int * string_to_int(char const *x, int n)
-{
-    int *ix = malloc(n * sizeof *ix);
-    for (int i = 0; i < n; i++) {
-        ix[i] = x[i];
-    }
-    return ix;
 }
 
 int * skew(char const *x)
