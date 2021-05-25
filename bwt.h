@@ -16,7 +16,8 @@ int c_tab_rank(struct c_table const *ctab, char i)
 }
 
 struct o_table;
-struct o_table *compute_o_table(int n, char const *bwt, struct c_table const *ctab);
+struct o_table *compute_o_table(int n, char const *bwt, 
+                                struct c_table const *ctab);
 void print_o_table(struct o_table const *otab);
 int o_tab_rank(struct o_table const *otab, char a, int i);
 

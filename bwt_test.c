@@ -9,6 +9,7 @@ static
 void print_rotation(int n, char const *x, int rot)
 {
     for (int i = rot; i < n; i++) putchar(x[i]);
+    putchar('$');
     for (int i = 0; i < rot; i++) putchar(x[i]);
     putchar('\n');
 }
@@ -16,15 +17,19 @@ void print_rotation(int n, char const *x, int rot)
 int main(void)
 {
     char const *x = "mississippi";
-    int n = strlen(x);
-    int *sa = skew(x);
+    int xlen = strlen(x);
+    int n = xlen + 1; // + 1 for sentinel
+    int *sa = skew(x, true);
     for (int i = 0; i < n; i++) {
-        print_rotation(n, x, sa[i]);
+        print_rotation(xlen, x, sa[i]);
     }
     printf("\n");
-
+    
     char *b = bwt(n, x, sa);
-    printf("%s\n\n", b);
+    for (int i = 0; i < n; i++) {
+        putchar(b[i] ? b[i] : '$');
+    }
+    putchar('\n');
 
     struct c_table *ctab = compute_c_table(n, b, 256);
     struct o_table *otab = compute_o_table(n, b, ctab);

@@ -1,16 +1,17 @@
 #include "bwt.h"
+#include "misc.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
 
+
 char *bwt(int n, char const *x, int sa[n])
 {
     char *b = malloc((n + 1) * sizeof *b);
     for (int i = 0; i < n; i++) {
-        b[i] = (sa[i] == 0) ? x[n - 1] : x[sa[i] - 1];
+        b[i] = (sa[i] == 0) ? SENTINEL : x[sa[i] - 1];
     }
-    b[n] = '\0';
     return b;
 }
 

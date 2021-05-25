@@ -7,7 +7,7 @@ int main(void)
 {
     char const *x = "mississippi";
     int n = strlen(x);
-    int *sa = skew(x);
+    int *sa = skew(x, false);
     for (int i = 0; i < n; i++) {
         printf("%2d: %s\n", sa[i], x + sa[i]);
     }

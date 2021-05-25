@@ -1,6 +1,8 @@
 #ifndef SKEW_H
 #define SKEW_H
 
-int * skew(char const *x);
+#include <stdbool.h>
+
+int * skew(char const *x, bool include_sentinel);
 
 #endif

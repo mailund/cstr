@@ -236,11 +236,11 @@ int * skew_rec(int n, int x[], int asize)
     return sa;
 }
 
-int * skew(char const *x)
+int * skew(char const *x, bool include_sentinel)
 {
-    int n = strlen(x);
-    int *ix = string_to_int(x, n);
-    int *sa = skew_rec(n, ix, 256);
+    int xlen = strlen(x);
+    int *ix = string_to_int(x, xlen, include_sentinel);
+    int *sa = skew_rec(xlen + include_sentinel, ix, 256);
     free(ix);
     return sa;
 }
