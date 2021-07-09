@@ -1,6 +1,6 @@
-skew_test
-bwt_test
 a.out
 *.o
 *.gch
 *.dSYM
+build
+xcodebuild
