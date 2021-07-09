@@ -2,6 +2,10 @@
 
 #include "cstr.h"
 
+void cstr_auto_decref(void *p) {
+    cstr_refcount_decref(*(void **)p);
+}
+
 void cstr_refcount_object_init(struct cstr_refcount_object *obj,
                                struct cstr_refcount_type *type) {
     obj->type = type;

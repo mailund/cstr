@@ -9,6 +9,15 @@
 // A few things we are simply going to assume is true...
 static_assert(CHAR_BIT == 8, "Chars must be bytes (8-bit numbers)");
 
+// Using some non-standard features (hoping that a future standard soon will
+// give us this, since most compilers implement it anyway)
+void cstr_auto_decref(void *);
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#  define CSTR_AUTO_DECREF __attribute__((cleanup(cstr_auto_decref)))
+#elif defined(_MSC_VER)
+#  error "I don't know the equivalent for MSVC"
+#endif
+
 // This is to provide inline functions without putting the
 // static code in each output file...
 #ifndef INLINE

@@ -10,7 +10,7 @@ void tearDown() {}
 
 static void test_create_alphabet(void) {
     char const *x = "foobar";
-    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
 
     TEST_ASSERT(alpha->map[0] == 0);
     TEST_ASSERT(alpha->map['a'] == 1);
@@ -25,13 +25,11 @@ static void test_create_alphabet(void) {
             TEST_ASSERT_EQUAL(alpha->revmap[alpha->map[i]], i);
         }
     }
-
-    cstr_refcount_decref(alpha);
 }
 
 static void test_mapping(void) {
     char const *x = "foobar";
-    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
 
     struct cstr *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x));
     TEST_ASSERT(mapped != NULL);
@@ -41,13 +39,11 @@ static void test_mapping(void) {
 
     mapped = cstr_alphabet_map(alpha, cstr_slice_from_string("qux"));
     TEST_ASSERT(mapped == NULL);
-
-    cstr_refcount_decref(alpha);
 }
 
 static void test_int_mapping(void) {
     char const *x = "foobar";
-    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
     
     struct cstr_int_array *mapped = cstr_alphabet_map_to_int(alpha, cstr_slice_from_string((char *)x));
     TEST_ASSERT(mapped != NULL);
@@ -58,23 +54,17 @@ static void test_int_mapping(void) {
     
     mapped = cstr_alphabet_map_to_int(alpha, cstr_slice_from_string("qux"));
     TEST_ASSERT(mapped == NULL);
-    
-    cstr_refcount_decref(alpha);
 }
 
 
 static void test_revmapping(void) {
     char const *x = "foobar";
-    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
 
-    struct cstr *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x));
-    struct cstr *rev = cstr_alphabet_revmap(alpha, cstr_slice_from_cstr(mapped));
+    CSTR_AUTO_DECREF struct cstr *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x));
+    CSTR_AUTO_DECREF struct cstr *rev = cstr_alphabet_revmap(alpha, cstr_slice_from_cstr(mapped));
 
     TEST_ASSERT(strcmp(x, rev->buf) == 0);
-
-    cstr_refcount_decref(mapped);
-    cstr_refcount_decref(rev);
-    cstr_refcount_decref(alpha);
 }
 
 int main(void) {

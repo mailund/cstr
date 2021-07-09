@@ -40,10 +40,12 @@ static inline int safe_idx(int n, int x[n], int i) {
 }
 
 static void bucket_sort(int n, int x[n], int m, int idx[m], int offset,
-    int asize) {
+                        int asize) {
+    assert(asize > 0); // helping the static analyser.
+    
     int* buckets = malloc(asize * sizeof * buckets);
     int* sorted = malloc(m * sizeof * sorted);
-
+    
     // Compute buckets
     for (int i = 0; i < asize; i++) {
         buckets[i] = 0;
@@ -56,18 +58,18 @@ static void bucket_sort(int n, int x[n], int m, int idx[m], int offset,
         buckets[i] = acc;
         acc += k;
     }
-
+    
     // sort
     for (int i = 0; i < m; i++) {
         int bucket = safe_idx(n, x, idx[i] + offset);
         sorted[buckets[bucket]++] = idx[i];
     }
-
+    
     // copy sorted back into idx
     for (int i = 0; i < m; i++) {
         idx[i] = sorted[i];
     }
-
+    
     free(buckets);
     free(sorted);
 }
@@ -97,7 +99,7 @@ static int* merge(int n, int x[n], int sa12[], int sa3[]) {
     int* sa = malloc(n * sizeof *sa);
     int n12 = sa12len(n);
     int n3 = sa3len(n);
-
+    
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
     // length as x.
@@ -105,7 +107,7 @@ static int* merge(int n, int x[n], int sa12[], int sa3[]) {
     for (int i = 0; i < sa12len(n); i++) {
         isa[sa12[i]] = i;
     }
-
+    
     int i = 0, j = 0, k = 0;
     while (i < n12 && j < n3) {
         if (less(n, x, sa12[i], sa3[j], isa)) {
@@ -119,15 +121,15 @@ static int* merge(int n, int x[n], int sa12[], int sa3[]) {
         sa[k++] = sa12[i];
     for (; j < n3; j++)
         sa[k++] = sa3[j];
-
+    
     free(isa);
     return sa;
 }
 
 static inline bool equal3(int n, int x[n], int i, int j) {
     return safe_idx(n, x, i + 0) == safe_idx(n, x, j + 0) &&
-        safe_idx(n, x, i + 1) == safe_idx(n, x, j + 1) &&
-        safe_idx(n, x, i + 2) == safe_idx(n, x, j + 2);
+    safe_idx(n, x, i + 1) == safe_idx(n, x, j + 1) &&
+    safe_idx(n, x, i + 2) == safe_idx(n, x, j + 2);
 }
 
 // Map from indices in x to indices in sa12
@@ -173,10 +175,10 @@ static int* build_u(int n, int encoding[]) {
 static int* skew_rec(int n, int x[], int asize) {
     int* sa12 = get_sa12(n, x);
     radix3(n, x, sa12len(n), sa12, asize);
-
+    
     int new_asize;
     int* encoding = build_alphabet(n, x, sa12, &new_asize);
-
+    
     if (new_asize - 2 < sa12len(n)) {
         // We need to sort recursively
         int* u = build_u(n, encoding);
@@ -184,7 +186,7 @@ static int* skew_rec(int n, int x[], int asize) {
         // set it to NULL to avoid problems with freeing it below.
         free(encoding);
         encoding = 0;
-
+        
         int* usa = skew_rec(sa12len(n) + 1, u, new_asize);
         int m = (sa12len(n) + 1) / 2;
         assert(usa[0] == m); // mid sentinel is first
@@ -193,16 +195,16 @@ static int* skew_rec(int n, int x[], int asize) {
                 continue;
             sa12[k++] = map_u_x(usa[i], m);
         }
-
+        
         free(usa);
         free(u);
     }
-
+    
     free(encoding);
-
+    
     int* sa3 = get_sa3(n, x, sa12);
     bucket_sort(n, x, sa3len(n), sa3, 0, asize);
-
+    
     int* sa = merge(n, x, sa12, sa3);
     free(sa12);
     free(sa3);
@@ -211,13 +213,8 @@ static int* skew_rec(int n, int x[], int asize) {
 
 int* cstr_skew(char const* x) {
     struct cstr_str_slice slice = cstr_slice_from_string((char*)x);
-    struct cstr_alphabet* alpha = cstr_alphabet_from_slice(slice);
-    struct cstr_int_array *arr = cstr_alphabet_map_to_int(alpha, slice);
+    CSTR_AUTO_DECREF struct cstr_alphabet* alpha = cstr_alphabet_from_slice(slice);
+    CSTR_AUTO_DECREF struct cstr_int_array *arr = cstr_alphabet_map_to_int(alpha, slice);
     
-    int* sa = skew_rec(slice.len + 1, arr->buf, alpha->size);
-    
-    cstr_refcount_decref(arr);
-    cstr_refcount_decref(alpha);
-    
-    return sa;
+    return skew_rec(slice.len + 1, arr->buf, alpha->size);
 }
