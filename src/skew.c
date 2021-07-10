@@ -29,9 +29,7 @@ static int *get_sa3(int n, int x[n], int sa12[]) {
         if (n % 3 == 1) {
             sa3[k++] = n - 1;
         }
-        int m = sa12len(n);
-        assert(m > 0);
-        for (int i = 0; i < m; i++) {
+        for (int i = 0; i < sa12len(n); i++) {
             if (sa12[i] % 3 == 1) {
                 sa3[k++] = sa12[i] - 1;
             }
@@ -54,6 +52,14 @@ static void bucket_sort_with_buffers(int n, int x[n], int m, int idx[m],
         buckets[i] = 0;
     }
     for (int i = 0; i < m; i++) {
+        int xx = idx[i] + offset;
+        int yy = x[xx];
+        int yy0 = x[0];
+        int yy1 = x[1];
+        int yy2 = x[2];
+        int yy6 = x[6];
+        int yy7 = x[7];
+        int yy8 = x[8];
         buckets[safe_idx(n, x, idx[i] + offset)]++;
     }
     for (int acc = 0, i = 0; i < asize; i++) {
@@ -72,42 +78,44 @@ static void bucket_sort_with_buffers(int n, int x[n], int m, int idx[m],
     memcpy(idx, buffer, m * sizeof(*buffer));
 }
 
-static void bucket_sort(int n, int x[n], int m, int idx[m], int offset,
+static bool bucket_sort(int n, int x[n], int m, int idx[m], int offset,
                         int asize, errcodes *err) {
-    int *buckets = 0, *buffer = 0;
-
-    buckets = malloc(asize * sizeof *buckets);
-    alloc_error_if(!buckets);
-
-    buffer = malloc(m * sizeof *buffer);
-    alloc_error_if(!buffer);
+    bool success = false;
+    
+    int *buckets = malloc(asize * sizeof *buckets);
+    int *buffer = malloc(m * sizeof *buffer);
+    alloc_error_if(!buckets || !buffer);
 
     bucket_sort_with_buffers(n, x, m, idx, offset, asize, buckets, buffer);
+    
+    success = true;
 
-success:
 error:
     free(buckets);
     free(buffer);
+    
+    return success;
 }
 
-static void radix3(int n, int x[n], int m, int idx[m], int asize,
+static bool radix3(int n, int x[n], int m, int idx[m], int asize,
                    errcodes *err) {
-    int *buckets = 0, *buffer = 0;
+    bool success = false;
 
-    buckets = malloc(asize * sizeof *buckets);
-    alloc_error_if(!buckets);
-
-    buffer = malloc(m * sizeof *buffer);
-    alloc_error_if(!buffer);
-
+    int *buckets = malloc(asize * sizeof *buckets);
+    int *buffer = malloc(m * sizeof *buffer);
+    alloc_error_if(!buckets || !buffer);
+    
     bucket_sort_with_buffers(n, x, m, idx, 2, asize, buckets, buffer);
     bucket_sort_with_buffers(n, x, m, idx, 1, asize, buckets, buffer);
     bucket_sort_with_buffers(n, x, m, idx, 0, asize, buckets, buffer);
 
-success:
-error:
+    success = true;
+    
+error: // even with success, we have to clean...
     free(buckets);
     free(buffer);
+    
+    return success;
 }
 
 static bool less(int n, int x[], int i, int j, int isa[]) {
@@ -126,15 +134,14 @@ static int *merge(int n, int x[n], int sa12[], int sa3[]) {
     // Allocate isa first. We always have to free it, so we can treat
     // it the same both when we successfully allocate sa and when we dont.
     int *isa = malloc(n * sizeof *isa);
-    if (!isa)
+    if (!isa) {
         return 0;
+    }
 
     int *sa = malloc(n * sizeof *sa);
-    if (!sa)
+    if (!sa) {
         goto done; // isa will be freed there and we will return 0
-
-    int n12 = sa12len(n);
-    int n3 = sa3len(n);
+    }
 
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
@@ -144,16 +151,16 @@ static int *merge(int n, int x[n], int sa12[], int sa3[]) {
     }
 
     int i = 0, j = 0, k = 0;
-    while (i < n12 && j < n3) {
+    while (i < sa12len(n) && j < sa3len(n)) {
         if (less(n, x, sa12[i], sa3[j], isa)) {
             sa[k++] = sa12[i++];
         } else {
             sa[k++] = sa3[j++];
         }
     }
-    for (; i < n12; i++)
+    for (; i < sa12len(n); i++)
         sa[k++] = sa12[i];
-    for (; j < n3; j++)
+    for (; j < sa3len(n); j++)
         sa[k++] = sa3[j];
 
 done:
@@ -185,8 +192,8 @@ static int *build_alphabet(int n, int x[n], int sa12[], int *new_asize) {
     assert(sa12len(n) > 0); // helping static analyser
     int *encoding = malloc(sa12len(n) * sizeof *encoding);
     if (encoding) {
-        *new_asize = 2;
-        encoding[map_x_sa12(sa12[0])] = 2;
+        *new_asize = 1; // start at 1, reserving 0 for sentinel
+        encoding[map_x_sa12(sa12[0])] = new_asize;
         for (int i = 1; i < sa12len(n); i++) {
             if (!equal3(n, x, sa12[i - 1], sa12[i])) {
                 (*new_asize)++;
@@ -200,13 +207,14 @@ static int *build_alphabet(int n, int x[n], int sa12[], int *new_asize) {
 }
 
 static int *build_u(int n, int encoding[]) {
+    // FIXME: remove +1 when we remove the central sentinel
     int *u = malloc((sa12len(n) + 1) * sizeof *u);
     if (u) {
         int k = 0;
         for (int i = 0; i < sa12len(n); i += 2) {
             u[k++] = encoding[i];
         }
-        u[k++] = 1;
+        u[k++] = 0; // FIXME: remove central sentinel
         for (int i = 1; i < sa12len(n); i += 2) {
             u[k++] = encoding[i];
         }
@@ -214,33 +222,31 @@ static int *build_u(int n, int encoding[]) {
     return u;
 }
 
-static int *skew_rec(int n, int x[], int asize, errcodes *err) {
-    // make sure that sa is initially null, so we return null
-    // if there are errors along the way.
-    int *sa = 0;
-    
-    // Set all pointers to null up front, so it is safe
-    // to free them if we have to bail. It costs a little in
-    // runtime, but makes error handling a lot easier.
-    int *sa12 = 0, *sa3 = 0, *encoding = 0, *u = 0, *u_sa = 0;
+static int *skew_rec(int n, int x[n], int asize, errcodes *err) {
+    // set all the pointers to null in case of errors.
+    int *sa = 0, *sa12 = 0, *sa3 = 0, *encoding = 0, *u = 0, *u_sa = 0;
 
     sa12 = get_sa12(n, x);
     alloc_error_if(!sa12);
-
-    radix3(n, x, sa12len(n), sa12, asize, err);
-    error_if(*err != CSTR_NO_ERROR, *err);
-
+    
+    bool ok = radix3(n, x, sa12len(n), sa12, asize, err);
+    reraise_error_if(!ok);
+    
     int new_asize;
     encoding = build_alphabet(n, x, sa12, &new_asize);
     alloc_error_if(!encoding);
-
-    if (new_asize - 2 < sa12len(n)) {
+    
+    if (new_asize - 1 < sa12len(n)) {
         // We need to sort recursively
         u = build_u(n, encoding);
         alloc_error_if(!u);
-
+        
+        // FIXME: remove the + 1 here when we don't use central
+        // sentinel
         u_sa = skew_rec(sa12len(n) + 1, u, new_asize, err);
         alloc_error_if(!u_sa);
+        
+        printf("managed u_sa\n");
 
         int m = (sa12len(n) + 1) / 2;
         assert(u_sa[0] == m); // mid sentinel is first
@@ -253,13 +259,13 @@ static int *skew_rec(int n, int x[], int asize, errcodes *err) {
 
     sa3 = get_sa3(n, x, sa12);
     alloc_error_if(!sa3);
-
-    bucket_sort(n, x, sa3len(n), sa3, 0, asize, err);
-    error_if(*err != CSTR_NO_ERROR, *err);
-
+    
+    ok = bucket_sort(n, x, sa3len(n), sa3, 0, asize, err);
+    reraise_error_if(!ok);
+    
     sa = merge(n, x, sa12, sa3);
     alloc_error_if(!sa);
-
+    
     // we free the same memory on success and failure, the only
     // difference in the two exists is whether the error flag is set.
 error:
@@ -298,14 +304,11 @@ int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err) {
     clear_error();
 
     struct cstr_str_slice slice = cstr_slice_from_string((char *)x);
-
-    // declare these as null pointers up front, so we can
-    // safely handle them in error handling...
     struct cstr_alphabet *alpha = cstr_alphabet_from_slice(slice, err);
     alloc_error_if(!alpha);
 
     sa = cstr_skew(alpha, slice, err);
-
+    
     // we need to do the same things on error as on return...
 error:
 success:

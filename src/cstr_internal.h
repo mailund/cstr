@@ -21,6 +21,14 @@
 #define error_if(EXPR, CODE) goto_if(EXPR, error, CODE)
 #define alloc_error_if(EXPR) error_if(EXPR, CSTR_ALLOCATION_ERROR)
 
+// if we just want to jump to error handling but not set err because
+// it is already set.
+#define reraise_error_if(EXPR)                                                 \
+    do {                                                                       \
+        if (EXPR)                                                              \
+            goto error;                                                        \
+    } while (0)
+
 // shorten names a bit for the internal code...
 typedef enum cstr_errcodes errcodes;
 typedef struct cstr_alphabet alpha;
