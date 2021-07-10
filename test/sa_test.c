@@ -17,7 +17,7 @@ void check_suffix_ordered(char const *x, int n, int sa[n]) {
 void test_mississippi() {
     char const *x = "mississippi";
     int n = strlen(x);
-    int *sa = cstr_skew(x);
+    int *sa = cstr_skew_from_string(x, 0);
     check_suffix_ordered(x, n + 1, sa);
     free(sa);
 }

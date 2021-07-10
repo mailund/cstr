@@ -64,7 +64,8 @@ char *cstr_alphabet_revmap(struct cstr_alphabet const *alpha,
                            struct cstr_str_slice s, enum cstr_errcodes *err);
 
 // Suffix array construction
-int *cstr_skew(char const *x);
+int *cstr_skew(struct cstr_alphabet *alpha, struct cstr_str_slice slice, enum cstr_errcodes *err);
+int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err);
 
 // Burrows-Wheeler transform -----------------------------------
 char *cstr_bwt(int n, char const *x, int sa[n]);

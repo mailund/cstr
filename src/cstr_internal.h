@@ -26,4 +26,11 @@ typedef enum cstr_errcodes errcodes;
 typedef struct cstr_alphabet alpha;
 typedef struct cstr_str_slice sslice;
 
+// set pointers to 0 when we free them
+#define free_and_null(p)                                                       \
+    do {                                                                       \
+        free(p);                                                               \
+        p = 0;                                                                 \
+    } while (0)
+
 #endif

@@ -17,7 +17,7 @@ int main(void) {
     char const *x = "mississippi";
     int xlen = strlen(x);
     int n = xlen + 1; // + 1 for sentinel
-    int *sa = cstr_skew(x);
+    int *sa = cstr_skew_from_string(x, 0);
     for (int i = 0; i < n; i++) {
         print_rotation(xlen, x, sa[i]);
     }
