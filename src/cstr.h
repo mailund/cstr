@@ -9,53 +9,18 @@
 // A few things we are simply going to assume is true...
 static_assert(CHAR_BIT == 8, "Chars must be bytes (8-bit numbers)");
 
-// Using some non-standard features (hoping that a future standard soon will
-// give us this, since most compilers implement it anyway)
-void cstr_auto_decref(void *);
-#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
-#  define CSTR_AUTO_DECREF __attribute__((cleanup(cstr_auto_decref)))
-#elif defined(_MSC_VER)
-#  error "I don't know the equivalent for MSVC"
-#endif
-
 // This is to provide inline functions without putting the
 // static code in each output file...
 #ifndef INLINE
 #define INLINE inline
 #endif
 
-// ref-counting memory management
-struct cstr_refcount_type {
-    void (*cleanup)(void *); // callback to clean up memory
+// Error handling, primitive as it is...
+enum cstr_errcodes {
+    CSTR_NO_ERROR,
+    CSTR_ALLOCATION_ERROR, // malloc or similar failed
+    CSTR_MAPPING_ERROR,    // mapping via an alphabet failed
 };
-struct cstr_refcount_object { // embed in refcount objects
-    struct cstr_refcount_type *type;
-    int refcount;
-};
-void cstr_refcount_object_init(struct cstr_refcount_object *obj,
-                               struct cstr_refcount_type *type);
-void *cstr_refcount_incref(void *obj); // void to avoid casting
-void *cstr_refcount_decref(void *obj); // void to avoid casting
-
-// memory managed strings. When cstr allocate strings, this is the
-// type it allocates. You can use the buf as a C type string (it is
-// always zero-terminated, although it is not counted in the length).
-struct cstr {
-    struct cstr_refcount_object rc;
-    size_t len;
-    char buf[];
-};
-struct cstr *cstr_alloc_cstr(size_t size);
-struct cstr *cstr_cstr_from_string(char *x);
-
-// memory managed integer arrays. For when you want ref-counting and when
-// you want to know how long an array is.
-struct cstr_int_array {
-    struct cstr_refcount_object rc;
-    size_t len;
-    int buf[];
-};
-struct cstr_int_array *cstr_alloc_int_array(size_t len);
 
 // slices, for easier handling of sub-strings. These should be
 // passed by value and never dynmaically allocated. They don't
@@ -70,9 +35,6 @@ struct cstr_str_slice {
     char const *const buf;
     size_t len;
 };
-INLINE struct cstr_str_slice cstr_slice_from_cstr(struct cstr *cstr) {
-    return (struct cstr_str_slice){.buf = cstr->buf, .len = cstr->len};
-}
 INLINE struct cstr_str_slice cstr_slice_from_string(char const *x) {
     return (struct cstr_str_slice){.buf = x, .len = strlen(x)};
 }
@@ -83,26 +45,23 @@ INLINE struct cstr_str_slice cstr_slice_from_buffer(char const *buf,
 
 // Alphabets, for when we remap strings to smaller alphabets
 struct cstr_alphabet {
-    struct cstr_refcount_object rc;
     unsigned int size;
     char map[256];
     char revmap[256];
 };
-struct cstr_alphabet *cstr_alphabet_from_slice(struct cstr_str_slice slice);
-INLINE struct cstr_alphabet *cstr_alphabet_from_cstr(struct cstr *x) {
-    return cstr_alphabet_from_slice(cstr_slice_from_cstr(x));
-}
-INLINE struct cstr_alphabet *cstr_alphabet_from_string(char const *x) {
-    return cstr_alphabet_from_slice(cstr_slice_from_string(x));
+struct cstr_alphabet *cstr_alphabet_from_slice(struct cstr_str_slice slice,
+                                               enum cstr_errcodes *err);
+INLINE struct cstr_alphabet *
+cstr_alphabet_from_string(char const *x, enum cstr_errcodes *err) {
+    return cstr_alphabet_from_slice(cstr_slice_from_string(x), err);
 }
 
-struct cstr *cstr_alphabet_map(struct cstr_alphabet const *alpha,
-                               struct cstr_str_slice s);
-struct cstr_int_array *
-cstr_alphabet_map_to_int(struct cstr_alphabet const *alpha,
-                         struct cstr_str_slice s);
-struct cstr *cstr_alphabet_revmap(struct cstr_alphabet const *alpha,
-                                  struct cstr_str_slice s);
+char *cstr_alphabet_map(struct cstr_alphabet const *alpha,
+                        struct cstr_str_slice s, enum cstr_errcodes *err);
+int *cstr_alphabet_map_to_int(struct cstr_alphabet const *alpha,
+                              struct cstr_str_slice s, enum cstr_errcodes *err);
+char *cstr_alphabet_revmap(struct cstr_alphabet const *alpha,
+                           struct cstr_str_slice s, enum cstr_errcodes *err);
 
 // Suffix array construction
 int *cstr_skew(char const *x);

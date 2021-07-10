@@ -2,27 +2,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cstr.h"
+#include "cstr_internal.h"
 
-static struct cstr_refcount_type alphabet_type = {.cleanup = free};
-
-static struct cstr_alphabet *alloc_alphabet(void) {
-    struct cstr_alphabet *alpha = malloc(sizeof *alpha);
-    if (!alpha) {
-        perror("couldn't allocate alphabet");
-        exit(1);
+static alpha *alloc_alphabet(void) {
+    alpha *alpha = malloc(sizeof *alpha);
+    if (alpha) {
+        memset(alpha->map, 0, 256);
+        memset(alpha->revmap, 0, 256);
     }
-
-    cstr_refcount_object_init(&alpha->rc, &alphabet_type);
-
-    memset(alpha->map, 0, 256);
-    memset(alpha->revmap, 0, 256);
-
     return alpha;
 }
 
-struct cstr_alphabet *cstr_alphabet_from_slice(struct cstr_str_slice slice) {
-    struct cstr_alphabet *alpha = alloc_alphabet();
+alpha *cstr_alphabet_from_slice(sslice slice, errcodes *err) {
+    clear_error();
+
+    alpha *alpha = alloc_alphabet();
+    alloc_error_if(!alpha);
 
     // First, figure out which characters we have in our string
     for (int i = 0; i < slice.len; i++) {
@@ -46,62 +41,68 @@ struct cstr_alphabet *cstr_alphabet_from_slice(struct cstr_str_slice slice) {
     }
 
     return alpha;
-}
-
-struct cstr *cstr_alphabet_map(struct cstr_alphabet const *alpha,
-                               struct cstr_str_slice s) {
-    struct cstr *cstr = cstr_alloc_cstr(s.len);
-    for (int i = 0; i < s.len; i++) {
-        char map = alpha->map[s.buf[i]];
-        if (!map && s.buf[i]) {
-            // only the sentinel can map to zero
-            goto error;
-        }
-        cstr->buf[i] = map;
-    }
-
-    return cstr;
 
 error:
-    cstr_refcount_decref(cstr);
     return 0;
 }
 
-struct cstr_int_array *
-cstr_alphabet_map_to_int(struct cstr_alphabet const *alpha,
-                         struct cstr_str_slice s) {
-    struct cstr_int_array *arr =
-        cstr_alloc_int_array(s.len + 1); // + 1 for sentinel.
+char *cstr_alphabet_map(alpha const *alpha, sslice s, errcodes *err) {
+    clear_error();
+
+    char *x = malloc(s.len + 1);
+    alloc_error_if(!x);
+
+    for (int i = 0; i < s.len; i++) {
+        char map = alpha->map[s.buf[i]];
+        error_if(!map && s.buf[i],
+                 CSTR_MAPPING_ERROR); // only the sentinel can map to zero
+        x[i] = map;
+    }
+
+    return x;
+
+error:
+    free(x);
+    return 0;
+}
+
+int *cstr_alphabet_map_to_int(alpha const *alpha, sslice s, errcodes *err) {
+    clear_error();
+
+    int *arr = malloc((s.len + 1) * sizeof(*arr));
+    alloc_error_if(!arr);
+
+    // we iterate over s *including* the sentinel!
     for (int i = 0; i < s.len + 1; i++) {
         char map = alpha->map[s.buf[i]];
-        if (!map && s.buf[i]) { // only the sentinel can map to zero
-            goto error;
-        }
-        arr->buf[i] = map;
+        error_if(!map && s.buf[i],
+                 CSTR_MAPPING_ERROR); // only the sentinel can map to zero
+        arr[i] = map;
     }
 
     return arr;
 
 error:
-    cstr_refcount_decref(arr);
+    free(arr);
     return 0;
 }
 
-struct cstr *cstr_alphabet_revmap(struct cstr_alphabet const *alpha,
-                                  struct cstr_str_slice s) {
-    struct cstr *cstr = cstr_alloc_cstr(s.len);
+char *cstr_alphabet_revmap(alpha const *alpha, sslice s, errcodes *err) {
+    clear_error();
+
+    char *x = malloc(s.len + 1);
+    alloc_error_if(!x);
+
     for (int i = 0; i < s.len; i++) {
         char map = alpha->revmap[s.buf[i]];
-        if (!map && s.buf[i]) {
-            // only the sentinel can map to zero
-            goto error;
-        }
-        cstr->buf[i] = map;
+        error_if(!map && s.buf[i],
+                 CSTR_MAPPING_ERROR); // only the sentinel can map to zero
+        x[i] = map;
     }
 
-    return cstr;
+    return x;
 
 error:
-    cstr_refcount_decref(cstr);
+    free(x);
     return 0;
 }

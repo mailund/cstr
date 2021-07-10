@@ -1,8 +1,4 @@
 
-add_executable(refcount_test refcount_test.c)
-target_link_libraries(refcount_test cstr unity)
-add_test(refcount_test refcount_test)
-
 add_executable(cstr_test cstr_test.c)
 target_link_libraries(cstr_test cstr unity)
 add_test(cstr_test cstr_test)

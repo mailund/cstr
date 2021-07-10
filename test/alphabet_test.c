@@ -9,8 +9,12 @@ void setUp() {}
 void tearDown() {}
 
 static void test_create_alphabet(void) {
+    enum cstr_errcodes err;
+    
     char const *x = "foobar";
-    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x, &err);
+    TEST_ASSERT(alpha);
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
 
     TEST_ASSERT(alpha->map[0] == 0);
     TEST_ASSERT(alpha->map['a'] == 1);
@@ -25,46 +29,73 @@ static void test_create_alphabet(void) {
             TEST_ASSERT_EQUAL(alpha->revmap[alpha->map[i]], i);
         }
     }
+
+    free(alpha);
 }
 
 static void test_mapping(void) {
+    enum cstr_errcodes err;
+    
     char const *x = "foobar";
-    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x, &err);
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
 
-    struct cstr *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x));
+    char *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x), &err);
     TEST_ASSERT(mapped != NULL);
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
 
-    TEST_ASSERT(strcmp(mapped->buf, "\3\4\4\2\1\5") == 0);
-    cstr_refcount_decref(mapped);
+    TEST_ASSERT(strcmp(mapped, "\3\4\4\2\1\5") == 0);
+    free(mapped);
+    mapped = 0;
 
-    mapped = cstr_alphabet_map(alpha, cstr_slice_from_string("qux"));
+    mapped = cstr_alphabet_map(alpha, cstr_slice_from_string("qux"), &err);
     TEST_ASSERT(mapped == NULL);
+    TEST_ASSERT_EQUAL(CSTR_MAPPING_ERROR, err);
+
+    free(alpha);
 }
 
 static void test_int_mapping(void) {
+    enum cstr_errcodes err;
+    
     char const *x = "foobar";
-    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
-    
-    struct cstr_int_array *mapped = cstr_alphabet_map_to_int(alpha, cstr_slice_from_string((char *)x));
+    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x, &err);
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
+
+    int *mapped =
+        cstr_alphabet_map_to_int(alpha, cstr_slice_from_string((char *)x), &err);
     TEST_ASSERT(mapped != NULL);
-    
-    int expected[] = { 3, 4, 4, 2, 1, 5, 0 };
-    TEST_ASSERT_EQUAL_INT_ARRAY(expected, mapped->buf, sizeof(expected)/sizeof(*expected));
-    cstr_refcount_decref(mapped);
-    
-    mapped = cstr_alphabet_map_to_int(alpha, cstr_slice_from_string("qux"));
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
+
+    int expected[] = {3, 4, 4, 2, 1, 5, 0};
+    TEST_ASSERT_EQUAL_INT_ARRAY(expected, mapped,
+                                sizeof(expected) / sizeof(*expected));
+    free(mapped);
+    mapped = 0;
+
+    mapped = cstr_alphabet_map_to_int(alpha, cstr_slice_from_string("qux"), &err);
     TEST_ASSERT(mapped == NULL);
+    TEST_ASSERT_EQUAL(CSTR_MAPPING_ERROR, err);
+
+    free(alpha);
 }
 
-
 static void test_revmapping(void) {
+    enum cstr_errcodes err;
+    
     char const *x = "foobar";
-    CSTR_AUTO_DECREF struct cstr_alphabet *alpha = cstr_alphabet_from_string(x);
+    struct cstr_alphabet *alpha = cstr_alphabet_from_string(x, &err);
+    assert(alpha);
 
-    CSTR_AUTO_DECREF struct cstr *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x));
-    CSTR_AUTO_DECREF struct cstr *rev = cstr_alphabet_revmap(alpha, cstr_slice_from_cstr(mapped));
+    char *mapped = cstr_alphabet_map(alpha, cstr_slice_from_string((char *)x), &err);
+    char *rev = cstr_alphabet_revmap(alpha, cstr_slice_from_string(mapped), &err);
+    
+    TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
+    TEST_ASSERT(strcmp(x, rev) == 0);
 
-    TEST_ASSERT(strcmp(x, rev->buf) == 0);
+    free(rev);
+    free(mapped);
+    free(alpha);
 }
 
 int main(void) {
