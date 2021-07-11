@@ -1,0 +1,12 @@
+#ifndef CSTR_CONFIG_H
+#define CSTR_CONFIG_H
+
+// If this is set, generate the unit tests of static
+// functions, that we cannot test otherwise.
+#cmakedefine01 GEN_UNIT_TESTS
+
+#if GEN_UNIT_TEST
+#include <Unity.h>
+#endif
+
+#endif
