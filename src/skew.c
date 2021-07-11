@@ -81,19 +81,19 @@ static void bucket_sort_with_buffers(int n, int x[n], int m, int idx[m],
 static bool bucket_sort(int n, int x[n], int m, int idx[m], int offset,
                         int asize, errcodes *err) {
     bool success = false;
-    
+
     int *buckets = malloc(asize * sizeof *buckets);
     int *buffer = malloc(m * sizeof *buffer);
     alloc_error_if(!buckets || !buffer);
 
     bucket_sort_with_buffers(n, x, m, idx, offset, asize, buckets, buffer);
-    
+
     success = true;
 
 error:
     free(buckets);
     free(buffer);
-    
+
     return success;
 }
 
@@ -104,17 +104,17 @@ static bool radix3(int n, int x[n], int m, int idx[m], int asize,
     int *buckets = malloc(asize * sizeof *buckets);
     int *buffer = malloc(m * sizeof *buffer);
     alloc_error_if(!buckets || !buffer);
-    
+
     bucket_sort_with_buffers(n, x, m, idx, 2, asize, buckets, buffer);
     bucket_sort_with_buffers(n, x, m, idx, 1, asize, buckets, buffer);
     bucket_sort_with_buffers(n, x, m, idx, 0, asize, buckets, buffer);
 
     success = true;
-    
+
 error: // even with success, we have to clean...
     free(buckets);
     free(buffer);
-    
+
     return success;
 }
 
@@ -193,7 +193,7 @@ static int *build_alphabet(int n, int x[n], int sa12[], int *new_asize) {
     int *encoding = malloc(sa12len(n) * sizeof *encoding);
     if (encoding) {
         *new_asize = 1; // start at 1, reserving 0 for sentinel
-        encoding[map_x_sa12(sa12[0])] = new_asize;
+        encoding[map_x_sa12(sa12[0])] = *new_asize;
         for (int i = 1; i < sa12len(n); i++) {
             if (!equal3(n, x, sa12[i - 1], sa12[i])) {
                 (*new_asize)++;
@@ -228,24 +228,24 @@ static int *skew_rec(int n, int x[n], int asize, errcodes *err) {
 
     sa12 = get_sa12(n, x);
     alloc_error_if(!sa12);
-    
+
     bool ok = radix3(n, x, sa12len(n), sa12, asize, err);
     reraise_error_if(!ok);
-    
+
     int new_asize;
     encoding = build_alphabet(n, x, sa12, &new_asize);
     alloc_error_if(!encoding);
-    
+
     if (new_asize - 1 < sa12len(n)) {
         // We need to sort recursively
         u = build_u(n, encoding);
         alloc_error_if(!u);
-        
+
         // FIXME: remove the + 1 here when we don't use central
         // sentinel
         u_sa = skew_rec(sa12len(n) + 1, u, new_asize, err);
         alloc_error_if(!u_sa);
-        
+
         printf("managed u_sa\n");
 
         int m = (sa12len(n) + 1) / 2;
@@ -259,13 +259,13 @@ static int *skew_rec(int n, int x[n], int asize, errcodes *err) {
 
     sa3 = get_sa3(n, x, sa12);
     alloc_error_if(!sa3);
-    
+
     ok = bucket_sort(n, x, sa3len(n), sa3, 0, asize, err);
     reraise_error_if(!ok);
-    
+
     sa = merge(n, x, sa12, sa3);
     alloc_error_if(!sa);
-    
+
     // we free the same memory on success and failure, the only
     // difference in the two exists is whether the error flag is set.
 error:
@@ -282,7 +282,7 @@ success:
 int *cstr_skew(struct cstr_alphabet *alpha, struct cstr_str_slice slice,
                enum cstr_errcodes *err) {
     int *sa = 0; // make sure sa is initially null in case of errors
-    
+
     clear_error();
 
     int *arr = cstr_alphabet_map_to_int(alpha, slice, err);
@@ -300,7 +300,7 @@ success:
 
 int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err) {
     int *sa = 0; // make sure sa is initially null in case of errors
-    
+
     clear_error();
 
     struct cstr_str_slice slice = cstr_slice_from_string((char *)x);
@@ -308,7 +308,7 @@ int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err) {
     alloc_error_if(!alpha);
 
     sa = cstr_skew(alpha, slice, err);
-    
+
     // we need to do the same things on error as on return...
 error:
 success:

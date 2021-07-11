@@ -3,6 +3,10 @@
 
 #include "cstr.h"
 
+// get config and unit test prototypes if we make them
+#include "config.h"
+#include "unittests.h"
+
 #define set_error(CODE)                                                        \
     do {                                                                       \
         if (err)                                                               \

@@ -1,10 +1,11 @@
-project(unity
+project(cstr
     LANGUAGES   C
     DESCRIPTION "String algorithms in C."
 )
 add_library(${PROJECT_NAME} STATIC)
 add_library(${PROJECT_NAME}::framework ALIAS ${PROJECT_NAME})
 
+configure_file(config.h.in config.h)
 
 file(GLOB SOURCES ./*.h ./*.c)
 target_sources(${PROJECT_NAME}
