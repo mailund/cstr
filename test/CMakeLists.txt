@@ -1,16 +1,14 @@
 
-add_executable(cstr_test cstr_test.c)
-target_link_libraries(cstr_test cstr unity)
-add_test(cstr_test cstr_test)
-
-add_executable(alphabet_test alphabet_test.c)
-target_link_libraries(alphabet_test cstr unity)
-add_test(alphabet_test alphabet_test)
-
-add_executable(sa_test sa_test.c)
-target_link_libraries(sa_test cstr unity)
-add_test(sa_test sa_test)
-
-add_executable(bwt_test bwt_test.c)
-target_link_libraries(bwt_test cstr unity)
-add_test(bwt_test bwt_test)
+# make all files that end in _test.c into tests
+file(GLOB test_sources *_test.c)
+foreach(test_c ${test_sources})
+    get_filename_component(testname ${test_c} NAME_WE)
+    add_executable(${testname} ${test_c})
+    target_link_libraries(${testname} cstr unity)
+    add_test(
+        ${testname} ${testname}
+    )
+    set_target_properties(
+        ${testname} PROPERTIES FOLDER Tests
+    )
+endforeach(test_c)

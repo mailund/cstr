@@ -8,7 +8,7 @@
 void setUp() {}
 void tearDown() {}
 
-void check_suffix_ordered(char const *x, int n, int sa[n]) {
+void check_suffix_ordered(char const *x, unsigned int n, unsigned int sa[n]) {
     for (int i = 1; i < n; i++) {
         TEST_ASSERT(strcmp(x + sa[i - 1], x + sa[i]) < 0);
     }
@@ -19,7 +19,7 @@ void test_mississippi() {
     enum cstr_errcodes err;
     
     
-    int *sa = cstr_skew_from_string(x, &err);
+    unsigned int *sa = cstr_skew_from_string(x, &err);
     TEST_ASSERT(sa);
     TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
     

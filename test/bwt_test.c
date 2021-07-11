@@ -4,6 +4,9 @@
 
 #include <cstr.h>
 
+void setUp() {}
+void tearDown() {}
+
 static void print_rotation(int n, char const *x, int rot) {
     for (int i = rot; i < n; i++)
         putchar(x[i]);
@@ -17,7 +20,7 @@ int main(void) {
     char const *x = "mississippi";
     int xlen = strlen(x);
     int n = xlen + 1; // + 1 for sentinel
-    int *sa = cstr_skew_from_string(x, 0);
+    unsigned int *sa = cstr_skew_from_string(x, 0);
     for (int i = 0; i < n; i++) {
         print_rotation(xlen, x, sa[i]);
     }

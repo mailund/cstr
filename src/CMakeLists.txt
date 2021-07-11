@@ -55,6 +55,19 @@ target_compile_options(${PROJECT_NAME}
                                  -Wweak-vtables
                                  -Werror
                                  -Wall>
+        $<$<C_COMPILER_ID:AppleClang>:-Wcast-align
+                                      -Wcast-qual
+                                      -Wconversion
+                                      -Wexit-time-destructors
+                                      -Wglobal-constructors
+                                      -Wmissing-noreturn
+                                      -Wmissing-prototypes
+                                      -Wno-missing-braces
+                                      -Wold-style-cast
+                                      -Wshadow
+                                      -Wweak-vtables
+                                      -Werror
+                                      -Wall>
         $<$<C_COMPILER_ID:GNU>:-Waddress
                                -Waggregate-return
                                -Wformat-nonliteral
@@ -74,3 +87,8 @@ target_compile_options(${PROJECT_NAME}
                                -Wall>
        $<$<C_COMPILER_ID:MSVC>:/Wall>
 )
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    # If we are building test code, then we need to include unity
+    target_link_libraries(${PROJECT_NAME} unity)
+endif(CMAKE_BUILD_TYPE MATCHES Debug)

@@ -62,7 +62,7 @@ static void test_int_mapping(void) {
     struct cstr_alphabet *alpha = cstr_alphabet_from_string(x, &err);
     TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);
 
-    int *mapped =
+    unsigned int *mapped =
         cstr_alphabet_map_to_int(alpha, cstr_slice_from_string((char *)x), &err);
     TEST_ASSERT(mapped != NULL);
     TEST_ASSERT_EQUAL(CSTR_NO_ERROR, err);

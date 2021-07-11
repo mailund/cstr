@@ -5,8 +5,8 @@
 
 #include "cstr.h"
 
-char *cstr_bwt(int n, char const *x, int sa[n]) {
-    char *b = malloc((n + 1) * sizeof *b);
+char *cstr_bwt(int n, char const *x, unsigned int sa[n]) {
+    char *b = malloc((size_t)(n + 1) * sizeof *b);
     for (int i = 0; i < n; i++) {
         b[i] = (sa[i] == 0) ? 0 : x[sa[i] - 1];
     }
@@ -17,12 +17,12 @@ struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, char const *x,
                                                   int asize) {
     struct cstr_bwt_c_table *ctab =
         malloc(offsetof(struct cstr_bwt_c_table, cumsum) +
-               asize * sizeof *ctab->cumsum);
+               (size_t)asize * sizeof(*ctab->cumsum));
     ctab->asize = asize;
     for (int i = 0; i < asize; i++)
         ctab->cumsum[i] = 0;
     for (int i = 0; i < n; i++)
-        ctab->cumsum[x[i]]++;
+        ctab->cumsum[(int)x[i]]++;
     for (int i = 0, acc = 0; i < asize; i++) {
         int k = ctab->cumsum[i];
         ctab->cumsum[i] = acc;
@@ -45,22 +45,20 @@ struct cstr_bwt_o_table {
     int table[];
 };
 
-static inline int *otab_idx(struct cstr_bwt_o_table *otab, int a, int i) {
-    return &otab->table[i * otab->asize + a];
-}
+#define OTAB(otab, a, i) ((otab)->table[(i)*(otab)->asize + (a)])
 
 struct cstr_bwt_o_table *
 cstr_compute_bwt_o_table(int n, char const *bwt,
                          struct cstr_bwt_c_table const *ctab) {
     struct cstr_bwt_o_table *otab =
         malloc(offsetof(struct cstr_bwt_o_table, table) +
-               ctab->asize * n * sizeof *otab->table);
+               (size_t)(ctab->asize * n) * sizeof(*otab->table));
     otab->asize = ctab->asize;
     otab->n = n;
     for (int a = 0; a < ctab->asize; a++) {
-        *otab_idx(otab, a, 0) = (a == bwt[0]);
+        OTAB(otab, a, 0) = (a == bwt[0]);
         for (int i = 1; i < n; i++) {
-            *otab_idx(otab, a, i) = *otab_idx(otab, a, i - 1) + (a == bwt[i]);
+            OTAB(otab, a, i) = OTAB(otab, a, i - 1) + (a == bwt[i]);
         }
     }
     return otab;
@@ -69,7 +67,7 @@ cstr_compute_bwt_o_table(int n, char const *bwt,
 void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab) {
     for (int a = 0; a < otab->asize; a++) {
         for (int i = 0; i < otab->n; i++) {
-            printf("%d ", *otab_idx((struct cstr_bwt_o_table *)otab, a, i));
+            printf("%d ", OTAB(otab, a, i));
         }
         printf("\n");
     }
@@ -78,7 +76,7 @@ void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab) {
 int cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, char a, int i) {
     if (i == 0)
         return 0;
-    return *otab_idx((struct cstr_bwt_o_table *)otab, a, i - 1);
+    return OTAB(otab, a, i - 1);
 }
 
 struct range cstr_bwt_search(char const *x, char const *p,
@@ -88,7 +86,7 @@ struct range cstr_bwt_search(char const *x, char const *p,
 #define O(a, i) cstr_bwt_o_tab_rank(otab, a, i)
 
     int L = 0, R = otab->n;
-    int m = strlen(p);
+    int m = (int)strlen(p);
     for (int i = m - 1; i >= 0; i--) {
         char a = p[i];
         L = C(a) + O(a, L);

@@ -46,8 +46,8 @@ INLINE struct cstr_str_slice cstr_slice_from_buffer(char const *buf,
 // Alphabets, for when we remap strings to smaller alphabets
 struct cstr_alphabet {
     unsigned int size;
-    char map[256];
-    char revmap[256];
+    unsigned char map[256];
+    unsigned char revmap[256];
 };
 struct cstr_alphabet *cstr_alphabet_from_slice(struct cstr_str_slice slice,
                                                enum cstr_errcodes *err);
@@ -58,17 +58,17 @@ cstr_alphabet_from_string(char const *x, enum cstr_errcodes *err) {
 
 char *cstr_alphabet_map(struct cstr_alphabet const *alpha,
                         struct cstr_str_slice s, enum cstr_errcodes *err);
-int *cstr_alphabet_map_to_int(struct cstr_alphabet const *alpha,
+unsigned int *cstr_alphabet_map_to_int(struct cstr_alphabet const *alpha,
                               struct cstr_str_slice s, enum cstr_errcodes *err);
 char *cstr_alphabet_revmap(struct cstr_alphabet const *alpha,
                            struct cstr_str_slice s, enum cstr_errcodes *err);
 
 // Suffix array construction
-int *cstr_skew(struct cstr_alphabet *alpha, struct cstr_str_slice slice, enum cstr_errcodes *err);
-int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err);
+unsigned int *cstr_skew(struct cstr_alphabet *alpha, struct cstr_str_slice slice, enum cstr_errcodes *err);
+unsigned int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err);
 
 // Burrows-Wheeler transform -----------------------------------
-char *cstr_bwt(int n, char const *x, int sa[n]);
+char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table {
     int asize;
@@ -79,7 +79,7 @@ struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, char const *x,
                                                   int asize);
 void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
 INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i) {
-    return ctab->cumsum[i];
+    return ctab->cumsum[(int)i];
 }
 
 struct cstr_bwt_o_table;

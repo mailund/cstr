@@ -21,7 +21,7 @@ alpha *cstr_alphabet_from_slice(sslice slice, errcodes *err) {
 
     // First, figure out which characters we have in our string
     for (int i = 0; i < slice.len; i++) {
-        alpha->map[slice.buf[i]] = 1;
+        alpha->map[(unsigned char)slice.buf[i]] = 1;
     }
 
     // then give those letters a number, starting with 1 to reserve
@@ -29,14 +29,14 @@ alpha *cstr_alphabet_from_slice(sslice slice, errcodes *err) {
     alpha->size = 1;
     for (int i = 0; i < 256; i++) {
         if (alpha->map[i]) {
-            alpha->map[i] = alpha->size++;
+            alpha->map[i] = (unsigned char)alpha->size++;
         }
     }
 
     // Finally, construct the reverse map
     for (int i = 0; i < 256; i++) {
         if (alpha->map[i]) {
-            alpha->revmap[alpha->map[i]] = i;
+            alpha->revmap[alpha->map[i]] = (unsigned char)i;
         }
     }
 
@@ -53,10 +53,10 @@ char *cstr_alphabet_map(alpha const *alpha, sslice s, errcodes *err) {
     alloc_error_if(!x);
 
     for (int i = 0; i < s.len; i++) {
-        char map = alpha->map[s.buf[i]];
+        unsigned char map = alpha->map[(unsigned char)s.buf[i]];
         error_if(!map && s.buf[i],
                  CSTR_MAPPING_ERROR); // only the sentinel can map to zero
-        x[i] = map;
+        x[i] = (char)map;
     }
 
     return x;
@@ -66,15 +66,15 @@ error:
     return 0;
 }
 
-int *cstr_alphabet_map_to_int(alpha const *alpha, sslice s, errcodes *err) {
+unsigned int *cstr_alphabet_map_to_int(alpha const *alpha, sslice s, errcodes *err) {
     clear_error();
 
-    int *arr = malloc((s.len + 1) * sizeof(*arr));
+    unsigned int *arr = malloc((s.len + 1) * sizeof(*arr));
     alloc_error_if(!arr);
 
     // we iterate over s *including* the sentinel!
     for (int i = 0; i < s.len + 1; i++) {
-        char map = alpha->map[s.buf[i]];
+        unsigned char map = alpha->map[(unsigned char)s.buf[i]];
         error_if(!map && s.buf[i],
                  CSTR_MAPPING_ERROR); // only the sentinel can map to zero
         arr[i] = map;
@@ -94,10 +94,10 @@ char *cstr_alphabet_revmap(alpha const *alpha, sslice s, errcodes *err) {
     alloc_error_if(!x);
 
     for (int i = 0; i < s.len; i++) {
-        char map = alpha->revmap[s.buf[i]];
+        unsigned char map = alpha->revmap[(int)s.buf[i]];
         error_if(!map && s.buf[i],
                  CSTR_MAPPING_ERROR); // only the sentinel can map to zero
-        x[i] = map;
+        x[i] = (char)map;
     }
 
     return x;

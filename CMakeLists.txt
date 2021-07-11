@@ -11,12 +11,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   include(CTest)
-  include(CodeCoverage)
-  append_coverage_compiler_flags()
-  setup_target_for_coverage_lcov(
-        NAME Coverage
-        EXECUTABLE ctest
-  )
+  #include(CodeCoverage)
+  #append_coverage_compiler_flags()
+  #setup_target_for_coverage_lcov(
+  #      NAME Coverage
+  #      EXECUTABLE ctest
+  #)
+  set(GEN_UNIT_TESTS 1)
   add_subdirectory(Unity) 
   add_subdirectory(test)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)

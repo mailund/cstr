@@ -5,8 +5,4 @@
 // functions, that we cannot test otherwise.
 #cmakedefine01 GEN_UNIT_TESTS
 
-#if GEN_UNIT_TEST
-#include <Unity.h>
-#endif
-
 #endif
