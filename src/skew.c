@@ -134,6 +134,12 @@ static bool less(unsigned int n, unsigned int x[], unsigned int i,
 
 static unsigned int *merge(unsigned int n, unsigned int x[n],
                            unsigned int sa12[], unsigned int sa3[]) {
+
+    assert(n > 0); // For the static analyser.
+    // We cannot have n==0 because of the sentinel, but the analyser
+    // is right that isa could be allocated with length zero, and that
+    // would be a potential problem later. It can't happen, though.
+
     // Allocate isa first. We always have to free it, so we can treat
     // it the same both when we successfully allocate sa and when we dont.
     unsigned int *isa = malloc(n * sizeof *isa);
@@ -167,7 +173,7 @@ static unsigned int *merge(unsigned int n, unsigned int x[n],
         sa[k++] = sa3[j];
 
     assert(k == n); // for the static analyser
-    
+
 done:
     free(isa);
 
@@ -187,7 +193,7 @@ static inline unsigned int map_x_sa12(unsigned int k) {
 }
 // Map from indices in u to indices in x
 static inline unsigned int map_u_x(unsigned int i, unsigned int m) {
-    return (i < m) ? (1 + 3 * i) : (2 + 3 * (i - m ));
+    return (i < m) ? (1 + 3 * i) : (2 + 3 * (i - m));
 }
 
 static unsigned int *build_alphabet(unsigned int n, unsigned int x[n],
@@ -213,8 +219,8 @@ static unsigned int *build_alphabet(unsigned int n, unsigned int x[n],
     return encoding;
 }
 
-// this u is based on the terminal sentinel always being part of the input, so we don't
-// need a central sentinel.
+// this u is based on the terminal sentinel always being part of the input, so
+// we don't need a central sentinel.
 static unsigned int *build_u(unsigned int n, unsigned int encoding[]) {
     unsigned int *u = malloc(sa12len(n) * sizeof *u);
     if (u) {
@@ -251,14 +257,17 @@ static unsigned int *skew_rec(unsigned int n, unsigned int x[n],
         // We need to sort recursively
         u = build_u(n, encoding);
         alloc_error_if(!u);
+        free_and_null(encoding); // we might as well clean up early
 
         u_sa = skew_rec(sa12len(n), u, new_asize, err);
         alloc_error_if(!u_sa);
+        free_and_null(u);
 
         unsigned int m = (sa12len(n) + 1) / 2;
         for (int i = 0; i < sa12len(n); i++) {
             sa12[i] = map_u_x(u_sa[i], m);
         }
+        free_and_null(u_sa);
     }
 
     sa3 = get_sa3(n, x, sa12);
@@ -284,15 +293,19 @@ error: // but also success...
 
 unsigned int *cstr_skew(struct cstr_alphabet *alpha,
                         struct cstr_str_slice slice, enum cstr_errcodes *err) {
-    unsigned int *sa = 0; // make sure sa is initially null in case of errors
-
     clear_error();
+    
+    // make sure allocated pointers are initially null in case of errors
+    unsigned int *sa = 0;
+    unsigned int *arr = 0;
 
-    unsigned int *arr = cstr_alphabet_map_to_int(alpha, slice, err);
+    // we need to represent up to len+1 (x+sentinel) in
+    // unsigned int, so we have an error if we can't.
+    size_error_if(slice.len > UINT_MAX - 1);
+
+    arr = cstr_alphabet_map_to_int(alpha, slice, err);
     alloc_error_if(!arr);
 
-    // FIXME: We can only handle indices up to size unsigned int, but I don't
-    // check for that here... should I?
     sa = skew_rec((unsigned int)slice.len + 1, arr, alpha->size, err);
 
     // we need to do the same things on error as on return...
@@ -303,12 +316,18 @@ error:
 }
 
 unsigned int *cstr_skew_from_string(char const *x, enum cstr_errcodes *err) {
-    unsigned int *sa = 0; // make sure sa is initially null in case of errors
-
+    
     clear_error();
-
+    
+    unsigned int *sa = 0;
+    struct cstr_alphabet *alpha = 0;
+    
     struct cstr_str_slice slice = cstr_slice_from_string(x);
-    struct cstr_alphabet *alpha = cstr_alphabet_from_slice(slice, err);
+    // we need to represent up to len+1 (x+sentinel) in
+    // unsigned int, so we have an error if we can't.
+    size_error_if(slice.len > UINT_MAX - 1);
+
+    alpha = cstr_alphabet_from_slice(slice, err);
     alloc_error_if(!alpha);
 
     sa = cstr_skew(alpha, slice, err);
@@ -320,12 +339,12 @@ error: // and also success:
     return sa;
 }
 
-#if GEN_UNIT_TESTS
+#if GEN_UNIT_TESTS // unit testing of static functions...
 
 void skew_test_len_calc(void) {
     // with length 1 we have one n3 and zero n12.
     unsigned int n12 = 0, n3 = 0;
-    
+
     // we track the last index, so the length is one more.
     // this makes it easier to count, because last index is something
     // we have seen and counted.

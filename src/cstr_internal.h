@@ -24,6 +24,7 @@
 
 #define error_if(EXPR, CODE) goto_if(EXPR, error, CODE)
 #define alloc_error_if(EXPR) error_if(EXPR, CSTR_ALLOCATION_ERROR)
+#define size_error_if(EXPR) error_if(EXPR, CSTR_SIZE_ERROR)
 
 // if we just want to jump to error handling but not set err because
 // it is already set.

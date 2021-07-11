@@ -19,6 +19,7 @@ static_assert(CHAR_BIT == 8, "Chars must be bytes (8-bit numbers)");
 enum cstr_errcodes {
     CSTR_NO_ERROR,
     CSTR_ALLOCATION_ERROR, // malloc or similar failed
+    CSTR_SIZE_ERROR,       // if the size/length of something is too large
     CSTR_MAPPING_ERROR,    // mapping via an alphabet failed
 };
 
