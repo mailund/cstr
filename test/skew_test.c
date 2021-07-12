@@ -4,11 +4,7 @@
 
 #include <cstr_internal.h>
 
-void setUp() {}
-void tearDown() {}
-
 int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(skew_test_len_calc);
-    return UNITY_END();
+  skew_test_len_calc();
+  return 0;
 }

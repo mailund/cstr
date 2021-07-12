@@ -69,7 +69,7 @@ target_compile_options(${PROJECT_NAME}
                                       -Werror
                                       -Wall>
         $<$<C_COMPILER_ID:GNU>:-Waddress
-                               -Waggregate-return
+                               #-Waggregate-return  # probably want to remove this one later...
                                -Wformat-nonliteral
                                -Wformat-security
                                -Wformat
@@ -90,5 +90,5 @@ target_compile_options(${PROJECT_NAME}
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     # If we are building test code, then we need to include unity
-    target_link_libraries(${PROJECT_NAME} unity)
+    target_link_libraries(${PROJECT_NAME} testlib)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)

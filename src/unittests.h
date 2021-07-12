@@ -4,10 +4,10 @@
 #include "config.h" // do we generate unit tests?
 #if GEN_UNIT_TESTS
 
-#include <unity.h>
+#include <testlib.h>
 
 // skew.c
-void skew_test_len_calc(void);
+TL_TEST_PROTOTYPE(skew_test_len_calc);
 
 #endif // GEN_UNIT_TESTS
 #endif // UNITTESTS_H

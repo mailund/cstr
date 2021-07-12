@@ -11,6 +11,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   include(CTest)
+  # FIXME: need to fix it so Xcode gets the right flags for coverage.
   #include(CodeCoverage)
   #append_coverage_compiler_flags()
   #setup_target_for_coverage_lcov(
@@ -18,7 +19,6 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
   #      EXECUTABLE ctest
   #)
   set(GEN_UNIT_TESTS 1)
-  add_subdirectory(Unity) 
   add_subdirectory(test)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
