@@ -9,62 +9,61 @@
 // these calculations are only valid for n > 0. For n == 0, they are both
 // zero, but there is no need to check for this border case if we never
 // have a string with length zero, and we can't because of the sentinel.
-static inline unsigned int sa3len(unsigned int n) { return (n - 1) / 3 + 1; }
-static inline unsigned int sa12len(unsigned int n) { return n - sa3len(n); }
+// These operate on size_t, although the suffix arrays cann only handle
+// unsigned int, but they do that to fit with the slice interface. There
+// is a check for the size of input in the public functions.
+static inline size_t sa3len(size_t n) { return (n - 1) / 3 + 1; }
+static inline size_t sa12len(size_t n) { return n - sa3len(n); }
 
-static unsigned int* get_sa12(unsigned n, unsigned int x[n])
+static inline unsigned int safe_idx(islice x, unsigned i)
 {
-    unsigned int* sa12 = malloc(sa12len(n) * sizeof *sa12);
-    if (sa12) {
-        unsigned int j = 0;
-        for (unsigned int i = 0; i < n; i++) {
-            if (i % 3 != 0) {
-                sa12[j++] = i;
-            }
+    return (i >= x.len) ? 0 : x.buf[i];
+}
+
+static void get_sa12(islice sa12, islice x)
+{
+    assert(sa12.len > 0 && sa12.len == sa12len(x.len)); // For the static analyser...
+    unsigned int j = 0;
+    for (unsigned int i = 0; i < x.len; i++) {
+        if (i % 3 != 0) {
+            sa12.buf[j++] = i;
         }
-        assert(j == sa12len(n)); // for the static analyser
     }
-    return sa12;
+    assert(j == sa12.len); // for the static analyser
 }
 
-static unsigned int* get_sa3(unsigned n, unsigned x[n], unsigned sa12[])
+static void get_sa3(islice sa3, islice x, islice sa12)
 {
-    unsigned int* sa3 = malloc(sa3len(n) * sizeof *sa3);
-    if (sa3) {
-        int k = 0;
-        // Special case if the last index is in sa3
-        if (n % 3 == 1) {
-            sa3[k++] = n - 1;
-        }
-        for (int i = 0; i < sa12len(n); i++) {
-            if (sa12[i] % 3 == 1) {
-                sa3[k++] = sa12[i] - 1;
-            }
-        }
-        assert(k == sa3len(n)); // for the static analyser
+    assert(sa3.len > 0 && sa3.len == sa3len(x.len));
+    int k = 0;
+    // Special case if the last index is in sa3
+    if (x.len % 3 == 1) {
+        sa3.buf[k++] = (unsigned int)x.len - 1;
     }
-    return sa3;
+    for (int i = 0; i < sa12.len; i++) {
+        if (sa12.buf[i] % 3 == 1) {
+            sa3.buf[k++] = sa12.buf[i] - 1;
+        }
+    }
+    assert(k == sa3.len); // for the static analyser
 }
 
-static inline unsigned int safe_idx(unsigned n, unsigned int x[n], unsigned i)
-{
-    return (i >= n) ? 0 : x[i];
-}
-
-static void bucket_sort_with_buffers(unsigned int n, unsigned int x[n],
-    unsigned m, unsigned int idx[m],
-    unsigned int offset, unsigned int asize,
+static void bucket_sort_with_buffers(
+    islice x,
+    islice idx,
+    unsigned int offset,
+    unsigned int asize,
     unsigned int* buckets,
     unsigned int* buffer)
 {
-    assert(n > 0 && m > 0 && asize > 0); // helping the static analyser.
+    assert(x.len > 0 && idx.len > 0 && asize > 0); // helping the static analyser.
 
     // Compute buckets
-    for (int i = 0; i < asize; i++) {
+    for (unsigned int i = 0; i < asize; i++) {
         buckets[i] = 0;
     }
-    for (int i = 0; i < m; i++) {
-        buckets[safe_idx(n, x, idx[i] + offset)]++;
+    for (unsigned int i = 0; i < idx.len; i++) {
+        buckets[safe_idx(x, idx.buf[i] + offset)]++;
     }
     for (unsigned int acc = 0, i = 0; i < asize; i++) {
         unsigned int k = buckets[i];
@@ -73,26 +72,28 @@ static void bucket_sort_with_buffers(unsigned int n, unsigned int x[n],
     }
 
     // sort
-    for (int i = 0; i < m; i++) {
-        unsigned int bucket = safe_idx(n, x, idx[i] + offset);
-        buffer[buckets[bucket]++] = idx[i];
+    for (unsigned int i = 0; i < idx.len; i++) {
+        unsigned int bucket = safe_idx(x, idx.buf[i] + offset);
+        buffer[buckets[bucket]++] = idx.buf[i];
     }
 
     // copy sorted back into idx
-    memcpy(idx, buffer, m * sizeof(*buffer));
+    memcpy(idx.buf, buffer, idx.len * sizeof(*buffer));
 }
 
-static bool bucket_sort(unsigned int n, unsigned int x[n], unsigned int m,
-    unsigned int idx[m], unsigned int offset,
+static bool bucket_sort(
+    islice x,
+    islice idx,
+    unsigned int offset,
     unsigned int asize, errcodes* err)
 {
     bool success = false;
 
     unsigned int* buckets = malloc(asize * sizeof *buckets);
-    unsigned int* buffer = malloc(m * sizeof *buffer);
+    unsigned int* buffer = malloc(idx.len * sizeof *buffer);
     alloc_error_if(!buckets || !buffer);
 
-    bucket_sort_with_buffers(n, x, m, idx, offset, asize, buckets, buffer);
+    bucket_sort_with_buffers(x, idx, offset, asize, buckets, buffer);
 
     success = true;
 
@@ -103,18 +104,21 @@ error:
     return success;
 }
 
-static bool radix3(unsigned int n, unsigned int x[n], unsigned int m,
-    unsigned int idx[m], unsigned int asize, errcodes* err)
+static bool radix3(
+    islice x,
+    islice idx,
+    unsigned int asize,
+    errcodes* err)
 {
     bool success = false;
 
     unsigned int* buckets = malloc(asize * sizeof *buckets);
-    unsigned int* buffer = malloc(m * sizeof *buffer);
+    unsigned int* buffer = malloc(idx.len * sizeof *buffer);
     alloc_error_if(!buckets || !buffer);
 
-    bucket_sort_with_buffers(n, x, m, idx, 2, asize, buckets, buffer);
-    bucket_sort_with_buffers(n, x, m, idx, 1, asize, buckets, buffer);
-    bucket_sort_with_buffers(n, x, m, idx, 0, asize, buckets, buffer);
+    bucket_sort_with_buffers(x, idx, 2, asize, buckets, buffer);
+    bucket_sort_with_buffers(x, idx, 1, asize, buckets, buffer);
+    bucket_sort_with_buffers(x, idx, 0, asize, buckets, buffer);
 
     success = true;
 
@@ -125,73 +129,80 @@ error: // even with success, we have to clean...
     return success;
 }
 
-static bool less(unsigned int n, unsigned int x[], unsigned int i,
-    unsigned int j, unsigned int isa[])
+static bool less(
+    islice x,
+    unsigned int i,
+    unsigned int j,
+    unsigned int isa[])
 {
-    unsigned int a = safe_idx(n, x, i);
-    unsigned int b = safe_idx(n, x, j);
+    unsigned int a = safe_idx(x, i);
+    unsigned int b = safe_idx(x, j);
+
     if (a < b)
         return true;
     if (a > b)
         return false;
     if (i % 3 != 0 && j % 3 != 0)
         return isa[i] < isa[j];
-    return less(n, x, i + 1, j + 1, isa);
+
+    return less(x, i + 1, j + 1, isa);
 }
 
-static unsigned int* merge(unsigned int n, unsigned int x[n],
-    unsigned int sa12[], unsigned int sa3[])
+static bool merge(
+    islice sa,
+    islice x,
+    islice sa12,
+    islice sa3,
+    enum cstr_errcodes* err)
 {
+    bool ok = false;
 
-    assert(n > 0); // For the static analyser.
+    assert(x.len > 0); // For the static analyser.
     // We cannot have n==0 because of the sentinel, but the analyser
     // is right that isa could be allocated with length zero, and that
     // would be a potential problem later. It can't happen, though.
 
-    // Allocate isa first. We always have to free it, so we can treat
-    // it the same both when we successfully allocate sa and when we dont.
-    unsigned int* isa = malloc(n * sizeof *isa);
-    if (!isa) {
-        return 0;
-    }
-
-    unsigned int* sa = malloc(n * sizeof *sa);
-    if (!sa) {
-        goto done; // isa will be freed there and we will return 0
-    }
+    unsigned int* isa = malloc(x.len * sizeof *isa);
+    alloc_error_if(!isa);
 
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
     // length as x.
-    for (unsigned int i = 0; i < sa12len(n); i++) {
-        isa[sa12[i]] = i;
+    for (unsigned int i = 0; i < sa12.len; i++) {
+        isa[sa12.buf[i]] = i;
     }
 
     unsigned int i = 0, j = 0, k = 0;
-    while (i < sa12len(n) && j < sa3len(n)) {
-        if (less(n, x, sa12[i], sa3[j], isa)) {
-            sa[k++] = sa12[i++];
+    while (i < sa12.len && j < sa3.len) {
+        if (less(x, sa12.buf[i], sa3.buf[j], isa)) {
+            sa.buf[k++] = sa12.buf[i++];
         } else {
-            sa[k++] = sa3[j++];
+            sa.buf[k++] = sa3.buf[j++];
         }
     }
-    for (; i < sa12len(n); i++)
-        sa[k++] = sa12[i];
-    for (; j < sa3len(n); j++)
-        sa[k++] = sa3[j];
+    for (; i < sa12.len; i++)
+        sa.buf[k++] = sa12.buf[i];
+    for (; j < sa3.len; j++)
+        sa.buf[k++] = sa3.buf[j];
 
-    assert(k == n); // for the static analyser
+    assert(k == x.len); // for the static analyser
+    ok = true; // successfull completion
 
-done:
+    // both error and success ends up here, but ok
+    // tells us which it is.
+error:
     free(isa);
-
-    return sa; // 0 if we had an error, otherwise the merged sa
+    return ok;
 }
 
-static inline bool equal3(unsigned int n, unsigned int x[n], unsigned int i,
+static inline bool equal3(
+    islice x,
+    unsigned int i,
     unsigned int j)
 {
-    return safe_idx(n, x, i + 0) == safe_idx(n, x, j + 0) && safe_idx(n, x, i + 1) == safe_idx(n, x, j + 1) && safe_idx(n, x, i + 2) == safe_idx(n, x, j + 2);
+    return safe_idx(x, i + 0) == safe_idx(x, j + 0)
+        && safe_idx(x, i + 1) == safe_idx(x, j + 1)
+        && safe_idx(x, i + 2) == safe_idx(x, j + 2);
 }
 
 // Map from indices in x to indices in sa12
@@ -205,23 +216,24 @@ static inline unsigned int map_u_x(unsigned int i, unsigned int m)
     return (i < m) ? (1 + 3 * i) : (2 + 3 * (i - m));
 }
 
-static unsigned int* build_alphabet(unsigned int n, unsigned int x[n],
-    unsigned int sa12[],
+static unsigned int* build_alphabet(
+    islice x,
+    islice sa12,
     unsigned int* new_asize)
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
 
-    assert(sa12len(n) > 0); // helping static analyser
-    unsigned int* encoding = malloc(sa12len(n) * sizeof *encoding);
+    assert(sa12.len > 0); // helping static analyser
+    unsigned int* encoding = malloc(sa12.len * sizeof *encoding);
     if (encoding) {
         *new_asize = 1; // start at 1, reserving 0 for sentinel
-        encoding[map_x_sa12(sa12[0])] = *new_asize;
-        for (int i = 1; i < sa12len(n); i++) {
-            if (!equal3(n, x, sa12[i - 1], sa12[i])) {
+        encoding[map_x_sa12(sa12.buf[0])] = *new_asize;
+        for (int i = 1; i < sa12.len; i++) {
+            if (!equal3(x, sa12.buf[i - 1], sa12.buf[i])) {
                 (*new_asize)++;
             }
-            encoding[map_x_sa12(sa12[i])] = *new_asize;
+            encoding[map_x_sa12(sa12.buf[i])] = *new_asize;
         }
         // the alphabet is one larger than the largest letter
         (*new_asize)++;
@@ -231,125 +243,138 @@ static unsigned int* build_alphabet(unsigned int n, unsigned int x[n],
 
 // this u is based on the terminal sentinel always being part of the input, so
 // we don't need a central sentinel.
-static unsigned int* build_u(unsigned int n, unsigned int encoding[])
+static void build_u(
+    islice u,
+    unsigned int encoding[])
 {
-    unsigned int* u = malloc(sa12len(n) * sizeof *u);
-    if (u) {
-        int k = 0;
-        for (int i = 0; i < sa12len(n); i += 2) {
-            u[k++] = encoding[i];
-        }
-        for (int i = 1; i < sa12len(n); i += 2) {
-            u[k++] = encoding[i];
-        }
-        assert(k == sa12len(n)); // for the static analyser
+    int k = 0;
+    for (unsigned int i = 0; i < u.len; i += 2) {
+        u.buf[k++] = encoding[i];
     }
-    return u;
+    for (unsigned int i = 1; i < u.len; i += 2) {
+        u.buf[k++] = encoding[i];
+    }
+    assert(k == u.len); // for the static analyser
 }
 
-static unsigned int* skew_rec(unsigned int n, unsigned int x[n],
-    unsigned int asize, errcodes* err)
+static bool skew_rec(
+    islice sa,
+    islice x,
+    unsigned int asize,
+    errcodes* err)
 {
-    // set all the pointers to null in case of errors.
-    unsigned int *sa = 0, *sa12 = 0, *sa3 = 0, *encoding = 0, *u = 0, *u_sa = 0;
+    bool func_ok = false, ok = false; // first for the return value, second for testing along the way
+    islice sa12 = CSTR_NIL_SLICE, sa3 = CSTR_NIL_SLICE, u = CSTR_NIL_SLICE, u_sa = CSTR_NIL_SLICE;
+    unsigned int *encoding = 0;
 
-    sa12 = get_sa12(n, x);
-    alloc_error_if(!sa12);
+    ok = cstr_alloc_islice_buffer(&sa12, sa12len(x.len));
+    alloc_error_if(!ok);
+    get_sa12(sa12, x);
 
-    bool ok = radix3(n, x, sa12len(n), sa12, asize, err);
+    ok = radix3(x, sa12, asize, err);
     reraise_error_if(!ok);
 
     unsigned int new_asize;
-    encoding = build_alphabet(n, x, sa12, &new_asize);
+    encoding = build_alphabet(x, sa12, &new_asize);
     alloc_error_if(!encoding);
 
     // if the alphabet minus the sentinel matches the length of sa12, then
     // all symbols in sa12 are unique and we do not need to process further.
-    if (new_asize - 1 < sa12len(n)) {
+    if (new_asize - 1 < sa12len(x.len)) {
         // We need to sort recursively
-        u = build_u(n, encoding);
-        alloc_error_if(!u);
+        ok = cstr_alloc_islice_buffer(&u, sa12len(x.len));
+        alloc_error_if(!ok);
+
+        build_u(u, encoding);
         free_and_null(encoding); // we might as well clean up early
 
-        u_sa = skew_rec(sa12len(n), u, new_asize, err);
-        alloc_error_if(!u_sa);
-        free_and_null(u);
-
-        unsigned int m = (sa12len(n) + 1) / 2;
-        for (int i = 0; i < sa12len(n); i++) {
-            sa12[i] = map_u_x(u_sa[i], m);
+        // get memory for the recursive suffix array
+        ok = cstr_alloc_islice_buffer(&u_sa, u.len);
+        alloc_error_if(!ok);
+        
+        ok = skew_rec(u_sa, u, new_asize, err);
+        alloc_error_if(!ok);
+        cstr_free_islice_buffer(&u); // done with u now...
+        
+        unsigned int m = (unsigned int)(u.len + 1) / 2;
+        for (unsigned int i = 0; i < u.len; i++) {
+            sa12.buf[i] = map_u_x(u_sa.buf[i], m);
         }
-        free_and_null(u_sa);
+        cstr_free_islice_buffer(&u_sa); // done with u_sa.
     }
 
-    sa3 = get_sa3(n, x, sa12);
-    alloc_error_if(!sa3);
+    ok = cstr_alloc_islice_buffer(&sa3, sa3len(x.len));
+    alloc_error_if(!ok);
+    get_sa3(sa3, x, sa12);
 
-    ok = bucket_sort(n, x, sa3len(n), sa3, 0, asize, err);
+    ok = bucket_sort(x, sa3, 0, asize, err);
     reraise_error_if(!ok);
 
-    sa = merge(n, x, sa12, sa3);
-    alloc_error_if(!sa);
+    func_ok = merge(sa, x, sa12, sa3, err);
+    
+    // ok is now true, so we will return success after cleanup.
 
     // we free the same memory on success and failure, the only
-    // difference in the two exists is whether the error flag is set.
+    // difference in the two exists is the value of 'ok'.
 error: // but also success...
-    free(sa12);
-    free(sa3);
+    cstr_free_islice_buffer(&sa12);
+    cstr_free_islice_buffer(&sa3);
+    cstr_free_islice_buffer(&u);
+    cstr_free_islice_buffer(&u_sa);
     free(encoding);
-    free(u);
-    free(u_sa);
-
-    return sa;
+    
+    return func_ok;
 }
 
-unsigned int* cstr_skew(alpha* alpha, csslice slice, enum cstr_errcodes* err)
+bool cstr_skew(
+    islice sa,
+    csslice x,
+    alpha* alpha,
+    enum cstr_errcodes* err)
 {
+    unsigned int* mapped_x = 0;
+    bool ok = false;
+
     clear_error();
+    // we need to store indices in unsigned int, so there is a limit to the length.
+    size_error_if(x.len > UINT_MAX - 1);
 
-    // make sure allocated pointers are initially null in case of errors
-    unsigned int* sa = 0;
-    unsigned int* arr = 0;
+    mapped_x = cstr_alphabet_map_to_int_new(x, alpha, err);
+    alloc_error_if(!mapped_x);
 
-    // we need to represent up to len+1 (x+sentinel) in
-    // unsigned int, so we have an error if we can't.
-    size_error_if(slice.len > UINT_MAX - 1);
-
-    arr = cstr_alphabet_map_to_int_new(slice, alpha, err);
-    alloc_error_if(!arr);
-
-    sa = skew_rec((unsigned int)slice.len + 1, arr, alpha->size, err);
+    ok = skew_rec(sa, CSTR_ISLICE(mapped_x, x.len + 1), alpha->size, err);
+    // now ok has the final value, and we return it after cleanup.
 
     // we need to do the same things on error as on return...
 error:
-    free(arr);
+    free(mapped_x);
 
-    return sa;
+    return ok;
 }
 
-unsigned int* cstr_skew_from_string(char const* x, enum cstr_errcodes* err)
+unsigned int* cstr_skew_new(
+    csslice x,
+    alpha* alpha,
+    enum cstr_errcodes* err)
 {
-    clear_error();
-
-    alpha* alpha = 0;
     unsigned int* sa = 0;
 
-    csslice slice = CSTR_CSSLICE_STRING(x);
-    // we need to represent up to len+1 (x+sentinel) in
-    // unsigned int, so we have an error if we can't.
-    size_error_if(slice.len > UINT_MAX - 1);
+    clear_error();
 
-    alpha = malloc(sizeof *alpha);
-    alloc_error_if(!alpha);
-    cstr_init_alphabet(alpha, slice);
+    // we need to store indices in unsigned int, so there is a limit to the length
+    size_error_if(x.len > UINT_MAX - 1);
 
-    sa = cstr_skew(alpha, slice, err);
+    sa = malloc((x.len + 1) * sizeof(*sa));
+    alloc_error_if(!sa);
 
-// we need to do the same things on error as on return...
-error: // and also success:
-    free(alpha);
+    bool ok = cstr_skew(CSTR_ISLICE(sa, x.len + 1), x, alpha, err);
+    reraise_error_if(!ok);
 
-    return sa;
+    return sa; // success
+
+error:
+    free(sa);
+    return 0;
 }
 
 #if GEN_UNIT_TESTS // unit testing of static functions...

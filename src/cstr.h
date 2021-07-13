@@ -42,15 +42,15 @@ enum cstr_errcodes {
 // buffer must be handled separately.
 struct cstr_sslice {
     char* const buf;
-    size_t len;
+    size_t const len;
 };
 struct cstr_const_sslice {
     char const* const buf;
-    size_t len;
+    size_t const len;
 };
 struct cstr_islice {
     unsigned int* const buf;
-    size_t len;
+    size_t const len;
 };
 
 #define CSTR_SLICE(TYPE, BUF, LEN) \
@@ -68,6 +68,32 @@ struct cstr_islice {
 
 #define CSTR_ISLICE(BUF, LEN) \
     CSTR_SLICE(struct cstr_islice, BUF, LEN)
+
+// WARNING: using the allocation and deallocation of slices is somewhat dangerious.
+// We usually just want to pass slices as function arguments, but there are situations
+// where we want to allocate memory for the underlying buffer as part of initialising
+// a slice. The following code can do that, but the underlying buffer must be freed
+// again. You can do that with the corresponding free methods. None of the functions
+// allocate or deallocate the actual slice; they only touch the underlying buffer.
+// To prevent leaks, the buf pointer must be null when you allocate a new buffer.
+// It isn't perfect, but it is a slight consistency check.
+bool cstr_alloc_sslice_buffer(
+    struct cstr_sslice* slice,
+    size_t len);
+void cstr_free_sslice_buffer(
+    struct cstr_sslice* slice);
+
+bool cstr_alloc_islice_buffer(
+    struct cstr_islice* slice,
+    size_t len);
+void cstr_free_islice_buffer(
+    struct cstr_islice* slice);
+
+// When we have slices we allocate, we want the zero-initialised. This macro can do that.
+#define CSTR_NIL_SLICE     \
+    {                      \
+        .buf = 0, .len = 0 \
+    }
 
 // Alphabets, for when we remap strings to smaller alphabets
 struct cstr_alphabet {
@@ -110,12 +136,14 @@ unsigned int* cstr_alphabet_map_to_int_new(
     enum cstr_errcodes* err)
     CSTR_MALLOC_FUNC;
 
+// Map a string back into the dst slice.
 bool cstr_alphabet_revmap(
     struct cstr_sslice dst,
     struct cstr_const_sslice src,
     struct cstr_alphabet const* alpha,
     enum cstr_errcodes* err);
 
+// Allocate new buffer and map a string back into it.
 char* cstr_alphabet_revmap_new(
     struct cstr_const_sslice src,
     struct cstr_alphabet const* alpha,
@@ -123,13 +151,17 @@ char* cstr_alphabet_revmap_new(
     CSTR_MALLOC_FUNC;
 
 // Suffix array construction
-unsigned int* cstr_skew(
+bool cstr_skew(
+    struct cstr_islice sa,
+    struct cstr_const_sslice x,
     struct cstr_alphabet* alpha,
-    struct cstr_const_sslice slice,
     enum cstr_errcodes* err);
-unsigned int* cstr_skew_from_string(
-    char const* x,
-    enum cstr_errcodes* err);
+
+unsigned int* cstr_skew_new(
+    struct cstr_const_sslice x,
+    struct cstr_alphabet* alpha,
+    enum cstr_errcodes* err)
+    CSTR_MALLOC_FUNC;
 
 // Burrows-Wheeler transform -----------------------------------
 char* cstr_bwt(int n, char const* x, unsigned int sa[n]);
