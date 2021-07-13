@@ -69,7 +69,7 @@ target_compile_options(${PROJECT_NAME}
                                       -Werror
                                       -Wall>
         $<$<C_COMPILER_ID:GNU>:-Waddress
-                               #-Waggregate-return  # probably want to remove this one later...
+                               -Waggregate-return
                                -Wformat-nonliteral
                                -Wformat-security
                                -Wformat

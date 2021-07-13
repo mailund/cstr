@@ -9,6 +9,9 @@ target_include_directories(testlib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
+set_target_properties(testlib
+    PROPERTIES FOLDER Tests/TestLib
+)
 
 # make all files that end in _test.c into tests
 file(GLOB test_sources *_test.c)
