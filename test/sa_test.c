@@ -4,11 +4,11 @@
 
 #include <cstr.h>
 
-void check_suffix_ordered(char const* x, unsigned int n, unsigned int sa[n])
+void check_suffix_ordered(char const* x, struct cstr_islice sa)
 {
-    for (int i = 1; i < n; i++) {
-        printf("%s vs %s\n", x + sa[i - 1], x + sa[i]);
-        assert(strcmp(x + sa[i - 1], x + sa[i]) < 0);
+    for (int i = 1; i < sa.len; i++) {
+        printf("%s vs %s\n", x + sa.buf[i - 1], x + sa.buf[i]);
+        assert(strcmp(x + sa.buf[i - 1], x + sa.buf[i]) < 0);
     }
 }
 
@@ -19,16 +19,22 @@ void test_mississippi()
 
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
-    unsigned int* sa = cstr_skew_new(x, &alpha, &err);
-    assert(sa != NULL);
-    assert(CSTR_NO_ERROR == err);
-    
+
+    struct cstr_islice sa = CSTR_NIL_SLICE;
+    bool ok = cstr_alloc_islice_buffer(&sa, x.len + 1);
+    assert(ok);
+
+    ok = cstr_skew(sa, x, &alpha, &err);
+    assert(ok);
+    assert(err == CSTR_NO_ERROR);
+
     for (int i = 0; i < x.len + 1; i++) {
-        printf("sa[%d] == %d %s\n", i, sa[i], x.buf + sa[i]);
+        printf("sa[%d] == %d %s\n", i, sa.buf[i], x.buf + sa.buf[i]);
     }
 
-    check_suffix_ordered(x.buf, x.len + 1, sa);
-    free(sa);
+    check_suffix_ordered(x.buf, sa);
+
+    cstr_free_islice_buffer(&sa);
 }
 
 int main(void)

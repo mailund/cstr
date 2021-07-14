@@ -32,7 +32,7 @@ static void get_sa12(islice sa12, islice x)
     assert(j == sa12.len); // for the static analyser
 }
 
-static void get_sa3(islice sa3, islice x, islice sa12)
+static void get_sa3(islice sa3, islice sa12, islice x)
 {
     assert(sa3.len > 0 && sa3.len == sa3len(x.len));
     int k = 0;
@@ -53,8 +53,8 @@ static void bucket_sort_with_buffers(
     islice idx,
     unsigned int offset,
     unsigned int asize,
-    unsigned int* buckets,
-    unsigned int* buffer)
+    unsigned int* restrict buckets,
+    unsigned int* restrict buffer)
 {
     assert(x.len > 0 && idx.len > 0 && asize > 0); // helping the static analyser.
 
@@ -85,23 +85,22 @@ static bool bucket_sort(
     islice x,
     islice idx,
     unsigned int offset,
-    unsigned int asize, errcodes* err)
+    unsigned int asize,
+    errcodes* err)
 {
-    bool success = false;
-
     unsigned int* buckets = malloc(asize * sizeof *buckets);
     unsigned int* buffer = malloc(idx.len * sizeof *buffer);
-    alloc_error_if(!buckets || !buffer);
+
+    bool ok = buckets && buffer;
+    alloc_error_if(!ok, done);
 
     bucket_sort_with_buffers(x, idx, offset, asize, buckets, buffer);
 
-    success = true;
-
-error:
+done:
     free(buckets);
     free(buffer);
 
-    return success;
+    return ok;
 }
 
 static bool radix3(
@@ -110,23 +109,21 @@ static bool radix3(
     unsigned int asize,
     errcodes* err)
 {
-    bool success = false;
-
     unsigned int* buckets = malloc(asize * sizeof *buckets);
     unsigned int* buffer = malloc(idx.len * sizeof *buffer);
-    alloc_error_if(!buckets || !buffer);
+
+    bool ok = buckets && buffer;
+    alloc_error_if(!ok, done);
 
     bucket_sort_with_buffers(x, idx, 2, asize, buckets, buffer);
     bucket_sort_with_buffers(x, idx, 1, asize, buckets, buffer);
     bucket_sort_with_buffers(x, idx, 0, asize, buckets, buffer);
 
-    success = true;
-
-error: // even with success, we have to clean...
+done:
     free(buckets);
     free(buffer);
 
-    return success;
+    return ok;
 }
 
 static bool less(
@@ -155,15 +152,16 @@ static bool merge(
     islice sa3,
     enum cstr_errcodes* err)
 {
-    bool ok = false;
-
     assert(x.len > 0); // For the static analyser.
     // We cannot have n==0 because of the sentinel, but the analyser
     // is right that isa could be allocated with length zero, and that
     // would be a potential problem later. It can't happen, though.
 
-    unsigned int* isa = malloc(x.len * sizeof *isa);
-    alloc_error_if(!isa);
+    bool ok = true;
+    unsigned int* isa = 0;
+
+    try_alloc_flag(done, ok,
+        isa = malloc(x.len * sizeof *isa));
 
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
@@ -186,11 +184,8 @@ static bool merge(
         sa.buf[k++] = sa3.buf[j];
 
     assert(k == x.len); // for the static analyser
-    ok = true; // successfull completion
 
-    // both error and success ends up here, but ok
-    // tells us which it is.
-error:
+done:
     free(isa);
     return ok;
 }
@@ -216,29 +211,29 @@ static inline unsigned int map_u_x(unsigned int i, unsigned int m)
     return (i < m) ? (1 + 3 * i) : (2 + 3 * (i - m));
 }
 
-static unsigned int* build_alphabet(
+static unsigned int build_alphabet(
+    unsigned int encoding[],
     islice x,
-    islice sa12,
-    unsigned int* new_asize)
+    islice sa12)
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
-
     assert(sa12.len > 0); // helping static analyser
-    unsigned int* encoding = malloc(sa12.len * sizeof *encoding);
-    if (encoding) {
-        *new_asize = 1; // start at 1, reserving 0 for sentinel
-        encoding[map_x_sa12(sa12.buf[0])] = *new_asize;
-        for (int i = 1; i < sa12.len; i++) {
-            if (!equal3(x, sa12.buf[i - 1], sa12.buf[i])) {
-                (*new_asize)++;
-            }
-            encoding[map_x_sa12(sa12.buf[i])] = *new_asize;
+
+    unsigned int new_asize = 1; // start at 1, reserving 0 for sentinel
+    encoding[map_x_sa12(sa12.buf[0])] = new_asize;
+
+    for (int i = 1; i < sa12.len; i++) {
+        if (!equal3(x, sa12.buf[i - 1], sa12.buf[i])) {
+            new_asize++;
         }
-        // the alphabet is one larger than the largest letter
-        (*new_asize)++;
+        encoding[map_x_sa12(sa12.buf[i])] = new_asize;
     }
-    return encoding;
+
+    // the alphabet is one larger than the largest letter
+    new_asize++;
+
+    return new_asize;
 }
 
 // this u is based on the terminal sentinel always being part of the input, so
@@ -263,67 +258,64 @@ static bool skew_rec(
     unsigned int asize,
     errcodes* err)
 {
-    bool func_ok = false, ok = false; // first for the return value, second for testing along the way
-    islice sa12 = CSTR_NIL_SLICE, sa3 = CSTR_NIL_SLICE, u = CSTR_NIL_SLICE, u_sa = CSTR_NIL_SLICE;
-    unsigned int *encoding = 0;
+    bool ok = false;
 
-    ok = cstr_alloc_islice_buffer(&sa12, sa12len(x.len));
-    alloc_error_if(!ok);
+    islice sa12 = CSTR_NIL_SLICE, sa3 = CSTR_NIL_SLICE,
+           u = CSTR_NIL_SLICE, u_sa = CSTR_NIL_SLICE;
+    unsigned int* encoding = 0;
+
+    try_alloc(done,
+        cstr_alloc_islice_buffer(&sa12, sa12len(x.len)));
     get_sa12(sa12, x);
 
-    ok = radix3(x, sa12, asize, err);
-    reraise_error_if(!ok);
+    try_reraise(done,
+        radix3(x, sa12, asize, err));
 
-    unsigned int new_asize;
-    encoding = build_alphabet(x, sa12, &new_asize);
-    alloc_error_if(!encoding);
+    try_alloc(done,
+        encoding = malloc(sa12.len * sizeof *encoding));
+    unsigned int new_asize = build_alphabet(encoding, x, sa12);
 
     // if the alphabet minus the sentinel matches the length of sa12, then
     // all symbols in sa12 are unique and we do not need to process further.
-    if (new_asize - 1 < sa12len(x.len)) {
+    if (new_asize - 1 < sa12.len) {
         // We need to sort recursively
-        ok = cstr_alloc_islice_buffer(&u, sa12len(x.len));
-        alloc_error_if(!ok);
-
+        try_alloc(done,
+            cstr_alloc_islice_buffer(&u, sa12.len));
         build_u(u, encoding);
-        free_and_null(encoding); // we might as well clean up early
+        free_and_null(encoding);
 
-        // get memory for the recursive suffix array
-        ok = cstr_alloc_islice_buffer(&u_sa, u.len);
-        alloc_error_if(!ok);
-        
-        ok = skew_rec(u_sa, u, new_asize, err);
-        alloc_error_if(!ok);
-        cstr_free_islice_buffer(&u); // done with u now...
-        
-        unsigned int m = (unsigned int)(u.len + 1) / 2;
-        for (unsigned int i = 0; i < u.len; i++) {
+        try_alloc(done,
+            cstr_alloc_islice_buffer(&u_sa, u.len));
+
+        try_reraise(done,
+            skew_rec(u_sa, u, new_asize, err));
+
+        unsigned int m = (unsigned int)(u_sa.len + 1) / 2;
+        for (unsigned int i = 0; i < u_sa.len; i++) {
             sa12.buf[i] = map_u_x(u_sa.buf[i], m);
         }
+
+        cstr_free_islice_buffer(&u); // done with u now...
         cstr_free_islice_buffer(&u_sa); // done with u_sa.
     }
 
-    ok = cstr_alloc_islice_buffer(&sa3, sa3len(x.len));
-    alloc_error_if(!ok);
-    get_sa3(sa3, x, sa12);
+    try_alloc(done,
+        cstr_alloc_islice_buffer(&sa3, sa3len(x.len)));
+    get_sa3(sa3, sa12, x);
 
-    ok = bucket_sort(x, sa3, 0, asize, err);
-    reraise_error_if(!ok);
+    try_reraise(done,
+        bucket_sort(x, sa3, /* offset */ 0, asize, err));
 
-    func_ok = merge(sa, x, sa12, sa3, err);
-    
-    // ok is now true, so we will return success after cleanup.
+    ok = merge(sa, x, sa12, sa3, err);
 
-    // we free the same memory on success and failure, the only
-    // difference in the two exists is the value of 'ok'.
-error: // but also success...
+done: // but also success...
     cstr_free_islice_buffer(&sa12);
     cstr_free_islice_buffer(&sa3);
     cstr_free_islice_buffer(&u);
     cstr_free_islice_buffer(&u_sa);
     free(encoding);
-    
-    return func_ok;
+
+    return ok;
 }
 
 bool cstr_skew(
@@ -334,47 +326,19 @@ bool cstr_skew(
 {
     unsigned int* mapped_x = 0;
     bool ok = false;
-
     clear_error();
+
     // we need to store indices in unsigned int, so there is a limit to the length.
-    size_error_if(x.len > UINT_MAX - 1);
+    size_error_if(x.len > UINT_MAX - 1, done);
 
-    mapped_x = cstr_alphabet_map_to_int_new(x, alpha, err);
-    alloc_error_if(!mapped_x);
-
+    try_reraise(done,
+        mapped_x = cstr_alphabet_map_to_int_new(x, alpha, err));
     ok = skew_rec(sa, CSTR_ISLICE(mapped_x, x.len + 1), alpha->size, err);
-    // now ok has the final value, and we return it after cleanup.
 
-    // we need to do the same things on error as on return...
-error:
+done:
     free(mapped_x);
 
     return ok;
-}
-
-unsigned int* cstr_skew_new(
-    csslice x,
-    alpha* alpha,
-    enum cstr_errcodes* err)
-{
-    unsigned int* sa = 0;
-
-    clear_error();
-
-    // we need to store indices in unsigned int, so there is a limit to the length
-    size_error_if(x.len > UINT_MAX - 1);
-
-    sa = malloc((x.len + 1) * sizeof(*sa));
-    alloc_error_if(!sa);
-
-    bool ok = cstr_skew(CSTR_ISLICE(sa, x.len + 1), x, alpha, err);
-    reraise_error_if(!ok);
-
-    return sa; // success
-
-error:
-    free(sa);
-    return 0;
 }
 
 #if GEN_UNIT_TESTS // unit testing of static functions...

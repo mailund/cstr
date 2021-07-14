@@ -14,25 +14,34 @@
     } while (0)
 #define clear_error() set_error(CSTR_NO_ERROR)
 
-#define goto_if(EXPR, LABEL, CODE) \
-    do {                           \
-        if (EXPR) {                \
-            set_error(CODE);       \
-            goto LABEL;            \
-        }                          \
+// If EXPR is false-y, set the error code and jump
+// to LABEL
+#define error_goto_if(EXPR, LABEL, CODE) \
+    do {                                 \
+        if (EXPR) {                      \
+            set_error(CODE);             \
+            goto LABEL;                  \
+        }                                \
     } while (0)
 
-#define error_if(EXPR, CODE) goto_if(EXPR, error, CODE)
-#define alloc_error_if(EXPR) error_if(EXPR, CSTR_ALLOCATION_ERROR)
-#define size_error_if(EXPR) error_if(EXPR, CSTR_SIZE_ERROR)
+#define alloc_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_ALLOCATION_ERROR)
+#define mapping_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_MAPPING_ERROR)
+#define size_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_SIZE_ERROR)
 
 // if we just want to jump to error handling but not set err because
 // it is already set.
-#define reraise_error_if(EXPR) \
-    do {                       \
-        if (EXPR)              \
-            goto error;        \
+#define reraise_error_if(EXPR, LABEL) \
+    do {                              \
+        if (EXPR)                     \
+            goto LABEL;               \
     } while (0)
+
+// We allocate a lot, so convinience macro for that
+#define try_alloc(LABEL, EXPR) alloc_error_if(!(EXPR), LABEL)
+#define try_alloc_flag(LABEL, FLAG, EXPR) alloc_error_if(!(FLAG = !!(EXPR)), LABEL)
+// Re-raise an existing error if EXPR evaluates to false-y.
+#define try_reraise(LABEL, EXPR) reraise_error_if(!(EXPR), LABEL)
+#define try_reraise_flag(LABEL, FLAG, EXPR) reraise_error_if(!(FLAG = !!(EXPR)), LABEL)
 
 // shorten names a bit for the internal code...
 typedef enum cstr_errcodes errcodes;

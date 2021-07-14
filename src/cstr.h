@@ -36,6 +36,8 @@ enum cstr_errcodes {
     CSTR_MAPPING_ERROR, // mapping via an alphabet failed
 };
 
+// ==== SLICES =====================================================
+
 // slices, for easier handling of sub-strings and sub-arrays.
 // These should be passed by value and never dynmaically allocated.
 // They don't implement any kind of memory management, and the underlying
@@ -95,6 +97,8 @@ void cstr_free_islice_buffer(
         .buf = 0, .len = 0 \
     }
 
+// == ALPHABET =====================================================
+
 // Alphabets, for when we remap strings to smaller alphabets
 struct cstr_alphabet {
     unsigned int size;
@@ -150,6 +154,7 @@ char* cstr_alphabet_revmap_new(
     enum cstr_errcodes* err)
     CSTR_MALLOC_FUNC;
 
+// == SUFFIX ARRAYS =====================================================
 // Suffix array construction
 bool cstr_skew(
     struct cstr_islice sa,
@@ -157,13 +162,8 @@ bool cstr_skew(
     struct cstr_alphabet* alpha,
     enum cstr_errcodes* err);
 
-unsigned int* cstr_skew_new(
-    struct cstr_const_sslice x,
-    struct cstr_alphabet* alpha,
-    enum cstr_errcodes* err)
-    CSTR_MALLOC_FUNC;
+// ==== Burrows-Wheeler transform =================================
 
-// Burrows-Wheeler transform -----------------------------------
 char* cstr_bwt(int n, char const* x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table {

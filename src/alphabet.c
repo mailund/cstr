@@ -41,16 +41,16 @@ bool cstr_alphabet_map(
     bool ok = false;
 
     clear_error();
-    error_if(dst.len != src.len, CSTR_SIZE_ERROR);
+    size_error_if(dst.len != src.len, done);
 
     for (int i = 0; i < src.len; i++) {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        error_if(!map && src.buf[i], CSTR_MAPPING_ERROR);
+        mapping_error_if(!map && src.buf[i], done);
         dst.buf[i] = (char)map;
     }
     ok = true;
 
-error:
+done:
     return ok;
 }
 
@@ -59,13 +59,12 @@ char* cstr_alphabet_map_new(
     alpha const* alpha,
     errcodes* err)
 {
+    char* dst = 0;
     clear_error();
 
-    char* dst = malloc(src.len + 1);
-    alloc_error_if(!dst);
-
-    bool ok = cstr_alphabet_map(CSTR_SSLICE(dst, src.len), src, alpha, err);
-    reraise_error_if(!ok);
+    try_alloc(error, dst = malloc(src.len + 1));
+    try_reraise(error,
+        cstr_alphabet_map(CSTR_SSLICE(dst, src.len), src, alpha, err));
 
     return dst;
 
@@ -85,17 +84,17 @@ bool cstr_alphabet_map_to_int(
     clear_error();
     // the destination should be one longer than the source
     // because we count the sentinel in the int slice.
-    error_if(dst.len != src.len + 1, CSTR_SIZE_ERROR);
+    size_error_if(dst.len != src.len + 1, done);
 
     // we iterate over s *including* the sentinel!
     for (int i = 0; i < src.len + 1; i++) {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        error_if(!map && src.buf[i], CSTR_MAPPING_ERROR);
+        mapping_error_if(!map && src.buf[i], done);
         dst.buf[i] = map;
     }
     ok = true;
 
-error:
+done:
     return ok;
 }
 
@@ -104,13 +103,13 @@ unsigned int* cstr_alphabet_map_to_int_new(
     alpha const* alpha,
     errcodes* err)
 {
+    unsigned int* arr = 0;
     clear_error();
 
-    unsigned int* arr = malloc((src.len + 1) * sizeof(*arr));
-    alloc_error_if(!arr);
-
-    bool ok = cstr_alphabet_map_to_int(CSTR_ISLICE(arr, src.len + 1), src, alpha, err);
-    reraise_error_if(!ok);
+    try_alloc(error,
+        arr = malloc((src.len + 1) * sizeof(*arr)));
+    try_reraise(error,
+        cstr_alphabet_map_to_int(CSTR_ISLICE(arr, src.len + 1), src, alpha, err));
 
     return arr;
 
@@ -126,11 +125,11 @@ bool cstr_alphabet_revmap(
     errcodes* err)
 {
     clear_error();
-    error_if(dst.len != src.len, CSTR_SIZE_ERROR);
+    size_error_if(dst.len != src.len, error);
 
     for (int i = 0; i < src.len; i++) {
         unsigned char map = alpha->revmap[(int)src.buf[i]];
-        error_if(!map && src.buf[i], CSTR_MAPPING_ERROR);
+        mapping_error_if(!map && src.buf[i], error);
         dst.buf[i] = (char)map;
     }
 
@@ -145,13 +144,13 @@ char* cstr_alphabet_revmap_new(
     alpha const* alpha,
     errcodes* err)
 {
+    char* dst = 0;
     clear_error();
 
-    char* dst = malloc(src.len + 1);
-    alloc_error_if(!dst);
-
-    bool ok = cstr_alphabet_revmap(CSTR_SSLICE(dst, src.len), src, alpha, err);
-    reraise_error_if(!ok);
+    try_alloc(error,
+        dst = malloc(src.len + 1));
+    try_reraise(error,
+        cstr_alphabet_revmap(CSTR_SSLICE(dst, src.len), src, alpha, err));
 
     return dst;
 
