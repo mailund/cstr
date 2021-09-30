@@ -5,6 +5,6 @@
 #include <cstr_internal.h>
 
 int main(void) {
-  skew_test_len_calc();
-  return 0;
+    skew_test_len_calc();
+    return 0;
 }

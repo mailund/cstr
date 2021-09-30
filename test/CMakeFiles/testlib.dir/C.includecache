@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/mailund/Projects/cstr/test/testlib.c
+testlib.h
+/Users/mailund/Projects/cstr/test/testlib.h
+stdlib.h
+-
+string.h
+-
+
+/Users/mailund/Projects/cstr/test/testlib.h
+setjmp.h
+-
+stdio.h
+-
+

@@ -1,6 +1,9 @@
 {
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "files.associations": {
-        "__locale": "c"
+        "__locale": "c",
+        "cstr_internal.h": "c",
+        "unittests.h": "c"
     },
+    "C_Cpp.errorSquiggles": "Disabled",
 }

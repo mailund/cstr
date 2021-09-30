@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/mailund/Projects/cstr/test/sa_test.c
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+cstr.h
+-
+
+src/cstr.h
+assert.h
+-
+limits.h
+-
+stdbool.h
+-
+string.h
+-
+

@@ -2,7 +2,7 @@
 #define UNITTESTS_H
 
 #include "config.h" // do we generate unit tests?
-#if GEN_UNIT_TESTS
+#ifdef GEN_UNIT_TESTS
 
 #include <testlib.h>
 
