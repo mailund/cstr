@@ -9,6 +9,9 @@ set(CMAKE_MODULE_PATH
 include(GroupFiles)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
+
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   include(CTest)
   # FIXME: need to fix it so Xcode gets the right flags for coverage.

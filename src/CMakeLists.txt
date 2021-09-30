@@ -40,52 +40,25 @@ install(TARGETS   ${PROJECT_NAME}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT     library
 )
+
+# FIXME: make this portable (but right now, the variable I used to switch on
+# doesn't seem to be set, so that didn't work).
 target_compile_options(${PROJECT_NAME}
     PRIVATE
-        $<$<C_COMPILER_ID:Clang>:-Wcast-align
-                                 -Wcast-qual
-                                 -Wconversion
-                                 -Wexit-time-destructors
-                                 -Wglobal-constructors
-                                 -Wmissing-noreturn
-                                 -Wmissing-prototypes
-                                 -Wno-missing-braces
-                                 -Wold-style-cast
-                                 -Wshadow
-                                 -Wweak-vtables
-                                 -Werror
-                                 -Wall>
-        $<$<C_COMPILER_ID:AppleClang>:-Wcast-align
-                                      -Wcast-qual
-                                      -Wconversion
-                                      -Wexit-time-destructors
-                                      -Wglobal-constructors
-                                      -Wmissing-noreturn
-                                      -Wmissing-prototypes
-                                      -Wno-missing-braces
-                                      -Wold-style-cast
-                                      -Wshadow
-                                      -Wweak-vtables
-                                      -Werror
-                                      -Wall>
-        $<$<C_COMPILER_ID:GNU>:-Waddress
-                               -Waggregate-return
-                               -Wformat-nonliteral
-                               -Wformat-security
-                               -Wformat
-                               -Winit-self
-                               -Wmissing-declarations
-                               -Wmissing-include-dirs
-                               -Wno-multichar
-                               -Wno-parentheses
-                               -Wno-type-limits
-                               -Wno-unused-parameter
-                               -Wunreachable-code
-                               -Wwrite-strings
-                               -Wpointer-arith
-                               -Werror
-                               -Wall>
-       $<$<C_COMPILER_ID:MSVC>:/Wall>
+        -Wcast-align
+        -Wcast-qual
+        -Wconversion
+        -Wexit-time-destructors
+        -Wglobal-constructors
+        -Wmissing-noreturn
+        -Wmissing-prototypes
+        -Wno-missing-braces
+        -Wold-style-cast
+        -Wshadow
+        -Wweak-vtables
+        -Werror
+        -Wall
+        -O3
 )
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
