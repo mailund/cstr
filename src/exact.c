@@ -12,12 +12,18 @@ struct cstr_exact_matcher {
     exact_free_fn free;
 };
 
+// Helper macro for initialising the matcher header
+#define MATCHER(NEXT, FREE)                                                    \
+    .matcher = (struct cstr_exact_matcher) {                                   \
+        .next = (exact_next_fn)(NEXT), .free = (exact_free_fn)(FREE)           \
+    }
+
 // For embedding common string info in a state...
 #define MATCH_CONTEXT                                                          \
     const char *x, *p;                                                         \
-    int n, m;
-#define EMBED_CONTEX(x, p)                                                     \
-    .x = (x), .p = (p), .n = (int)strlen(x), .m = (int)strlen(p)
+    int n, m
+#define EMBED_CONTEX(X, P)                                                     \
+    .x = (X), .p = (P), .n = (int)strlen(X), .m = (int)strlen(P)
 
 int cstr_exact_next_match(struct cstr_exact_matcher *matcher) {
     return matcher->next(matcher);
@@ -30,7 +36,7 @@ void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher) {
 // Naive O(nm) algorithm
 struct naive_matcher_state {
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT
+    MATCH_CONTEXT;
     int i;
 };
 
@@ -52,11 +58,8 @@ static int naive_next(struct naive_matcher_state *state) {
 struct cstr_exact_matcher *cstr_naive_matcher(const char *x, const char *p) {
     struct naive_matcher_state *state = malloc(sizeof *state);
     if (state) {
-        *state = (struct naive_matcher_state){
-            .matcher = {.next = (exact_next_fn)naive_next,
-                        .free = (exact_free_fn)free},
-            EMBED_CONTEX(x, p),
-            .i = 0};
+        *state = (struct naive_matcher_state){MATCHER(naive_next, free),
+                                              EMBED_CONTEX(x, p), .i = 0};
     }
     return (void *)state; // void cast to change type
 }
@@ -82,7 +85,7 @@ static void compute_border_array(const char *x, int m, int *ba) {
 
 struct ba_matcher_state {
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT
+    MATCH_CONTEXT;
     int i, b;
     int *ba;
 };
@@ -96,7 +99,7 @@ static int ba_next(struct ba_matcher_state *state) {
         if (b == state->m) {
             state->i = i + 1;
             state->b = b;
-            return i - (int)state->m + 1;
+            return i - state->m + 1;
         }
     }
 
@@ -111,12 +114,8 @@ static void ba_free(struct ba_matcher_state *state) {
 struct cstr_exact_matcher *cstr_ba_matcher(const char *x, const char *p) {
     struct ba_matcher_state *state = malloc(sizeof *state);
     if (state) {
-        *state = (struct ba_matcher_state){
-            .matcher = {.next = (exact_next_fn)ba_next,
-                        .free = (exact_free_fn)ba_free},
-            EMBED_CONTEX(x, p),
-            .i = 0,
-            .b = 0};
+        *state = (struct ba_matcher_state){MATCHER(ba_next, ba_free),
+                                           EMBED_CONTEX(x, p), .i = 0, .b = 0};
         state->ba = malloc((size_t)state->m * sizeof(state->ba[0]));
         if (!state->ba) {
             free(state);
@@ -131,7 +130,7 @@ struct cstr_exact_matcher *cstr_ba_matcher(const char *x, const char *p) {
 
 struct kmp_matcher_state {
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT
+    MATCH_CONTEXT;
     int i, j;
     int *ba;
 };
@@ -167,12 +166,8 @@ static void kmp_free(struct kmp_matcher_state *state) {
 struct cstr_exact_matcher *cstr_kmp_matcher(const char *x, const char *p) {
     struct kmp_matcher_state *state = malloc(sizeof *state);
     if (state) {
-        *state = (struct kmp_matcher_state){
-            .matcher = {.next = (exact_next_fn)kmp_next,
-                        .free = (exact_free_fn)kmp_free},
-            EMBED_CONTEX(x, p),
-            .i = 0,
-            .j = 0};
+        *state = (struct kmp_matcher_state){MATCHER(kmp_next, kmp_free),
+                                            EMBED_CONTEX(x, p), .i = 0, .j = 0};
         state->ba = malloc((size_t)state->m * sizeof(state->ba[0]));
         if (!state->ba) {
             free(state);
