@@ -15,8 +15,8 @@ void free_fasta_records(struct fasta_records *file);
 
 struct fasta_record {
     const char *name;
-    const uint8_t *seq;
-    uint32_t seq_len;
+    const char *seq;
+    size_t seq_len;
 };
 
 uint32_t number_of_fasta_records(struct fasta_records *records);

@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/skew_test.dir/skew_test.c.o"
+  "CMakeFiles/skew_test.dir/skew_test.c.o.d"
   "skew_test"
   "skew_test.pdb"
 )

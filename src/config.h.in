@@ -3,6 +3,6 @@
 
 // If this is set, generate the unit tests of static
 // functions, that we cannot test otherwise.
-#cmakedefine01 GEN_UNIT_TESTS
+#cmakedefine GEN_UNIT_TESTS
 
 #endif

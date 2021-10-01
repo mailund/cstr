@@ -12,7 +12,7 @@
  */
 
 void print_sam_line(FILE *file, const char *qname, const char *rname,
-                    uint32_t pos, const char *cigar, const uint8_t *seq,
+                    int pos, const char *cigar, const char *seq,
                     const char *qual);
 
 #endif

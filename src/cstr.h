@@ -29,7 +29,8 @@
 #define CSTR_PURE_FUNC CSTR_FUNC_ATTR(pure)
 
 // Error handling, primitive as it is...
-enum cstr_errcodes {
+enum cstr_errcodes
+{
     CSTR_NO_ERROR,
     CSTR_ALLOCATION_ERROR, // malloc or similar failed
     CSTR_SIZE_ERROR,       // if the size/length of something is too large
@@ -42,15 +43,18 @@ enum cstr_errcodes {
 // These should be passed by value and never dynmaically allocated.
 // They don't implement any kind of memory management, and the underlying
 // buffer must be handled separately.
-struct cstr_sslice {
+struct cstr_sslice
+{
     char *const buf;
     size_t const len;
 };
-struct cstr_const_sslice {
+struct cstr_const_sslice
+{
     char const *const buf;
     size_t const len;
 };
-struct cstr_islice {
+struct cstr_islice
+{
     unsigned int *const buf;
     size_t const len;
 };
@@ -82,13 +86,16 @@ void cstr_free_islice_buffer(struct cstr_islice *slice);
 
 // When we have slices we allocate, we want the zero-initialised. This macro can
 // do that.
-#define CSTR_NIL_SLICE                                                         \
-    { .buf = 0, .len = 0 }
+#define CSTR_NIL_SLICE     \
+    {                      \
+        .buf = 0, .len = 0 \
+    }
 
 // == ALPHABET =====================================================
 
 // Alphabets, for when we remap strings to smaller alphabets
-struct cstr_alphabet {
+struct cstr_alphabet
+{
     unsigned int size;
     unsigned char map[CSTR_NO_CHARS];
     unsigned char revmap[CSTR_NO_CHARS];
@@ -138,9 +145,9 @@ struct cstr_exact_matcher; // Opaque type
 int cstr_exact_next_match(struct cstr_exact_matcher *matcher);
 
 void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher);
-struct cstr_exact_matcher *cstr_naive_matcher(const char *x, const char *p);
-struct cstr_exact_matcher *cstr_ba_matcher(const char *x, const char *p);
-struct cstr_exact_matcher *cstr_kmp_matcher(const char *x, const char *p);
+struct cstr_exact_matcher *cstr_naive_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
+struct cstr_exact_matcher *cstr_ba_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
+struct cstr_exact_matcher *cstr_kmp_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
 // Suffix array construction
@@ -151,7 +158,8 @@ bool cstr_skew(struct cstr_islice sa, struct cstr_const_sslice x,
 
 char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
 
-struct cstr_bwt_c_table {
+struct cstr_bwt_c_table
+{
     int asize;
     int cumsum[];
 };
@@ -159,7 +167,8 @@ struct cstr_bwt_c_table {
 struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, char const *x,
                                                   int asize);
 void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
-INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i) {
+INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i)
+{
     return ctab->cumsum[(int)i];
 }
 

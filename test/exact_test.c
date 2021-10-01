@@ -12,7 +12,7 @@ TL_TEST(test_simple_exact_cases) {
     {
         const char *x = "aaba";
         const char *p = "a";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(x, p);
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -26,7 +26,7 @@ TL_TEST(test_simple_exact_cases) {
     {
         const char *x = "abab";
         const char *p = "ab";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(x, p);
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -38,7 +38,7 @@ TL_TEST(test_simple_exact_cases) {
     {
         const char *x = "aaaa";
         const char *p = "aa";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(x, p);
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);

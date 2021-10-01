@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <cstr_internal.h>
+
 #include "fasta.h"
 #include "fastq.h"
 #include "sam.h"
 
-typedef struct cstr_exact_matcher *(*algorithm_fn)(const char *, const char *);
+typedef struct cstr_exact_matcher *(*algorithm_fn)(csslice, csslice);
 
 struct alg_choice {
     const char *name;
@@ -54,11 +56,13 @@ int main(int argc, const char *argv[]) {
         init_fasta_iter(&faiter, chromosomes);
         while (next_fasta_record(&faiter, &farec)) {
             matcher =
-                algo((const char *)farec.seq, (const char *)fqrec.sequence);
+                algo(CSTR_CSSLICE(farec.seq, farec.seq_len),
+                     CSTR_CSSLICE_STRING(fqrec.sequence));
+            
             for (int pos = cstr_exact_next_match(matcher); pos != -1;
                  pos = cstr_exact_next_match(matcher)) {
                 print_sam_line(stdout, fqrec.name, farec.name, pos + 1,
-                               cigarbuf, fqrec.sequence, fqrec.quality);
+                               cigarbuf, (const char *)fqrec.sequence, fqrec.quality);
             }
             cstr_free_exact_matcher(matcher);
         }

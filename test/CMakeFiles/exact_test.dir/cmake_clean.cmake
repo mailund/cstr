@@ -1,5 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/exact_test.dir/exact_test.c.o"
+  "CMakeFiles/exact_test.dir/exact_test.c.o.d"
   "exact_test"
   "exact_test.pdb"
 )

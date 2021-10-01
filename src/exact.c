@@ -7,150 +7,178 @@
 typedef int (*exact_next_fn)(struct cstr_exact_matcher *);
 typedef void (*exact_free_fn)(struct cstr_exact_matcher *);
 
-struct cstr_exact_matcher {
+struct cstr_exact_matcher
+{
     exact_next_fn next;
     exact_free_fn free;
+    csslice x, p;
 };
 
 // Helper macro for initialising the matcher header
-#define MATCHER(NEXT, FREE)                                                    \
-    .matcher = (struct cstr_exact_matcher) {                                   \
-        .next = (exact_next_fn)(NEXT), .free = (exact_free_fn)(FREE)           \
+#define MATCHER(NEXT, FREE, X, P)          \
+    .matcher = (struct cstr_exact_matcher) \
+    {                                      \
+        .next = (exact_next_fn)(NEXT),     \
+        .free = (exact_free_fn)(FREE),     \
+        .x = (X),                          \
+        .p = (P)                           \
     }
 
-// For embedding common string info in a state...
-#define MATCH_CONTEXT                                                          \
-    const char *x, *p;                                                         \
-    int n, m
-#define EMBED_CONTEX(X, P)                                                     \
-    .x = (X), .p = (P), .n = (int)strlen(X), .m = (int)strlen(P)
-
-int cstr_exact_next_match(struct cstr_exact_matcher *matcher) {
+// polymorphic interface
+int cstr_exact_next_match(struct cstr_exact_matcher *matcher)
+{
     return matcher->next(matcher);
 }
 
-void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher) {
+void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher)
+{
     matcher->free(matcher);
 }
 
+// macros for readability
+#define x(S) ((S)->matcher.x.buf)
+#define p(S) ((S)->matcher.p.buf)
+#define n(S) ((int)(S)->matcher.x.len)
+#define m(S) ((int)(S)->matcher.p.len)
+
 // Naive O(nm) algorithm
-struct naive_matcher_state {
+struct naive_matcher_state
+{
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT;
     int i;
 };
 
-static int naive_next(struct naive_matcher_state *state) {
-    for (; state->i < state->n; state->i++) {
-        for (int j = 0; j < state->m; j++) {
-            if (state->x[state->i + j] != state->p[j])
+static int naive_next(struct naive_matcher_state *s)
+{
+    for (; s->i < n(s); s->i++)
+    {
+        for (int j = 0; j < m(s); j++)
+        {
+            if (x(s)[s->i + j] != p(s)[j])
                 break;
-            if (j == state->m - 1) {
+            if (j == m(s) - 1)
+            {
                 // a match
-                state->i++; // next time, start from here
-                return state->i - 1;
+                s->i++; // next time, start from here
+                return s->i - 1;
             }
         }
     }
     return -1; // If we get here, we are done.
 }
 
-struct cstr_exact_matcher *cstr_naive_matcher(const char *x, const char *p) {
+struct cstr_exact_matcher *
+cstr_naive_matcher(csslice x, csslice p)
+{
     struct naive_matcher_state *state = malloc(sizeof *state);
-    if (state) {
-        *state = (struct naive_matcher_state){MATCHER(naive_next, free),
-                                              EMBED_CONTEX(x, p), .i = 0};
+    if (state)
+    {
+        // init struct, then move it, to get around const
+        struct naive_matcher_state data = {
+            MATCHER(naive_next, free, x, p),
+            .i = 0};
+        memcpy(state, &data, sizeof data);
     }
     return (void *)state; // void cast to change type
 }
 
 // Border array algorithm O(n+m)
 
-static void compute_border_array(const char *x, int m, int *ba) {
+static void compute_border_array(csslice p, int *ba)
+{
     // Border array
     ba[0] = 0;
-    for (int i = 1; i < m; ++i) {
+    for (int i = 1; i < p.len; ++i)
+    {
         int b = ba[i - 1];
-        while (b > 0 && x[i] != x[b])
+        while (b > 0 && p.buf[i] != p.buf[b])
             b = ba[b - 1];
-        ba[i] = (x[i] == x[b]) ? b + 1 : 0;
+        ba[i] = (p.buf[i] == p.buf[b]) ? b + 1 : 0;
     }
 
     // restricted border array
-    for (uint32_t i = 0; i < m - 1; i++) {
-        if (ba[i] > 0 && x[ba[i]] == x[i + 1])
+    for (uint32_t i = 0; i < p.len - 1; i++)
+    {
+        if (ba[i] > 0 && p.buf[ba[i]] == p.buf[i + 1])
             ba[i] = ba[ba[i] - 1];
     }
 }
 
-struct ba_matcher_state {
+struct ba_matcher_state
+{
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT;
     int i, b;
-    int *ba;
+    int ba[];
 };
 
-static int ba_next(struct ba_matcher_state *state) {
-    int b = state->b;
-    for (int i = state->i; i < state->n; ++i) {
-        while (b > 0 && state->x[i] != state->p[b])
-            b = state->ba[b - 1];
-        b = (state->x[i] == state->p[b]) ? b + 1 : 0;
-        if (b == state->m) {
-            state->i = i + 1;
-            state->b = b;
-            return i - state->m + 1;
+static int ba_next(struct ba_matcher_state *s)
+{
+    for (int i = s->i; i < n(s); ++i)
+    {
+        while (s->b > 0 && x(s)[i] != p(s)[s->b])
+            s->b = s->ba[s->b - 1];
+        s->b = (x(s)[i] == p(s)[s->b]) ? s->b + 1 : 0;
+        if (s->b == m(s))
+        {
+            s->i = i + 1;
+            return i - m(s) + 1;
         }
     }
 
     return -1;
 }
 
-static void ba_free(struct ba_matcher_state *state) {
-    free(state->ba);
-    free(state);
-}
-
-struct cstr_exact_matcher *cstr_ba_matcher(const char *x, const char *p) {
-    struct ba_matcher_state *state = malloc(sizeof *state);
-    if (state) {
-        *state = (struct ba_matcher_state){MATCHER(ba_next, ba_free),
-                                           EMBED_CONTEX(x, p), .i = 0, .b = 0};
-        state->ba = malloc((size_t)state->m * sizeof(state->ba[0]));
-        if (!state->ba) {
-            free(state);
-            return 0;
-        }
-        compute_border_array(p, state->m, state->ba);
+struct cstr_exact_matcher *
+cstr_ba_matcher(csslice x, csslice p)
+{
+    // allocate space for the the struct + the border array
+    // in the flexible array for ba.
+    struct ba_matcher_state *state =
+        malloc(sizeof *state + p.len * sizeof(state->ba[0]));
+    if (state)
+    {
+        // init struct, then move it, to get around const
+        struct ba_matcher_state data = {
+            MATCHER(ba_next, free, x, p),
+            .i = 0, .b = 0};
+        // move sizeof data moves data up to ba, leaving ba
+        // to be filled out afterwards.
+        memcpy(state, &data, sizeof data);
+        compute_border_array(p, state->ba);
     }
     return (void *)state; // void cast to change type
 }
 
 // KMP O(n+m)
 
-struct kmp_matcher_state {
+struct kmp_matcher_state
+{
     struct cstr_exact_matcher matcher;
-    MATCH_CONTEXT;
     int i, j;
-    int *ba;
+    int ba[];
 };
 
-static int kmp_next(struct kmp_matcher_state *state) {
-    int i = state->i;
-    int j = state->j;
-    for (; i < state->n; ++i) {
+static int kmp_next(struct kmp_matcher_state *s)
+{
+    int i = s->i;
+    int j = s->j;
+
+    for (; i < n(s); ++i)
+    {
         // move pattern down...
-        while (j > 0 && state->x[i] != state->p[j])
-            j = state->ba[j - 1];
+        while (j > 0 && x(s)[i] != p(s)[j])
+            j = s->ba[j - 1];
 
         // match...
-        if (state->x[i] == state->p[j]) {
+        if (x(s)[i] == p(s)[j])
+        {
             j++;
-            if (j == state->m) {
+            if (j == m(s))
+            {
                 // we have a match!
-                state->j = state->ba[j - 1];
-                state->i = i + 1;
-                return i - state->m + 1;
+                s->j = s->ba[j - 1];
+                s->i = i + 1;
+                return i - m(s) + 1;
             }
         }
     }
@@ -158,22 +186,28 @@ static int kmp_next(struct kmp_matcher_state *state) {
     return -1;
 }
 
-static void kmp_free(struct kmp_matcher_state *state) {
-    free(state->ba);
-    free(state);
-}
-
-struct cstr_exact_matcher *cstr_kmp_matcher(const char *x, const char *p) {
-    struct kmp_matcher_state *state = malloc(sizeof *state);
-    if (state) {
-        *state = (struct kmp_matcher_state){MATCHER(kmp_next, kmp_free),
-                                            EMBED_CONTEX(x, p), .i = 0, .j = 0};
-        state->ba = malloc((size_t)state->m * sizeof(state->ba[0]));
-        if (!state->ba) {
-            free(state);
-            return 0;
-        }
-        compute_border_array(p, state->m, state->ba);
+struct cstr_exact_matcher *cstr_kmp_matcher(csslice x, csslice p)
+{
+    struct kmp_matcher_state *state =
+        malloc(sizeof *state + p.len * sizeof(state->ba[0]));
+    if (state)
+    {
+        // init struct, then move it, to get around const
+        struct kmp_matcher_state data = {
+            MATCHER(kmp_next, free, x, p),
+            .i = 0, .j = 0};
+        // move sizeof data moves data up to ba, leaving ba
+        // to be filled out afterwards.
+        memcpy(state, &data, sizeof data);
+        compute_border_array(p, state->ba);
     }
     return (void *)state; // void cast to change type
 }
+
+// while these are only defined in this compilation unit, and will
+// go out of scope now anyway, I just get rid of them to clean up.
+// You never know what I might add below here later...
+#undef x
+#undef p
+#undef n
+#undef m

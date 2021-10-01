@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *load_file(const char *fname) {
+char *load_file(const char *fname) {
     FILE *f = fopen(fname, "rb");
     if (!f)
         return 0;
@@ -15,7 +15,7 @@ uint8_t *load_file(const char *fname) {
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET); // rewinding
 
-    uint8_t *string = malloc(fsize + 1);
+    char *string = malloc(fsize + 1);
     fread(string, fsize, 1, f);
 
     string[fsize] = 0;
@@ -26,19 +26,19 @@ uint8_t *load_file(const char *fname) {
 
 struct fasta_record_impl {
     const char *name;
-    const uint8_t *seq;
+    const char *seq;
     uint32_t seq_len;
     uint32_t no_records;
     struct fasta_record_impl *next;
 };
 struct fasta_records {
-    uint8_t *buffer;
+    char *buffer;
     struct fasta_record_impl *recs;
 };
 
 struct packing {
-    uint8_t *front;
-    uint8_t *pack;
+    char *front;
+    char *pack;
 };
 
 static void pack_name(struct packing *pack) {
@@ -84,7 +84,7 @@ static void pack_seq(struct packing *pack) {
     }
 }
 
-static struct fasta_record_impl *alloc_rec(const char *name, const uint8_t *seq,
+static struct fasta_record_impl *alloc_rec(const char *name, const char *seq,
                                            uint32_t seq_len,
                                            uint32_t no_records,
                                            struct fasta_record_impl *next) {
@@ -101,7 +101,7 @@ struct fasta_records *load_fasta_records(const char *fname) {
     // stuff to deallocated in case of errors
     struct fasta_records *rec = 0;
 
-    uint8_t *string = load_file(fname);
+    char *string = load_file(fname);
     if (!string) {
         // This is the first place we allocate a resource
         // and it wasn't allocated, so we just return rather
@@ -114,7 +114,7 @@ struct fasta_records *load_fasta_records(const char *fname) {
     rec->recs = 0;
 
     char *name;
-    uint8_t *seq;
+    char *seq;
     struct packing pack = {rec->buffer, rec->buffer};
     while (pack.front) {
         name = (char *)pack.pack;
@@ -128,7 +128,7 @@ struct fasta_records *load_fasta_records(const char *fname) {
         pack_seq(&pack);
 
         rec->recs =
-            alloc_rec(name, (uint8_t *)seq, (uint32_t)(pack.pack - seq - 1),
+            alloc_rec(name, (char *)seq, (uint32_t)(pack.pack - seq - 1),
                       (rec->recs) ? rec->recs->no_records + 1 : 1, rec->recs);
         // fprintf(stderr, "read record %s\n", name);
     }
@@ -169,7 +169,8 @@ uint32_t number_of_fasta_records(struct fasta_records *records) {
     return records->recs->no_records;
 }
 
-bool lookup_fasta_record_by_name(struct fasta_records *file, const char *name,
+bool lookup_fasta_record_by_name(struct fasta_records *file,
+                                 const char *name,
                                  struct fasta_record *record) {
     struct fasta_record_impl *rec = file->recs;
     while (rec) {
