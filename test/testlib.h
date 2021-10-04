@@ -1,75 +1,61 @@
 #ifndef TESTLIB_H
 #define TESTLIB_H
 
-/*
-WARNING:
-This testing library is unsafe as hell. I'm using
-underscore names, that might clash with system libraries,
-I'm using longjmp to escape tests, that will almost
-surely leak memory, and I use a lot of macros that
-inject variables into functions. It is *not* something
-you should use in production code. It is just something
-quick and dirty for testing, and certainly nothing more.
-*/
-
-#include <setjmp.h>
 #include <stdio.h>
 
 struct tl_state
 {
     int no_tests;
     int no_errors;
-    jmp_buf escape;
 };
 
-void tl_error(struct tl_state *state, char *msg);
-void tl_fatal(struct tl_state *state, char *msg);
+#define TL_PRINT_ERR(FMT, ...)             \
+    fprintf(stderr, "error: %s(%d): " FMT, \
+            __FILE__, __LINE__, __VA_ARGS__);
 
-#define TL_FORMAT_ERR(ERRFN, STATE, FMT, ...)  \
-    do                                         \
-    {                                          \
-        char buf[1024];                        \
-        snprintf(buf, 1024, FMT, __VA_ARGS__); \
-        (ERRFN)((STATE), buf);                 \
+#define _TL_ERROR_IF(EXPR, FMT, ...)        \
+    do                                      \
+    {                                       \
+        _tl_state_.no_tests++;              \
+        if (EXPR)                           \
+        {                                   \
+            _tl_state_.no_errors++;         \
+            TL_PRINT_ERR(FMT, __VA_ARGS__); \
+        }                                   \
     } while (0)
 
-#define TL_DO_TEST(EXPR, ERRFN, STATE, FMT, ...)             \
-    do                                                       \
-    {                                                        \
-        _tl_state_.no_tests++;                               \
-        if (EXPR)                                            \
-        {                                                    \
-            TL_FORMAT_ERR(ERRFN, (STATE), FMT, __VA_ARGS__); \
-        }                                                    \
+#define TL_ERROR_IF(EXPR) \
+    _TL_ERROR_IF(EXPR, "%s\n", #EXPR)
+
+#define TL_FATAL_IF(EXPR)                \
+    do                                   \
+    {                                    \
+        _tl_state_.no_tests++;           \
+        if (EXPR)                        \
+        {                                \
+            _tl_state_.no_errors++;      \
+            TL_PRINT_ERR("%s\n", #EXPR); \
+            goto _tl_escape_;            \
+        }                                \
     } while (0)
 
-#define TL_ERROR_IF(EXPR)                                                    \
-    TL_DO_TEST(EXPR, tl_error, &_tl_state_, "error: %s(%d): %s\n", __FILE__, \
-               __LINE__, #EXPR);
-
-#define TL_FATAL_IF(EXPR)                                                    \
-    TL_DO_TEST(EXPR, tl_fatal, &_tl_state_, "fatal: %s(%d): %s\n", __FILE__, \
-               __LINE__, #EXPR);
-
-#define TL_ERROR_IF_NEQ_INT(A, B)                                     \
-    if ((A) != (B))                                                   \
-    TL_FORMAT_ERR(tl_error, &_tl_state_, "error: %s(%d): %d != %d\n", \
-                  __FILE__, __LINE__, A, B)
+#define TL_ERROR_IF_NEQ_INT(A, B) \
+    _TL_ERROR_IF((A) != (B), "%d != %d\n", A, B)
 
 #define TL_TEST_PROTOTYPE(NAME) bool NAME(void);
-
 #define TL_TEST(NAME) bool NAME(void)
 
-#define TL_BEGIN()                                 \
-    struct tl_state _tl_state_ = {.no_errors = 0}; \
-    if (setjmp(_tl_state_.escape))                 \
-    {                                              \
-        goto _tl_escape_;                          \
-    }
+#define TL_BEGIN()                      \
+    struct tl_state _tl_state_ = {      \
+        .no_tests = 0, .no_errors = 0}; \
+    if (0)                              \
+        goto _tl_escape_; /* to avoid warnings */
 
 #define TL_END()                                                        \
     if (_tl_state_.no_errors == 0)                                      \
     {                                                                   \
+        fprintf(stderr, "%d tests passed in %s.\n",                     \
+                _tl_state_.no_tests, __func__);                         \
         return true; /* success */                                      \
     }                                                                   \
     else                                                                \
@@ -82,7 +68,8 @@ void tl_fatal(struct tl_state *state, char *msg);
     fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
     return false;
 
-#define TL_BEGIN_TEST_SUITE() struct tl_state _tl_state_ = {.no_errors = 0};
+#define TL_BEGIN_TEST_SUITE() \
+    TL_BEGIN()
 
 #define TL_RUN_TEST(FUNC)           \
     do                              \
@@ -92,20 +79,26 @@ void tl_fatal(struct tl_state *state, char *msg);
             _tl_state_.no_errors++; \
     } while (0)
 
-#define TL_END_SUITE()                                                \
-    if (_tl_state_.no_errors == 0)                                    \
-    {                                                                 \
-        fprintf(stderr, "%s completed witout errors.\n", __func__);   \
-        return 0; /* success */                                       \
-    }                                                                 \
-    else                                                              \
-    {                                                                 \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n",         \
-                _tl_state_.no_errors, _tl_state_.no_tests, __func__); \
-        return 1;                                                     \
-    }
+#define TL_END_SUITE()                                                  \
+    if (_tl_state_.no_errors == 0)                                      \
+    {                                                                   \
+        fprintf(stderr, "%d tests passed in %s.\n",                     \
+                _tl_state_.no_tests, __func__);                         \
+        return 0; /* success */                                         \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        fprintf(stderr, "%d out of %d tests failed in %s.\n",           \
+                _tl_state_.no_errors, _tl_state_.no_tests, __func__);   \
+        return 1;                                                       \
+    }                                                                   \
+    _tl_escape_:                                                        \
+    fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
+    return 1;
 
-int tl_test_array(void *restrict expected, void *restrict actual, size_t arrlen,
+int tl_test_array(void *restrict expected,
+                  void *restrict actual,
+                  size_t arrlen,
                   size_t objsize);
 
 #define _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, HANDLER)         \
@@ -120,33 +113,57 @@ int tl_test_array(void *restrict expected, void *restrict actual, size_t arrlen,
         }                                                             \
     } while (0)
 
-#define _TL_HANDLE_ARRAY_GENERIC(EXPECTED, ACTUAL, IDX)                       \
-    TL_FORMAT_ERR(tl_error, &_tl_state_, "error: %s(%d): %s[%d] != %s[%d]\n", \
-                  __FILE__, __LINE__, #EXPECTED, IDX, #ACTUAL, IDX)
-#define _TL_HANDLE_ARRAY_GENERIC_FATAL(EXPECTED, ACTUAL, IDX)                 \
-    TL_FORMAT_ERR(tl_fatal, &_tl_state_, "fatal: %s(%d): %s[%d] != %s[%d]\n", \
-                  __FILE__, __LINE__, #EXPECTED, IDX, #ACTUAL, IDX)
+#define _TL_HANDLE_ARRAY_GENERIC(EXPECTED, ACTUAL, IDX) \
+    do                                                  \
+    {                                                   \
+        _tl_state_.no_errors++;                         \
+        TL_PRINT_ERR("%s[%d] != %s[%d]\n",              \
+                     #EXPECTED, IDX, #ACTUAL, IDX);     \
+    } while (0)
+
+#define _TL_HANDLE_ARRAY_GENERIC_FATAL(EXPECTED, ACTUAL, IDX) \
+    do                                                        \
+    {                                                         \
+        _tl_state_.no_errors++;                               \
+        TL_PRINT_ERR("%s[%d] != %s[%d]\n",                    \
+                     #EXPECTED, IDX, #ACTUAL, IDX);           \
+        goto _tl_escape_;                                     \
+    } while (0)
+
+#define _TL_HANDLE_ARRAY_INT(EXPECTED, ACTUAL, IDX)     \
+    do                                                  \
+    {                                                   \
+        _tl_state_.no_errors++;                         \
+        TL_PRINT_ERR("%s[%d] (%d) != %s[%d] (%d)\n",    \
+                     #EXPECTED, IDX, (EXPECTED)[(IDX)], \
+                     #ACTUAL, IDX, (ACTUAL)[(IDX)]);    \
+    } while (0)
+
+#define _TL_HANDLE_ARRAY_INT_FATAL(EXPECTED, ACTUAL, IDX) \
+    do                                                    \
+    {                                                     \
+        _tl_state_.no_errors++;                           \
+        TL_PRINT_ERR("%s[%d] (%d) != %s[%d] (%d)\n",      \
+                     #EXPECTED, IDX, (EXPECTED)[(IDX)],   \
+                     #ACTUAL, IDX, (ACTUAL)[(IDX)]);      \
+        goto _tl_escape_;                                 \
+    } while (0)
 
 #define TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, _TL_HANDLE_ARRAY_GENERIC)
-#define TL_TEST_EQUAL_ARRAYS_FATAL(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, _TL_HANDLE_ARRAY_GENERIC_FATAL)
+    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,    \
+                          _TL_HANDLE_ARRAY_GENERIC)
 
-#define _TL_HANDLE_ARRAY_INT(EXPECTED, ACTUAL, IDX)                          \
-    TL_FORMAT_ERR(tl_error, &_tl_state_,                                     \
-                  "error: %s(%d): %s[%d] (%d) != %s[%d] (%d)\n", __FILE__,   \
-                  __LINE__, #EXPECTED, IDX, (EXPECTED)[(IDX)], #ACTUAL, IDX, \
-                  (ACTUAL)[(IDX)])
-#define _TL_HANDLE_ARRAY_INT_FATAL(EXPECTED, ACTUAL, IDX)                    \
-    TL_FORMAT_ERR(tl_fatal, &_tl_state_,                                     \
-                  "fatal: %s(%d): %s[%d] (%d) != %s[%d] (%d)\n", __FILE__,   \
-                  __LINE__, #EXPECTED, IDX, (EXPECTED)[(IDX)], #ACTUAL, IDX, \
-                  (ACTUAL)[(IDX)])
+#define TL_TEST_EQUAL_ARRAYS_FATAL(EXPECTED, ACTUAL, LEN) \
+    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,          \
+                          _TL_HANDLE_ARRAY_GENERIC_FATAL)
 
 #define TL_TEST_EQUAL_INT_ARRAYS(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, _TL_HANDLE_ARRAY_INT)
+    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,        \
+                          _TL_HANDLE_ARRAY_GENERIC)
+
 #define TL_TEST_EQUAL_INT_ARRAYS_FATAL(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, _TL_HANDLE_ARRAY_INT_FATAL)
+    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,              \
+                          _TL_HANDLE_ARRAY_GENERIC_FATAL)
 
 // Generating test strings
 void tl_random_string(const char *alpha, int alpha_size, char *buf,
