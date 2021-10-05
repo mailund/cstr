@@ -250,10 +250,10 @@ static bool skew_rec(islice sa, islice x, int asize, errcodes *err)
 {
     bool ok = false;
 
-    islice sa12 = CSTR_NIL_ISLICE,
-           sa3 = CSTR_NIL_ISLICE,
-           u = CSTR_NIL_ISLICE,
-           u_sa = CSTR_NIL_ISLICE;
+    islice sa12 = CSTR_ISLICE(0, 0),
+           sa3 = CSTR_ISLICE(0, 0),
+           u = CSTR_ISLICE(0, 0),
+           u_sa = CSTR_ISLICE(0, 0);
     int *encoding = 0;
 
     try_alloc(done, CSTR_ALLOC_SLICE_BUFFER(sa12, sa12len(x.len)));

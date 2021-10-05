@@ -54,29 +54,23 @@ struct cstr_islice
     size_t len;
 };
 
-#define CSTR_SLICE(TYPE, BUF, LEN) ((TYPE){.buf = (BUF), .len = (LEN)})
-#define CSTR_SSLICE(BUF, LEN) CSTR_SLICE(struct cstr_sslice, BUF, LEN)
-#define CSTR_ISLICE(BUF, LEN) CSTR_SLICE(struct cstr_islice, BUF, LEN)
+#define CSTR_SLICE_STRUCT(TYPE, BUF, LEN) \
+    ((TYPE){.buf = (BUF), .len = (LEN)})
+#define CSTR_SSLICE(BUF, LEN) \
+    CSTR_SLICE_STRUCT(struct cstr_sslice, BUF, LEN)
+#define CSTR_ISLICE(BUF, LEN) \
+    CSTR_SLICE_STRUCT(struct cstr_islice, BUF, LEN)
 
 #define CSTR_SSLICE_STRING(STR) CSTR_SSLICE(STR, strlen(STR))
 
-// When we have slices we allocate, we want them zero-initialised. This macro can
-// do that.
-#define CSTR_NIL_SLICE(TYPE) CSTR_SLICE(TYPE, 0, 0)
-#define CSTR_NIL_SSLICE CSTR_NIL_SLICE(struct cstr_sslice)
-#define CSTR_NIL_ISLICE CSTR_NIL_SLICE(struct cstr_islice)
-
 // Allocate a new buffer for a slice
-INLINE bool cstr_alloc_slice_buffer(void **buf, size_t *len,
-                                    size_t new_len, size_t elm_size)
-{
-    assert(*buf == 0); // safety check to avoid mem leak
-    *buf = malloc(new_len * elm_size);
-    *len = (*buf) ? new_len : 0;
-    return !!*buf;
-}
-#define CSTR_ALLOC_SLICE_BUFFER(VAR, LEN) \
-    cstr_alloc_slice_buffer((void **)(&(VAR).buf), &(VAR).len, LEN, sizeof(VAR).buf[0])
+// FIXME: It is evaluating the LEN argument twice, but this is the only
+// way I can make a macro return a value. I would need to wrap it
+// some other way if I wanted to avoid that.
+#define CSTR_ALLOC_SLICE_BUFFER(SLICE, LEN)              \
+    ((SLICE).buf = malloc((LEN) * sizeof(SLICE).buf[0]), \
+     (SLICE).len = (LEN),                                \
+     !!(SLICE).buf)
 
 #define CSTR_FREE_SLICE_BUFFER(SLICE) \
     do                                \
@@ -87,8 +81,7 @@ INLINE bool cstr_alloc_slice_buffer(void **buf, size_t *len,
     } while (0)
 
 // Comparing string-slices
-bool cstr_sslice_eq(struct cstr_sslice x,
-                    struct cstr_sslice y);
+bool cstr_sslice_eq(struct cstr_sslice x, struct cstr_sslice y);
 
 // == ALPHABET =====================================================
 
@@ -129,12 +122,6 @@ bool cstr_alphabet_revmap(struct cstr_sslice dst,
                           struct cstr_alphabet const *alpha,
                           enum cstr_errcodes *err);
 
-// FIXME: probably remove this
-// Allocate new buffer and map a string back into it.
-char *cstr_alphabet_revmap_new(struct cstr_sslice src,
-                               struct cstr_alphabet const *alpha,
-                               enum cstr_errcodes *err) CSTR_MALLOC_FUNC;
-
 // == EXACT MATCHERS =============================
 struct cstr_exact_matcher; // Opaque type
 
@@ -156,7 +143,7 @@ bool cstr_skew(struct cstr_islice sa, struct cstr_sslice x,
 
 // ==== Burrows-Wheeler transform =================================
 
-char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
+char *cstr_bwt(int n, char const *x, int sa[n]);
 
 struct cstr_bwt_c_table
 {

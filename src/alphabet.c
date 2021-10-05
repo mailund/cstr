@@ -60,26 +60,6 @@ done:
     return ok;
 }
 
-#if 0 // DELETE
-char* cstr_alphabet_map_new(
-    csslice src,
-    alpha const* alpha,
-    errcodes* err)
-{
-    char* dst = 0;
-    clear_error();
-
-    try_alloc(error, dst = malloc(src.len + 1));
-    try_reraise(error,
-        cstr_alphabet_map(CSTR_SSLICE(dst, src.len), src, alpha, err));
-
-    return dst;
-
-error:
-    free(dst);
-    return 0;
-}
-#endif
 
 bool cstr_alphabet_map_to_int(
     islice dst,
@@ -149,22 +129,3 @@ error:
     return false;
 }
 
-char *cstr_alphabet_revmap_new(
-    sslice src,
-    alpha const *alpha,
-    errcodes *err)
-{
-    char *dst = 0;
-    clear_error();
-
-    try_alloc(error,
-              dst = malloc(src.len + 1));
-    try_reraise(error,
-                cstr_alphabet_revmap(CSTR_SSLICE(dst, src.len), src, alpha, err));
-
-    return dst;
-
-error:
-    free(dst);
-    return 0;
-}

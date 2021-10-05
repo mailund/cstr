@@ -46,7 +46,7 @@ TL_TEST(test_mapping)
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
     
-    sslice mapped = CSTR_NIL_SSLICE;
+    sslice mapped = CSTR_SSLICE(0, 0);
     TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(mapped, x.len));
     
     ok = cstr_alphabet_map(mapped, x, &alpha, &err);
@@ -57,9 +57,17 @@ TL_TEST(test_mapping)
 
 
     ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha, &err);
-    TL_FATAL_IF(!ok);
-    TL_FATAL_IF(CSTR_MAPPING_ERROR != err);
+    TL_ERROR_IF(ok);
+    TL_ERROR_IF(CSTR_SIZE_ERROR != err);
 
+    CSTR_FREE_SLICE_BUFFER(mapped);
+    
+    TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(mapped, strlen("qux")));
+    ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha, &err);
+    TL_ERROR_IF(ok);
+    TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
+
+    
     // let us see if we get an error if the dst has the wrong length.
     // we use a null pointer, but it is okay because we shouldn't even touch it
     ok = cstr_alphabet_map(CSTR_SSLICE(0, 3), x, &alpha, &err);
@@ -112,14 +120,14 @@ TL_TEST(test_revmapping)
     sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    sslice mapped = CSTR_NIL_SSLICE;
+    sslice mapped = CSTR_SSLICE(0, 0);
     TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(mapped, x.len));
     
     bool ok = cstr_alphabet_map(mapped, x, &alpha, &err);
     TL_FATAL_IF(!ok);
     TL_FATAL_IF(CSTR_NO_ERROR != err);
 
-    sslice rev = CSTR_NIL_SSLICE;
+    sslice rev = CSTR_SSLICE(0, 0);
     TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(rev, x.len));
 
     ok = cstr_alphabet_revmap(rev, mapped, &alpha, &err);

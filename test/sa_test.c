@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <cstr.h>
+#include <cstr_internal.h>
 #include "testlib.h"
 
 void check_suffix_ordered(char const* x, struct cstr_islice sa)
@@ -13,18 +14,18 @@ void check_suffix_ordered(char const* x, struct cstr_islice sa)
     }
 }
 
-void test_mississippi()
+TL_TEST(test_mississippi)
 {
     TL_BEGIN();
     
-    struct cstr_const_sslice x = CSTR_CSSLICE_STRING("mississippi");
+    sslice x = CSTR_SSLICE_STRING("mississippi");
     enum cstr_errcodes err;
 
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice sa = CSTR_NIL_SLICE;
-    bool ok = cstr_alloc_islice_buffer(&sa, x.len + 1);
+    struct cstr_islice sa = CSTR_ISLICE(0, 0);
+    bool ok = CSTR_ALLOC_SLICE_BUFFER(sa, x.len + 1);
     TL_FATAL_IF(!ok);
     assert(sa.buf); // For the static analyser
 
@@ -39,13 +40,14 @@ void test_mississippi()
 
     check_suffix_ordered(x.buf, sa);
 
-    cstr_free_islice_buffer(&sa);
+    CSTR_FREE_SLICE_BUFFER(sa);
     
     TL_END();
 }
 
 int main(void)
 {
-    test_mississippi();
-    return 0;
+    TL_BEGIN_TEST_SUITE("sa_test");
+    TL_RUN_TEST(test_mississippi);
+    TL_END_SUITE();
 }
