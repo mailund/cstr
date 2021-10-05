@@ -3,11 +3,11 @@
 #include <string.h>
 
 #include <cstr.h>
-#include <cstr_internal.h>
 
 #include "testlib.h"
 
-TL_TEST(test_simple_exact_cases) {
+TL_TEST(test_simple_exact_cases)
+{
     TL_BEGIN();
     {
         const char *x = "aaba";
@@ -67,8 +67,9 @@ int main(void) {
 }
 #endif
 
-int main(void) {
-    TL_BEGIN_TEST_SUITE()
+int main(void)
+{
+    TL_BEGIN_TEST_SUITE("exact_test");
     TL_RUN_TEST(test_simple_exact_cases);
     TL_END_SUITE();
 }

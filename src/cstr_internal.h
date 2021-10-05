@@ -8,7 +8,8 @@
 #include "unittests.h"
 
 #define set_error(CODE)    \
-    do {                   \
+    do                     \
+    {                      \
         if (err)           \
             *err = (CODE); \
     } while (0)
@@ -17,8 +18,10 @@
 // If EXPR is false-y, set the error code and jump
 // to LABEL
 #define error_goto_if(EXPR, LABEL, CODE) \
-    do {                                 \
-        if (EXPR) {                      \
+    do                                   \
+    {                                    \
+        if (EXPR)                        \
+        {                                \
             set_error(CODE);             \
             goto LABEL;                  \
         }                                \
@@ -31,17 +34,22 @@
 // if we just want to jump to error handling but not set err because
 // it is already set.
 #define reraise_error_if(EXPR, LABEL) \
-    do {                              \
+    do                                \
+    {                                 \
         if (EXPR)                     \
             goto LABEL;               \
     } while (0)
 
 // We allocate a lot, so convinience macro for that
-#define try_alloc(LABEL, EXPR) alloc_error_if(!(EXPR), LABEL)
-#define try_alloc_flag(LABEL, FLAG, EXPR) alloc_error_if(!(FLAG = !!(EXPR)), LABEL)
+#define try_alloc(LABEL, EXPR) \
+    alloc_error_if(!(EXPR), LABEL)
+#define try_alloc_flag(LABEL, FLAG, EXPR) \
+    alloc_error_if(!(FLAG = !!(EXPR)), LABEL)
 // Re-raise an existing error if EXPR evaluates to false-y.
-#define try_reraise(LABEL, EXPR) reraise_error_if(!(EXPR), LABEL)
-#define try_reraise_flag(LABEL, FLAG, EXPR) reraise_error_if(!(FLAG = !!(EXPR)), LABEL)
+#define try_reraise(LABEL, EXPR) \
+    reraise_error_if(!(EXPR), LABEL)
+#define try_reraise_flag(LABEL, FLAG, EXPR) \
+    reraise_error_if(!(FLAG = !!(EXPR)), LABEL)
 
 // shorten names a bit for the internal code...
 typedef enum cstr_errcodes errcodes;
@@ -52,7 +60,8 @@ typedef struct cstr_islice islice;
 
 // set pointers to 0 when we free them
 #define free_and_null(p) \
-    do {                 \
+    do                   \
+    {                    \
         free(p);         \
         p = 0;           \
     } while (0)

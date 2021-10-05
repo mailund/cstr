@@ -3,7 +3,8 @@
     "files.associations": {
         "__locale": "c",
         "cstr_internal.h": "c",
-        "unittests.h": "c"
+        "unittests.h": "c",
+        "cstr.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }

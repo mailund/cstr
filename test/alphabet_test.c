@@ -10,8 +10,6 @@ TL_TEST(test_create_alphabet)
 {
     TL_BEGIN();
 
-    enum cstr_errcodes err;
-
     char const *x = "foobar";
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, CSTR_CSSLICE_STRING(x));
@@ -122,7 +120,7 @@ TL_TEST(test_revmapping)
 
 int main(void)
 {
-    TL_BEGIN_TEST_SUITE()
+    TL_BEGIN_TEST_SUITE("alphabet_test");
     TL_RUN_TEST(test_create_alphabet);
     TL_RUN_TEST(test_mapping);
     TL_RUN_TEST(test_int_mapping);

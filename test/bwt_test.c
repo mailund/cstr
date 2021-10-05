@@ -24,6 +24,7 @@ int main(void)
     struct cstr_islice sa = CSTR_NIL_SLICE;
     bool ok = cstr_alloc_islice_buffer(&sa, x.len);
     assert(ok);
+    assert(sa.buf); // For the static analyser
 
     enum cstr_errcodes err;
     ok = cstr_skew(sa, x, &alpha, &err);

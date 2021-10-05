@@ -23,79 +23,31 @@ struct tl_state
             TL_PRINT_ERR(FMT, __VA_ARGS__); \
         }                                   \
     } while (0)
+#define _TL_FATAL_IF(EXPR, FMT, ...)        \
+    do                                      \
+    {                                       \
+        _tl_state_.no_tests++;              \
+        if (EXPR)                           \
+        {                                   \
+            _tl_state_.no_errors++;         \
+            TL_PRINT_ERR(FMT, __VA_ARGS__); \
+            goto _tl_escape_;               \
+        }                                   \
+    } while (0)
 
+// MARK: Testing expressions
 #define TL_ERROR_IF(EXPR) \
     _TL_ERROR_IF(EXPR, "%s\n", #EXPR)
+#define TL_FATAL_IF(EXPR) \
+    _TL_FATAL_IF(EXPR, "%s\n", #EXPR)
 
-#define TL_FATAL_IF(EXPR)                \
-    do                                   \
-    {                                    \
-        _tl_state_.no_tests++;           \
-        if (EXPR)                        \
-        {                                \
-            _tl_state_.no_errors++;      \
-            TL_PRINT_ERR("%s\n", #EXPR); \
-            goto _tl_escape_;            \
-        }                                \
-    } while (0)
-
+// MARK: Testing integers
 #define TL_ERROR_IF_NEQ_INT(A, B) \
     _TL_ERROR_IF((A) != (B), "%d != %d\n", A, B)
+#define TL_FATAL_IF_NEQ_INT(A, B) \
+    _TL_FATAL_IF((A) != (B), "%d != %d\n", A, B)
 
-#define TL_TEST_PROTOTYPE(NAME) bool NAME(void);
-#define TL_TEST(NAME) bool NAME(void)
-
-#define TL_BEGIN()                      \
-    struct tl_state _tl_state_ = {      \
-        .no_tests = 0, .no_errors = 0}; \
-    if (0)                              \
-        goto _tl_escape_; /* to avoid warnings */
-
-#define TL_END()                                                        \
-    if (_tl_state_.no_errors == 0)                                      \
-    {                                                                   \
-        fprintf(stderr, "%d tests passed in %s.\n",                     \
-                _tl_state_.no_tests, __func__);                         \
-        return true; /* success */                                      \
-    }                                                                   \
-    else                                                                \
-    {                                                                   \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n",           \
-                _tl_state_.no_errors, _tl_state_.no_tests, __func__);   \
-        return false;                                                   \
-    }                                                                   \
-    _tl_escape_:                                                        \
-    fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
-    return false;
-
-#define TL_BEGIN_TEST_SUITE() \
-    TL_BEGIN()
-
-#define TL_RUN_TEST(FUNC)           \
-    do                              \
-    {                               \
-        _tl_state_.no_tests++;      \
-        if (FUNC() != true)         \
-            _tl_state_.no_errors++; \
-    } while (0)
-
-#define TL_END_SUITE()                                                  \
-    if (_tl_state_.no_errors == 0)                                      \
-    {                                                                   \
-        fprintf(stderr, "%d tests passed in %s.\n",                     \
-                _tl_state_.no_tests, __func__);                         \
-        return 0; /* success */                                         \
-    }                                                                   \
-    else                                                                \
-    {                                                                   \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n",           \
-                _tl_state_.no_errors, _tl_state_.no_tests, __func__);   \
-        return 1;                                                       \
-    }                                                                   \
-    _tl_escape_:                                                        \
-    fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
-    return 1;
-
+// MARK: Testing arrays
 int tl_test_array(void *restrict expected,
                   void *restrict actual,
                   size_t arrlen,
@@ -165,8 +117,66 @@ int tl_test_array(void *restrict expected,
     _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,              \
                           _TL_HANDLE_ARRAY_GENERIC_FATAL)
 
-// Generating test strings
-void tl_random_string(const char *alpha, int alpha_size, char *buf,
-                      int buf_len);
+// MARK: Setting up test functions
+#define TL_TEST_PROTOTYPE(NAME) bool NAME(void);
+#define TL_TEST(NAME) bool NAME(void)
+
+#define TL_BEGIN()                      \
+    struct tl_state _tl_state_ = {      \
+        .no_tests = 0, .no_errors = 0}; \
+    if (0)                              \
+        goto _tl_escape_; /* to avoid warnings */
+
+#define TL_END()                                                        \
+    if (_tl_state_.no_errors == 0)                                      \
+    {                                                                   \
+        fprintf(stderr, "%d tests passed in %s.\n",                     \
+                _tl_state_.no_tests, __func__);                         \
+        return true; /* success */                                      \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        fprintf(stderr, "%d out of %d tests failed in %s.\n",           \
+                _tl_state_.no_errors, _tl_state_.no_tests, __func__);   \
+        return false;                                                   \
+    }                                                                   \
+    _tl_escape_:                                                        \
+    fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
+    return false;
+
+#define TL_BEGIN_TEST_SUITE(NAME) \
+    TL_BEGIN();                   \
+    const char *_tl_suite_name_ = NAME
+
+#define TL_RUN_TEST(FUNC)           \
+    do                              \
+    {                               \
+        _tl_state_.no_tests++;      \
+        if (FUNC() != true)         \
+            _tl_state_.no_errors++; \
+    } while (0)
+
+#define TL_END_SUITE()                                        \
+    if (_tl_state_.no_errors == 0)                            \
+    {                                                         \
+        fprintf(stderr, "%d tests passed in suite %s.\n",     \
+                _tl_state_.no_tests, _tl_suite_name_);        \
+        return 0; /* success */                               \
+    }                                                         \
+    else                                                      \
+    {                                                         \
+        fprintf(stderr, "%d out of %d tests failed in %s.\n", \
+                _tl_state_.no_errors, _tl_state_.no_tests,    \
+                _tl_suite_name_);                             \
+        return 1;                                             \
+    }                                                         \
+    _tl_escape_:                                              \
+    fprintf(stderr, "aborting test %s after fatal error.\n",  \
+            _tl_suite_name_);                                 \
+    return 1;
+
+// MARK: Generating test strings
+void tl_random_string(const char *alpha, int alpha_size,
+                      char *buf, int buf_len);
 
 #endif // TESTLIB_H
