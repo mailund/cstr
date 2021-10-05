@@ -54,7 +54,6 @@
 // shorten names a bit for the internal code...
 typedef enum cstr_errcodes errcodes;
 typedef struct cstr_alphabet alpha;
-typedef struct cstr_const_sslice csslice;
 typedef struct cstr_sslice sslice;
 typedef struct cstr_islice islice;
 

@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 // The number of characters we have for char * strings.
@@ -40,56 +41,73 @@ enum cstr_errcodes
 // ==== SLICES =====================================================
 
 // slices, for easier handling of sub-strings and sub-arrays.
-// These should be passed by value and never dynmaically allocated.
-// They don't implement any kind of memory management, and the underlying
-// buffer must be handled separately.
+// These should be passed by value and never dynamically allocated
+// (although the underlying buffer can be).
 struct cstr_sslice
 {
-    char *const buf;
-    size_t const len;
-};
-struct cstr_const_sslice
-{
-    char const *const buf;
-    size_t const len;
+    char *buf;
+    size_t len;
 };
 struct cstr_islice
 {
-    unsigned int *const buf;
-    size_t const len;
+    int *buf;
+    size_t len;
 };
+
+// FIXME Hack to get a typeof()
+#if 0
+#define CSTR_SLICE_TYPE(x)         \
+    _Generic((x),                  \
+             struct cstr_sslice    \
+             : struct cstr_sslice, \
+               struct cstr_islice  \
+             : struct cstr_islice)
+#endif
 
 #define CSTR_SLICE(TYPE, BUF, LEN) ((TYPE){.buf = (BUF), .len = (LEN)})
 
+// get type from var (without non-standard typeof)
+#define CSTR_SLICE_VAR(VAR, BUF, LEN)                              \
+    .Generic((VAR),                                                \
+             struct cstr_sslice                                    \
+             : ((struct cstr_sslice){.buf = (BUF), .len = (LEN)}), \
+               struct cstr_islice                                  \
+             : ((struct cstr_islice){.buf = (BUF), .len = (LEN)}))
+
 #define CSTR_SSLICE(BUF, LEN) CSTR_SLICE(struct cstr_sslice, BUF, LEN)
-#define CSTR_SSLICE_STRING(STR) CSTR_SSLICE(STR, strlen(STR))
-
-#define CSTR_CSSLICE(BUF, LEN) CSTR_SLICE(struct cstr_const_sslice, BUF, LEN)
-#define CSTR_CSSLICE_STRING(STR) CSTR_CSSLICE(STR, strlen(STR))
-
 #define CSTR_ISLICE(BUF, LEN) CSTR_SLICE(struct cstr_islice, BUF, LEN)
 
-// WARNING: using the allocation and deallocation of slices is somewhat
-// dangerious. We usually just want to pass slices as function arguments, but
-// there are situations where we want to allocate memory for the underlying
-// buffer as part of initialising a slice. The following code can do that, but
-// the underlying buffer must be freed again. You can do that with the
-// corresponding free methods. None of the functions allocate or deallocate the
-// actual slice; they only touch the underlying buffer. To prevent leaks, the
-// buf pointer must be null when you allocate a new buffer. It isn't perfect,
-// but it is a slight consistency check.
-bool cstr_alloc_sslice_buffer(struct cstr_sslice *slice, size_t len);
-void cstr_free_sslice_buffer(struct cstr_sslice *slice);
+#define CSTR_SSLICE_STRING(STR) CSTR_SSLICE(STR, strlen(STR))
 
-bool cstr_alloc_islice_buffer(struct cstr_islice *slice, size_t len);
-void cstr_free_islice_buffer(struct cstr_islice *slice);
-
-// When we have slices we allocate, we want the zero-initialised. This macro can
+// When we have slices we allocate, we want them zero-initialised. This macro can
 // do that.
-#define CSTR_NIL_SLICE     \
-    {                      \
-        .buf = 0, .len = 0 \
-    }
+#define CSTR_NIL_SLICE(TYPE) CSTR_SLICE(TYPE, 0, 0)
+#define CSTR_NIL_SSLICE CSTR_NIL_SLICE(struct cstr_sslice)
+#define CSTR_NIL_ISLICE CSTR_NIL_SLICE(struct cstr_islice)
+
+// Allocate a new buffer for a slice
+INLINE bool cstr_alloc_slice_buffer(void **buf, size_t *len,
+                                    size_t new_len, size_t elm_size)
+{
+    assert(*buf == 0); // safety check to avoid mem leak
+    *buf = malloc(new_len * elm_size);
+    *len = (*buf) ? new_len : 0;
+    return !!*buf;
+}
+#define CSTR_ALLOC_SLICE_BUFFER(VAR, LEN) \
+    cstr_alloc_slice_buffer((void **)(&(VAR).buf), &(VAR).len, LEN, sizeof(VAR).buf[0])
+
+#define CSTR_FREE_SLICE_BUFFER(SLICE) \
+    do                                \
+    {                                 \
+        free((SLICE).buf);            \
+        (SLICE).buf = 0;              \
+        (SLICE).len = 0;              \
+    } while (0)
+
+// Comparing string-slices
+bool cstr_sslice_eq(struct cstr_sslice x,
+                    struct cstr_sslice y);
 
 // == ALPHABET =====================================================
 
@@ -104,37 +122,35 @@ struct cstr_alphabet
 // Initialise an alphabet form a slice. Since the alphabet is already
 // allocated, this function cannot fail.
 void cstr_init_alphabet(struct cstr_alphabet *alpha,
-                        struct cstr_const_sslice slice);
+                        struct cstr_sslice slice);
 
 // Write a mapped string into dst.
-bool cstr_alphabet_map(struct cstr_sslice dst, struct cstr_const_sslice src,
+bool cstr_alphabet_map(struct cstr_sslice dst,
+                       struct cstr_sslice src,
                        struct cstr_alphabet const *alpha,
                        enum cstr_errcodes *err);
 
-// Allocate a new buffer and write the mapped string into it.
-char *cstr_alphabet_map_new(struct cstr_const_sslice s,
-                            struct cstr_alphabet const *alpha,
-                            enum cstr_errcodes *err) CSTR_MALLOC_FUNC;
-
 // Map a slice into an integer slice.
 bool cstr_alphabet_map_to_int(struct cstr_islice dst,
-                              struct cstr_const_sslice src,
+                              struct cstr_sslice src,
                               struct cstr_alphabet const *alpha,
                               enum cstr_errcodes *err);
 
+// FIXME: probably remove this
 // Allocate a new buffer to write the mapped array into.
-unsigned int *
-cstr_alphabet_map_to_int_new(struct cstr_const_sslice src,
-                             struct cstr_alphabet const *alpha,
-                             enum cstr_errcodes *err) CSTR_MALLOC_FUNC;
+int *cstr_alphabet_map_to_int_new(struct cstr_sslice src,
+                                  struct cstr_alphabet const *alpha,
+                                  enum cstr_errcodes *err) CSTR_MALLOC_FUNC;
 
 // Map a string back into the dst slice.
-bool cstr_alphabet_revmap(struct cstr_sslice dst, struct cstr_const_sslice src,
+bool cstr_alphabet_revmap(struct cstr_sslice dst,
+                          struct cstr_sslice src,
                           struct cstr_alphabet const *alpha,
                           enum cstr_errcodes *err);
 
+// FIXME: probably remove this
 // Allocate new buffer and map a string back into it.
-char *cstr_alphabet_revmap_new(struct cstr_const_sslice src,
+char *cstr_alphabet_revmap_new(struct cstr_sslice src,
                                struct cstr_alphabet const *alpha,
                                enum cstr_errcodes *err) CSTR_MALLOC_FUNC;
 
@@ -143,15 +159,18 @@ struct cstr_exact_matcher; // Opaque type
 
 // returns -1 when there are no more matches
 int cstr_exact_next_match(struct cstr_exact_matcher *matcher);
-
 void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher);
-struct cstr_exact_matcher *cstr_naive_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
-struct cstr_exact_matcher *cstr_ba_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
-struct cstr_exact_matcher *cstr_kmp_matcher(struct cstr_const_sslice x, struct cstr_const_sslice p);
+
+struct cstr_exact_matcher *
+cstr_naive_matcher(struct cstr_sslice x, struct cstr_sslice p);
+struct cstr_exact_matcher *
+cstr_ba_matcher(struct cstr_sslice x, struct cstr_sslice p);
+struct cstr_exact_matcher *
+cstr_kmp_matcher(struct cstr_sslice x, struct cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
 // Suffix array construction
-bool cstr_skew(struct cstr_islice sa, struct cstr_const_sslice x,
+bool cstr_skew(struct cstr_islice sa, struct cstr_sslice x,
                struct cstr_alphabet *alpha, enum cstr_errcodes *err);
 
 // ==== Burrows-Wheeler transform =================================

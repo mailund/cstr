@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <cstr.h>
+#include <cstr_internal.h>
 
 #include "testlib.h"
 
@@ -10,9 +11,9 @@ TL_TEST(test_create_alphabet)
 {
     TL_BEGIN();
 
-    char const *x = "foobar";
     struct cstr_alphabet alpha;
-    cstr_init_alphabet(&alpha, CSTR_CSSLICE_STRING(x));
+    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_init_alphabet(&alpha, x);
 
     TL_ERROR_IF(alpha.map[0] != 0);
     TL_ERROR_IF(alpha.map['a'] != 1);
@@ -37,34 +38,39 @@ TL_TEST(test_mapping)
 {
     TL_BEGIN();
 
+    bool ok = true;
     enum cstr_errcodes err;
 
-    char const *x = "foobar";
+    
+    sslice x = CSTR_SSLICE_STRING("foobar");
     struct cstr_alphabet alpha;
-    cstr_init_alphabet(&alpha, CSTR_CSSLICE_STRING(x));
-
-    char *mapped = cstr_alphabet_map_new(CSTR_CSSLICE_STRING(x), &alpha, &err);
-    TL_FATAL_IF(mapped == NULL);
+    cstr_init_alphabet(&alpha, x);
+    
+    sslice mapped = CSTR_NIL_SSLICE;
+    TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(mapped, x.len));
+    
+    ok = cstr_alphabet_map(mapped, x, &alpha, &err);
+    TL_FATAL_IF(!ok);
     TL_FATAL_IF(CSTR_NO_ERROR != err);
 
-    TL_ERROR_IF(strcmp(mapped, "\3\4\4\2\1\5") != 0);
+    TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SSLICE_STRING("\3\4\4\2\1\5")));
 
-    free(mapped);
-    mapped = 0;
 
-    mapped = cstr_alphabet_map_new(CSTR_CSSLICE_STRING("qux"), &alpha, &err);
-    TL_ERROR_IF(mapped != NULL);
-    TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
+    ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha, &err);
+    TL_FATAL_IF(!ok);
+    TL_FATAL_IF(CSTR_MAPPING_ERROR != err);
 
     // let us see if we get an error if the dst has the wrong length.
     // we use a null pointer, but it is okay because we shouldn't even touch it
-    bool ok = cstr_alphabet_map(CSTR_SSLICE(0, 3), CSTR_CSSLICE_STRING(x), &alpha, &err);
+    ok = cstr_alphabet_map(CSTR_SSLICE(0, 3), x, &alpha, &err);
     TL_ERROR_IF(ok);
     TL_ERROR_IF(CSTR_SIZE_ERROR != err);
 
-    ok = cstr_alphabet_map(CSTR_SSLICE(0, 30), CSTR_CSSLICE_STRING(x), &alpha, &err);
+    ok = cstr_alphabet_map(CSTR_SSLICE(0, 30), x, &alpha, &err);
     TL_ERROR_IF(ok);
     TL_ERROR_IF(CSTR_SIZE_ERROR != err);
+    
+    CSTR_FREE_SLICE_BUFFER(mapped);
 
     TL_END();
 }
@@ -75,11 +81,11 @@ TL_TEST(test_int_mapping)
 
     enum cstr_errcodes err;
 
-    char const *x = "foobar";
     struct cstr_alphabet alpha;
-    cstr_init_alphabet(&alpha, CSTR_CSSLICE_STRING(x));
+    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_init_alphabet(&alpha, x);
 
-    unsigned int *mapped = cstr_alphabet_map_to_int_new(CSTR_CSSLICE_STRING(x), &alpha, &err);
+    int *mapped = cstr_alphabet_map_to_int_new(x, &alpha, &err);
     TL_FATAL_IF(mapped == NULL);
     TL_FATAL_IF(CSTR_NO_ERROR != err);
 
@@ -89,7 +95,7 @@ TL_TEST(test_int_mapping)
     free(mapped);
     mapped = 0;
 
-    mapped = cstr_alphabet_map_to_int_new(CSTR_CSSLICE_STRING("qux"), &alpha, &err);
+    mapped = cstr_alphabet_map_to_int_new(CSTR_SSLICE_STRING("qux"), &alpha, &err);
     TL_ERROR_IF(mapped != NULL);
     TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
 
@@ -102,18 +108,28 @@ TL_TEST(test_revmapping)
 
     enum cstr_errcodes err;
 
-    char const *x = "foobar";
     struct cstr_alphabet alpha;
-    cstr_init_alphabet(&alpha, CSTR_CSSLICE_STRING(x));
+    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_init_alphabet(&alpha, x);
 
-    char *mapped = cstr_alphabet_map_new(CSTR_CSSLICE_STRING(x), &alpha, &err);
-    char *rev = cstr_alphabet_revmap_new(CSTR_CSSLICE_STRING(mapped), &alpha, &err);
-
+    sslice mapped = CSTR_NIL_SSLICE;
+    TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(mapped, x.len));
+    
+    bool ok = cstr_alphabet_map(mapped, x, &alpha, &err);
+    TL_FATAL_IF(!ok);
     TL_FATAL_IF(CSTR_NO_ERROR != err);
-    TL_ERROR_IF(strcmp(x, rev) != 0);
 
-    free(rev);
-    free(mapped);
+    sslice rev = CSTR_NIL_SSLICE;
+    TL_FATAL_IF(!CSTR_ALLOC_SLICE_BUFFER(rev, x.len));
+
+    ok = cstr_alphabet_revmap(rev, mapped, &alpha, &err);
+    TL_FATAL_IF(!ok);
+    TL_FATAL_IF(CSTR_NO_ERROR != err);
+    
+    TL_ERROR_IF(!cstr_sslice_eq(x, rev));
+
+    CSTR_FREE_SLICE_BUFFER(mapped);
+    CSTR_FREE_SLICE_BUFFER(rev);    
 
     TL_END();
 }

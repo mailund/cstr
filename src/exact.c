@@ -11,7 +11,7 @@ struct cstr_exact_matcher
 {
     exact_next_fn next;
     exact_free_fn free;
-    csslice x, p;
+    sslice x, p;
 };
 
 // Helper macro for initialising the matcher header
@@ -68,7 +68,7 @@ static int naive_next(struct naive_matcher_state *s)
 }
 
 struct cstr_exact_matcher *
-cstr_naive_matcher(csslice x, csslice p)
+cstr_naive_matcher(sslice x, sslice p)
 {
     struct naive_matcher_state *state = malloc(sizeof *state);
     if (state)
@@ -84,7 +84,7 @@ cstr_naive_matcher(csslice x, csslice p)
 
 // Border array algorithm O(n+m)
 
-static void compute_border_array(csslice p, int *ba)
+static void compute_border_array(sslice p, int *ba)
 {
     // Border array
     ba[0] = 0;
@@ -129,7 +129,7 @@ static int ba_next(struct ba_matcher_state *s)
 }
 
 struct cstr_exact_matcher *
-cstr_ba_matcher(csslice x, csslice p)
+cstr_ba_matcher(sslice x, sslice p)
 {
     // allocate space for the the struct + the border array
     // in the flexible array for ba.
@@ -186,7 +186,7 @@ static int kmp_next(struct kmp_matcher_state *s)
     return -1;
 }
 
-struct cstr_exact_matcher *cstr_kmp_matcher(csslice x, csslice p)
+struct cstr_exact_matcher *cstr_kmp_matcher(sslice x, sslice p)
 {
     struct kmp_matcher_state *state =
         malloc(sizeof *state + p.len * sizeof(state->ba[0]));
