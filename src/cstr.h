@@ -54,26 +54,7 @@ struct cstr_islice
     size_t len;
 };
 
-// FIXME Hack to get a typeof()
-#if 0
-#define CSTR_SLICE_TYPE(x)         \
-    _Generic((x),                  \
-             struct cstr_sslice    \
-             : struct cstr_sslice, \
-               struct cstr_islice  \
-             : struct cstr_islice)
-#endif
-
 #define CSTR_SLICE(TYPE, BUF, LEN) ((TYPE){.buf = (BUF), .len = (LEN)})
-
-// get type from var (without non-standard typeof)
-#define CSTR_SLICE_VAR(VAR, BUF, LEN)                              \
-    .Generic((VAR),                                                \
-             struct cstr_sslice                                    \
-             : ((struct cstr_sslice){.buf = (BUF), .len = (LEN)}), \
-               struct cstr_islice                                  \
-             : ((struct cstr_islice){.buf = (BUF), .len = (LEN)}))
-
 #define CSTR_SSLICE(BUF, LEN) CSTR_SLICE(struct cstr_sslice, BUF, LEN)
 #define CSTR_ISLICE(BUF, LEN) CSTR_SLICE(struct cstr_islice, BUF, LEN)
 
