@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <cstr.h>
+#include <cstr_internal.h>
 #include "testlib.h"
 
 void check_suffix_ordered(char const* x, struct cstr_islice sa)
@@ -38,12 +39,13 @@ TL_TEST(test_mississippi)
     check_suffix_ordered(x.buf, sa);
 
     CSTR_FREE_SLICE_BUFFER(sa);
-        
+
     TL_END();
 }
 
 int main(void)
 {
-    test_mississippi();
-    return 0;
+    TL_BEGIN_TEST_SUITE("sa_test");
+    TL_RUN_TEST(test_mississippi);
+    TL_END_SUITE();
 }

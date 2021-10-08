@@ -75,6 +75,7 @@ CSTR_ALLOC_ISLICE(size_t len)
     return CSTR_ISLICE(cstr_malloc(len * sizeof(int)), len);
 }
 
+
 #define CSTR_FREE_SLICE_BUFFER(SLICE) \
     do                                \
     {                                 \

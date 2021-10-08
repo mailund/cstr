@@ -60,6 +60,9 @@ TL_TEST(test_mapping)
     TL_ERROR_IF(ok);
     TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
 
+    CSTR_FREE_SLICE_BUFFER(mapped);
+    
+    
     // let us see if we get an error if the dst has the wrong length.
     // we use a null pointer, but it is okay because we shouldn't even touch it
     ok = cstr_alphabet_map(CSTR_SSLICE(0, 3), x, &alpha, &err);
@@ -122,7 +125,6 @@ TL_TEST(test_revmapping)
     TL_FATAL_IF(CSTR_NO_ERROR != err);
 
     sslice rev = CSTR_ALLOC_SSLICE(x.len);
-    
     ok = cstr_alphabet_revmap(rev, mapped, &alpha, &err);
     TL_FATAL_IF(!ok);
     TL_FATAL_IF(CSTR_NO_ERROR != err);

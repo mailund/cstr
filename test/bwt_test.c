@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <cstr.h>
+#include <cstr_internal.h>
 
 static void print_rotation(int n, char const* x, int rot)
 {
