@@ -22,8 +22,10 @@ static inline int safe_idx(islice x, int i)
 
 static void get_sa12(islice sa12, islice x)
 {
-    assert(sa12.len > 0 &&
-           sa12.len == sa12len(x.len)); // For the static analyser...
+    // For the static analyser...
+    assert(sa12.buf && sa12.len > 0 &&
+           sa12.len == sa12len(x.len));
+    
     int j = 0;
     for (int i = 0; i < x.len; i++)
     {
@@ -32,12 +34,14 @@ static void get_sa12(islice sa12, islice x)
             sa12.buf[j++] = i;
         }
     }
+    
     assert(j == sa12.len); // for the static analyser
 }
 
 static void get_sa3(islice sa3, islice sa12, islice x)
 {
-    assert(sa3.len > 0 && sa3.len == sa3len(x.len));
+    assert(sa3.buf && sa12.buf && sa3.len > 0 && sa3.len == sa3len(x.len));
+    
     int k = 0;
     // Special case if the last index is in sa3
     if (x.len % 3 == 1)
@@ -90,41 +94,30 @@ static void bucket_sort_with_buffers(islice x, islice idx,
     memcpy(idx.buf, buffer, idx.len * sizeof(*buffer));
 }
 
-static bool bucket_sort(islice x, islice idx, int offset,
-                        int asize, errcodes *err)
+static void bucket_sort(islice x,
+                        islice idx,
+                        int offset,
+                        int asize)
 {
-    int *buckets = malloc((size_t)asize * sizeof *buckets);
-    int *buffer = malloc(idx.len * sizeof *buffer);
-
-    bool ok = buckets && buffer;
-    alloc_error_if(!ok, done);
-
+    int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
+    int *buffer = cstr_malloc(idx.len * sizeof *buffer);
     bucket_sort_with_buffers(x, idx, offset, asize, buckets, buffer);
 
-done:
     free(buckets);
     free(buffer);
-
-    return ok;
 }
 
-static bool radix3(islice x, islice idx, int asize, errcodes *err)
+static void radix3(islice x, islice idx, int asize)
 {
-    int *buckets = malloc((size_t)asize * sizeof *buckets);
-    int *buffer = malloc(idx.len * sizeof *buffer);
-
-    bool ok = buckets && buffer;
-    alloc_error_if(!ok, done);
+    int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
+    int *buffer = cstr_malloc(idx.len * sizeof *buffer);
 
     bucket_sort_with_buffers(x, idx, 2, asize, buckets, buffer);
     bucket_sort_with_buffers(x, idx, 1, asize, buckets, buffer);
     bucket_sort_with_buffers(x, idx, 0, asize, buckets, buffer);
 
-done:
     free(buckets);
     free(buffer);
-
-    return ok;
 }
 
 static bool less(islice x, int i, int j, int isa[])
@@ -142,18 +135,17 @@ static bool less(islice x, int i, int j, int isa[])
     return less(x, i + 1, j + 1, isa);
 }
 
-static bool merge(islice sa, islice x, islice sa12, islice sa3,
+static void merge(islice sa, islice x, islice sa12, islice sa3,
                   enum cstr_errcodes *err)
 {
-    assert(x.len > 0); // For the static analyser.
+    // For the static analyser.
     // We cannot have n==0 because of the sentinel, but the analyser
     // is right that isa could be allocated with length zero, and that
     // would be a potential problem later. It can't happen, though.
-
-    bool ok = true;
-    int *isa = 0;
-
-    try_alloc_flag(done, ok, isa = malloc(x.len * sizeof *isa));
+    assert(x.len > 0);
+    assert(sa.buf && x.buf && sa12.buf && sa3.buf);
+    
+    int *isa = cstr_malloc(x.len * sizeof *isa);
 
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
@@ -182,9 +174,7 @@ static bool merge(islice sa, islice x, islice sa12, islice sa3,
 
     assert(k == x.len); // for the static analyser
 
-done:
     free(isa);
-    return ok;
 }
 
 static inline bool equal3(islice x, int i, int j)
@@ -210,7 +200,7 @@ static int build_alphabet(int encoding[], islice x,
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
-    assert(sa12.len > 0); // helping static analyser
+    assert(sa12.buf && sa12.len > 0); // helping static analyser
 
     int new_asize = 1; // start at 1, reserving 0 for sentinel
     encoding[map_x_sa12(sa12.buf[0])] = new_asize;
@@ -234,6 +224,8 @@ static int build_alphabet(int encoding[], islice x,
 // we don't need a central sentinel.
 static void build_u(islice u, int encoding[])
 {
+    assert(u.buf);
+    
     int k = 0;
     for (int i = 0; i < u.len; i += 2)
     {
@@ -246,22 +238,13 @@ static void build_u(islice u, int encoding[])
     assert(k == u.len); // for the static analyser
 }
 
-static bool skew_rec(islice sa, islice x, int asize, errcodes *err)
+static void skew_rec(islice sa, islice x, int asize, errcodes *err)
 {
-    bool ok = false;
-
-    islice sa12 = CSTR_NIL_ISLICE,
-           sa3 = CSTR_NIL_ISLICE,
-           u = CSTR_NIL_ISLICE,
-           u_sa = CSTR_NIL_ISLICE;
-    int *encoding = 0;
-
-    try_alloc(done, CSTR_ALLOC_SLICE_BUFFER(sa12, sa12len(x.len)));
+    islice sa12 = CSTR_ALLOC_ISLICE(sa12len(x.len));
     get_sa12(sa12, x);
+    radix3(x, sa12, asize);
 
-    try_reraise(done, radix3(x, sa12, asize, err));
-
-    try_alloc(done, encoding = malloc(sa12.len * sizeof *encoding));
+    int *encoding = cstr_malloc(sa12.len * sizeof *encoding);
     int new_asize = build_alphabet(encoding, x, sa12);
 
     // if the alphabet minus the sentinel matches the length of sa12, then
@@ -269,13 +252,13 @@ static bool skew_rec(islice sa, islice x, int asize, errcodes *err)
     if (new_asize - 1 < sa12.len)
     {
         // We need to sort recursively
-        try_alloc(done, CSTR_ALLOC_SLICE_BUFFER(u, sa12.len));
+        islice u = CSTR_ALLOC_ISLICE(sa12.len);
         build_u(u, encoding);
         free_and_null(encoding);
 
-        try_alloc(done, CSTR_ALLOC_SLICE_BUFFER(u_sa, u.len));
+        islice u_sa = CSTR_ALLOC_ISLICE(u.len);
 
-        try_reraise(done, skew_rec(u_sa, u, new_asize, err));
+        skew_rec(u_sa, u, new_asize, err);
 
         int m = (int)(u_sa.len + 1) / 2;
         for (int i = 0; i < u_sa.len; i++)
@@ -287,38 +270,36 @@ static bool skew_rec(islice sa, islice x, int asize, errcodes *err)
         CSTR_FREE_SLICE_BUFFER(u_sa);
     }
 
-    try_alloc(done, CSTR_ALLOC_SLICE_BUFFER(sa3, sa3len(x.len)));
+    islice sa3 = CSTR_ALLOC_ISLICE(sa3len(x.len));
     get_sa3(sa3, sa12, x);
 
-    try_reraise(done, bucket_sort(x, sa3, /* offset */ 0, asize, err));
+    bucket_sort(x, sa3, /* offset */ 0, asize);
 
-    ok = merge(sa, x, sa12, sa3, err);
+    merge(sa, x, sa12, sa3, err);
 
-done: // but also success...
     CSTR_FREE_SLICE_BUFFER(sa12);
     CSTR_FREE_SLICE_BUFFER(sa3);
-    CSTR_FREE_SLICE_BUFFER(u);
-    CSTR_FREE_SLICE_BUFFER(u_sa);
     free(encoding);
-
-    return ok;
 }
 
 bool cstr_skew(islice sa, sslice x, alpha *alpha, enum cstr_errcodes *err)
 {
-    int *mapped_x = 0;
     bool ok = false;
+    islice mapped_x = CSTR_ISLICE(0, 0);
     clear_error();
 
     // we need to store indices in unsigned int, so there is a limit to the
     // length.
     size_error_if(x.len > UINT_MAX - 1, done);
-
-    try_reraise(done, mapped_x = cstr_alphabet_map_to_int_new(x, alpha, err));
-    ok = skew_rec(sa, CSTR_ISLICE(mapped_x, x.len + 1), (int)alpha->size, err);
+    
+    mapped_x = CSTR_ALLOC_ISLICE(x.len + 1);
+    try_reraise(done, cstr_alphabet_map_to_int(mapped_x, x, alpha, err));
+    skew_rec(sa, mapped_x, (int)alpha->size, err);
+    
+    ok = true;
 
 done:
-    free(mapped_x);
+    CSTR_FREE_SLICE_BUFFER(mapped_x);
 
     return ok;
 }

@@ -87,6 +87,9 @@ bool cstr_alphabet_map_to_int(
     alpha const *alpha,
     errcodes *err)
 {
+    assert(dst.buf);
+    assert(src.buf);
+    
     bool ok = false;
 
     clear_error();
@@ -107,32 +110,14 @@ done:
     return ok;
 }
 
-int *cstr_alphabet_map_to_int_new(
-    sslice src,
-    alpha const *alpha,
-    errcodes *err)
-{
-    int *arr = 0;
-    clear_error();
-
-    try_alloc(error,
-              arr = malloc((src.len + 1) * sizeof(*arr)));
-    try_reraise(error,
-                cstr_alphabet_map_to_int(CSTR_ISLICE(arr, src.len + 1), src, alpha, err));
-
-    return arr;
-
-error:
-    free(arr);
-    return 0;
-}
-
 bool cstr_alphabet_revmap(
     sslice dst,
     sslice src,
     alpha const *alpha,
     errcodes *err)
 {
+    assert(src.buf && dst.buf);
+    
     clear_error();
     size_error_if(dst.len != src.len, error);
 
@@ -149,22 +134,3 @@ error:
     return false;
 }
 
-char *cstr_alphabet_revmap_new(
-    sslice src,
-    alpha const *alpha,
-    errcodes *err)
-{
-    char *dst = 0;
-    clear_error();
-
-    try_alloc(error,
-              dst = malloc(src.len + 1));
-    try_reraise(error,
-                cstr_alphabet_revmap(CSTR_SSLICE(dst, src.len), src, alpha, err));
-
-    return dst;
-
-error:
-    free(dst);
-    return 0;
-}

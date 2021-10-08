@@ -10,9 +10,9 @@ TL_TEST(test_simple_exact_cases)
 {
     TL_BEGIN();
     {
-        const char *x = "aaba";
-        const char *p = "a";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
+        char *x = "aaba";
+        char *p = "a";
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -24,9 +24,9 @@ TL_TEST(test_simple_exact_cases)
         cstr_free_exact_matcher(m);
     }
     {
-        const char *x = "abab";
-        const char *p = "ab";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
+        char *x = "abab";
+        char *p = "ab";
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -36,9 +36,9 @@ TL_TEST(test_simple_exact_cases)
         cstr_free_exact_matcher(m);
     }
     {
-        const char *x = "aaaa";
-        const char *p = "aa";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_CSSLICE_STRING(x), CSTR_CSSLICE_STRING(p));
+        char *x = "aaaa";
+        char *p = "aa";
+        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);

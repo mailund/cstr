@@ -13,22 +13,20 @@ void check_suffix_ordered(char const* x, struct cstr_islice sa)
     }
 }
 
-void test_mississippi()
+TL_TEST(test_mississippi)
 {
     TL_BEGIN();
     
-    struct cstr_const_sslice x = CSTR_CSSLICE_STRING("mississippi");
+    struct cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
     enum cstr_errcodes err;
 
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice sa = CSTR_NIL_SLICE;
-    bool ok = cstr_alloc_islice_buffer(&sa, x.len + 1);
-    TL_FATAL_IF(!ok);
+    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
     assert(sa.buf); // For the static analyser
 
-    ok = cstr_skew(sa, x, &alpha, &err);
+    bool ok = cstr_skew(sa, x, &alpha, &err);
     TL_FATAL_IF(!ok);
     TL_FATAL_IF(err != CSTR_NO_ERROR);
     
@@ -39,8 +37,8 @@ void test_mississippi()
 
     check_suffix_ordered(x.buf, sa);
 
-    cstr_free_islice_buffer(&sa);
-    
+    CSTR_FREE_SLICE_BUFFER(sa);
+        
     TL_END();
 }
 

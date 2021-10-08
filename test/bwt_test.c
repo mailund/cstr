@@ -16,18 +16,16 @@ static void print_rotation(int n, char const* x, int rot)
 
 int main(void)
 {
-    struct cstr_const_sslice x = CSTR_CSSLICE_STRING("mississippi");
+    struct cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
 
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice sa = CSTR_NIL_SLICE;
-    bool ok = cstr_alloc_islice_buffer(&sa, x.len);
-    assert(ok);
+    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len);
     assert(sa.buf); // For the static analyser
 
     enum cstr_errcodes err;
-    ok = cstr_skew(sa, x, &alpha, &err);
+    bool ok = cstr_skew(sa, x, &alpha, &err);
     assert(ok);
 
     for (int i = 0; i < sa.len; i++) {
@@ -53,7 +51,7 @@ int main(void)
     free(otab);
     free(ctab);
     free(b);
-    cstr_free_islice_buffer(&sa);
+    CSTR_FREE_SLICE_BUFFER(sa);
 
     return 0;
 }

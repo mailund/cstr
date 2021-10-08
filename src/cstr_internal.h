@@ -27,7 +27,6 @@
         }                                \
     } while (0)
 
-#define alloc_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_ALLOCATION_ERROR)
 #define mapping_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_MAPPING_ERROR)
 #define size_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_SIZE_ERROR)
 
@@ -40,11 +39,6 @@
             goto LABEL;               \
     } while (0)
 
-// We allocate a lot, so convinience macro for that
-#define try_alloc(LABEL, EXPR) \
-    alloc_error_if(!(EXPR), LABEL)
-#define try_alloc_flag(LABEL, FLAG, EXPR) \
-    alloc_error_if(!(FLAG = !!(EXPR)), LABEL)
 // Re-raise an existing error if EXPR evaluates to false-y.
 #define try_reraise(LABEL, EXPR) \
     reraise_error_if(!(EXPR), LABEL)
