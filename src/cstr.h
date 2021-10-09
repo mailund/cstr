@@ -49,7 +49,6 @@ void *cstr_malloc_flex_array(size_t base_size, // size of struct before array
 enum cstr_errcodes
 {
     CSTR_NO_ERROR,
-    CSTR_SIZE_ERROR,    // if the size/length of something is too large
     CSTR_MAPPING_ERROR, // mapping via an alphabet failed
 };
 
@@ -154,9 +153,13 @@ cstr_kmp_matcher(struct cstr_sslice x, struct cstr_sslice p);
 // Suffix arrays stored in islice objects can only handle lenghts up to
 // x.len > INT_MAX - 1, and the caller must ensure that.
 
-// Suffix array construction
-bool cstr_skew(struct cstr_islice sa, struct cstr_sslice x,
-               struct cstr_alphabet *alpha, enum cstr_errcodes *err);
+// Suffix array construction.
+// slice x must be mapped to alphabet and slice sa
+// must be same length of x. The result will be put
+// into sa.
+void cstr_skew(struct cstr_islice sa,
+               struct cstr_islice x,
+               struct cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 

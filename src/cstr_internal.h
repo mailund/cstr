@@ -28,7 +28,6 @@
     } while (0)
 
 #define mapping_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_MAPPING_ERROR)
-#define size_error_if(EXPR, LABEL) error_goto_if(EXPR, LABEL, CSTR_SIZE_ERROR)
 
 // if we just want to jump to error handling but not set err because
 // it is already set.

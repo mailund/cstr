@@ -22,13 +22,14 @@ int main(void)
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len);
-    assert(sa.buf); // For the static analyser
+    struct cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
+    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
+    assert(mapped.buf && sa.buf); // For the static analyser
 
-    enum cstr_errcodes err;
-    bool ok = cstr_skew(sa, x, &alpha, &err);
-    assert(ok);
-
+    cstr_alphabet_map_to_int(mapped, x, &alpha, 0);
+    
+    cstr_skew(sa, mapped, &alpha);
+    
     for (int i = 0; i < sa.len; i++) {
         print_rotation(sa.len, x.buf, sa.buf[i]);
     }
@@ -53,6 +54,7 @@ int main(void)
     free(ctab);
     free(b);
     CSTR_FREE_SLICE_BUFFER(sa);
+    CSTR_FREE_SLICE_BUFFER(mapped);
 
     return 0;
 }

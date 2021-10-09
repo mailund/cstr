@@ -19,19 +19,21 @@ TL_TEST(test_mississippi)
     TL_BEGIN();
     
     struct cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
-    enum cstr_errcodes err;
-
+    
     struct cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
+    struct cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
+    // since alpha was created from x we cannot get mapping errors
+    // here
+    cstr_alphabet_map_to_int(mapped, x, &alpha, 0);
+    assert(mapped.buf); // for static analyser
+    
     struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
     assert(sa.buf); // For the static analyser
 
-    bool ok = cstr_skew(sa, x, &alpha, &err);
-    TL_FATAL_IF(!ok);
-    TL_FATAL_IF(err != CSTR_NO_ERROR);
-    
-    
+    cstr_skew(sa, mapped, &alpha);
+        
     for (int i = 0; i < x.len + 1; i++) {
         printf("sa[%d] == %d %s\n", i, sa.buf[i], x.buf + sa.buf[i]);
     }

@@ -281,27 +281,12 @@ static void skew_rec(islice sa, islice x, int asize)
     free(encoding);
 }
 
-bool cstr_skew(islice sa, sslice x, alpha *alpha,
-               enum cstr_errcodes *err)
+void cstr_skew(islice sa, islice x, alpha *alpha)
 {
     // we need to store indices in int, so there is a limit to the
     // length.
     assert(x.len <= INT_MAX - 1);
-
-    bool ok = false;
-    clear_error();
-
-    islice mapped_x = CSTR_ALLOC_ISLICE(x.len + 1);
-    try_reraise(
-        done,
-        cstr_alphabet_map_to_int(mapped_x, x, alpha, err));
-    skew_rec(sa, mapped_x, (int)alpha->size);
-    ok = true;
-
-done:
-    CSTR_FREE_SLICE_BUFFER(mapped_x);
-
-    return ok;
+    skew_rec(sa, x, (int)alpha->size);
 }
 
 #ifdef GEN_UNIT_TESTS // unit testing of static functions...
