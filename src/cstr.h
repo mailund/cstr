@@ -20,18 +20,25 @@
 #define INLINE inline
 #endif
 
+// We can give the compiler hints, if it understands them...
+#if defined(__GNUC__) || defined(__clang__)
+#define CSTR_FUNC_ATTR(a) __attribute__((a))
+#else
+#define CSTR_FUNC_ATTR(a) /* ignore */
+#endif
+
+// Tell the compiler that we return clean new memory
+#define CSTR_MALLOC_FUNC CSTR_FUNC_ATTR(malloc)
+// Tell the compiler that a function is pure (only depend
+// on input to determine output, so completely deterministic).
+#define CSTR_PURE_FUNC CSTR_FUNC_ATTR(pure)
+
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-INLINE void *cstr_malloc(size_t size)
-{
-    void *buf = malloc(size);
-    if (!buf)
-    {
-        fprintf(stderr, "Allocation error, terminating\n");
-        exit(2);
-    }
-    return buf;
-}
+void *cstr_malloc(size_t size) CSTR_MALLOC_FUNC;
+// Allocatte a buffer. Terminates if len * sizeof type exceeds
+// SIZE_MAX
+void *cstr_malloc_buffer(size_t obj_size, size_t len) CSTR_MALLOC_FUNC;
 
 // Error handling, primitive as it is...
 enum cstr_errcodes
@@ -66,15 +73,16 @@ struct cstr_islice
 INLINE struct cstr_sslice
 CSTR_ALLOC_SSLICE(size_t len)
 {
-    return CSTR_SSLICE(cstr_malloc(len), len);
+    struct cstr_sslice dummy; // for size calculation
+    return CSTR_SSLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
 }
 
 INLINE struct cstr_islice
 CSTR_ALLOC_ISLICE(size_t len)
 {
-    return CSTR_ISLICE(cstr_malloc(len * sizeof(int)), len);
+    struct cstr_islice dummy; // for size calculation
+    return CSTR_ISLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
 }
-
 
 #define CSTR_FREE_SLICE_BUFFER(SLICE) \
     do                                \
