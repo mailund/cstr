@@ -43,11 +43,10 @@ bool cstr_alphabet_map(
     alpha const *alpha,
     errcodes *err)
 {
+    assert(dst.len == src.len);
     bool ok = false;
-
     clear_error();
-    size_error_if(dst.len != src.len, done);
-
+    
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
@@ -69,14 +68,11 @@ bool cstr_alphabet_map_to_int(
 {
     assert(dst.buf);
     assert(src.buf);
+    assert(dst.len == src.len + 1);
     
     bool ok = false;
-
     clear_error();
-    // the destination should be one longer than the source
-    // because we count the sentinel in the int slice.
-    size_error_if(dst.len != src.len + 1, done);
-
+    
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
@@ -99,10 +95,9 @@ bool cstr_alphabet_revmap(
     errcodes *err)
 {
     assert(src.buf && dst.buf);
-    
+    assert(dst.len == src.len);
     clear_error();
-    size_error_if(dst.len != src.len, error);
-
+    
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->revmap[(int)src.buf[i]];

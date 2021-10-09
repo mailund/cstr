@@ -112,19 +112,20 @@ struct cstr_alphabet
 void cstr_init_alphabet(struct cstr_alphabet *alpha,
                         struct cstr_sslice slice);
 
-// Write a mapped string into dst.
+// Write a mapped string into dst. dst.len must equal src.len
 bool cstr_alphabet_map(struct cstr_sslice dst,
                        struct cstr_sslice src,
                        struct cstr_alphabet const *alpha,
                        enum cstr_errcodes *err);
 
-// Map a slice into an integer slice.
+// Map a slice into an integer slice. dst.len must match src.len + 1
+// to make room for a sentinel.
 bool cstr_alphabet_map_to_int(struct cstr_islice dst,
                               struct cstr_sslice src,
                               struct cstr_alphabet const *alpha,
                               enum cstr_errcodes *err);
 
-// Map a string back into the dst slice.
+// Map a string back into the dst slice. dst.len must equal src.len.
 bool cstr_alphabet_revmap(struct cstr_sslice dst,
                           struct cstr_sslice src,
                           struct cstr_alphabet const *alpha,
