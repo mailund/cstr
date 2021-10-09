@@ -151,6 +151,9 @@ struct cstr_exact_matcher *
 cstr_kmp_matcher(struct cstr_sslice x, struct cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
+// Suffix arrays stored in islice objects can only handle lenghts up to
+// x.len > INT_MAX - 1, and the caller must ensure that.
+
 // Suffix array construction
 bool cstr_skew(struct cstr_islice sa, struct cstr_sslice x,
                struct cstr_alphabet *alpha, enum cstr_errcodes *err);

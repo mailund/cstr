@@ -9,7 +9,7 @@
 // these calculations are only valid for n > 0. For n == 0, they are both
 // zero, but there is no need to check for this border case if we never
 // have a string with length zero, and we can't because of the sentinel.
-// These operate on size_t, although the suffix arrays cann only handle
+// These operate on size_t, although the suffix arrays can only handle
 // unsigned int, but they do that to fit with the slice interface. There
 // is a check for the size of input in the public functions.
 static inline size_t sa3len(size_t n) { return (n - 1) / 3 + 1; }
@@ -25,7 +25,7 @@ static void get_sa12(islice sa12, islice x)
     // For the static analyser...
     assert(sa12.buf && sa12.len > 0 &&
            sa12.len == sa12len(x.len));
-    
+
     int j = 0;
     for (int i = 0; i < x.len; i++)
     {
@@ -34,14 +34,14 @@ static void get_sa12(islice sa12, islice x)
             sa12.buf[j++] = i;
         }
     }
-    
+
     assert(j == sa12.len); // for the static analyser
 }
 
 static void get_sa3(islice sa3, islice sa12, islice x)
 {
     assert(sa3.buf && sa12.buf && sa3.len > 0 && sa3.len == sa3len(x.len));
-    
+
     int k = 0;
     // Special case if the last index is in sa3
     if (x.len % 3 == 1)
@@ -135,8 +135,7 @@ static bool less(islice x, int i, int j, int isa[])
     return less(x, i + 1, j + 1, isa);
 }
 
-static void merge(islice sa, islice x, islice sa12, islice sa3,
-                  enum cstr_errcodes *err)
+static void merge(islice sa, islice x, islice sa12, islice sa3)
 {
     // For the static analyser.
     // We cannot have n==0 because of the sentinel, but the analyser
@@ -144,7 +143,7 @@ static void merge(islice sa, islice x, islice sa12, islice sa3,
     // would be a potential problem later. It can't happen, though.
     assert(x.len > 0);
     assert(sa.buf && x.buf && sa12.buf && sa3.buf);
-    
+
     int *isa = cstr_malloc(x.len * sizeof *isa);
 
     // Without a map, the easiest solution for the inverse
@@ -225,7 +224,7 @@ static int build_alphabet(int encoding[], islice x,
 static void build_u(islice u, int encoding[])
 {
     assert(u.buf);
-    
+
     int k = 0;
     for (int i = 0; i < u.len; i += 2)
     {
@@ -238,7 +237,7 @@ static void build_u(islice u, int encoding[])
     assert(k == u.len); // for the static analyser
 }
 
-static void skew_rec(islice sa, islice x, int asize, errcodes *err)
+static void skew_rec(islice sa, islice x, int asize)
 {
     islice sa12 = CSTR_ALLOC_ISLICE(sa12len(x.len));
     get_sa12(sa12, x);
@@ -258,7 +257,7 @@ static void skew_rec(islice sa, islice x, int asize, errcodes *err)
 
         islice u_sa = CSTR_ALLOC_ISLICE(u.len);
 
-        skew_rec(u_sa, u, new_asize, err);
+        skew_rec(u_sa, u, new_asize);
 
         int m = (int)(u_sa.len + 1) / 2;
         for (int i = 0; i < u_sa.len; i++)
@@ -275,27 +274,28 @@ static void skew_rec(islice sa, islice x, int asize, errcodes *err)
 
     bucket_sort(x, sa3, /* offset */ 0, asize);
 
-    merge(sa, x, sa12, sa3, err);
+    merge(sa, x, sa12, sa3);
 
     CSTR_FREE_SLICE_BUFFER(sa12);
     CSTR_FREE_SLICE_BUFFER(sa3);
     free(encoding);
 }
 
-bool cstr_skew(islice sa, sslice x, alpha *alpha, enum cstr_errcodes *err)
+bool cstr_skew(islice sa, sslice x, alpha *alpha,
+               enum cstr_errcodes *err)
 {
+    // we need to store indices in int, so there is a limit to the
+    // length.
+    assert(x.len <= INT_MAX - 1);
+
     bool ok = false;
-    islice mapped_x = CSTR_ISLICE(0, 0);
     clear_error();
 
-    // we need to store indices in unsigned int, so there is a limit to the
-    // length.
-    size_error_if(x.len > UINT_MAX - 1, done);
-    
-    mapped_x = CSTR_ALLOC_ISLICE(x.len + 1);
-    try_reraise(done, cstr_alphabet_map_to_int(mapped_x, x, alpha, err));
-    skew_rec(sa, mapped_x, (int)alpha->size, err);
-    
+    islice mapped_x = CSTR_ALLOC_ISLICE(x.len + 1);
+    try_reraise(
+        done,
+        cstr_alphabet_map_to_int(mapped_x, x, alpha, err));
+    skew_rec(sa, mapped_x, (int)alpha->size);
     ok = true;
 
 done:
