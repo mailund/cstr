@@ -13,7 +13,7 @@ struct tl_state
     fprintf(stderr, "error: %s(%d): " FMT, \
             __FILE__, __LINE__, __VA_ARGS__);
 
-#define _TL_ERROR_IF(EXPR, FMT, ...)        \
+#define TL_ERROR_IF_(EXPR, FMT, ...)        \
     do                                      \
     {                                       \
         _tl_state_.no_tests++;              \
@@ -23,7 +23,7 @@ struct tl_state
             TL_PRINT_ERR(FMT, __VA_ARGS__); \
         }                                   \
     } while (0)
-#define _TL_FATAL_IF(EXPR, FMT, ...)        \
+#define TL_FATAL_IF_(EXPR, FMT, ...)        \
     do                                      \
     {                                       \
         _tl_state_.no_tests++;              \
@@ -37,15 +37,18 @@ struct tl_state
 
 // MARK: Testing expressions
 #define TL_ERROR_IF(EXPR) \
-    _TL_ERROR_IF(EXPR, "%s\n", #EXPR)
+    TL_ERROR_IF_(EXPR, "%s\n", #EXPR)
 #define TL_FATAL_IF(EXPR) \
-    _TL_FATAL_IF(EXPR, "%s\n", #EXPR)
+    TL_FATAL_IF_(EXPR, "%s\n", #EXPR)
 
-// MARK: Testing integers
-#define TL_ERROR_IF_NEQ_INT(A, B) \
-    _TL_ERROR_IF((A) != (B), "%d != %d\n", A, B)
-#define TL_FATAL_IF_NEQ_INT(A, B) \
-    _TL_FATAL_IF((A) != (B), "%d != %d\n", A, B)
+// MARK: Testing primitive types
+#define TL_ERROR_IF_NEQ(FMT, A, B) \
+    TL_ERROR_IF_((A) != (B), FMT " != " FMT, A, B)
+#define TL_FATAL_IF_NEQ(FMT, A, B) \
+    TL_FATAL_IF_((A) != (B), FMT " != " FMT, A, B)
+
+#define TL_ERROR_IF_NEQ_INT(A, B) TL_ERROR_IF_NEQ("%d", A, B)
+#define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
 
 // MARK: Testing arrays
 int tl_test_array(void *restrict expected,
