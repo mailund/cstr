@@ -42,11 +42,21 @@ void *cstr_malloc_buffer(
     size_t obj_size, // size of objects
     size_t len       // how many of them
     ) CSTR_MALLOC_FUNC;
-void *cstr_malloc_flex_array(
+void *cstr_malloc_header_array(
     size_t base_size, // size of struct before array
     size_t elm_size,  // size of elements in array
     size_t len        // number of elements in array
     ) CSTR_MALLOC_FUNC;
+
+// Macro for allocating a struct with a flexible array
+// element. Gets the offset of the array from a varialble,
+// which requires less redundancy and potential for errors
+// than offsetof() which requires a type.
+// VAR is the struct variable (must be a pointer), FLEX_ARRAY
+// is the name of the flexible array member.
+#define CSTR_MALLOC_FLEX_ARRAY(VAR, FLEX_ARRAY, LEN)             \
+    cstr_malloc_header_array((size_t)(&((VAR = 0)->FLEX_ARRAY)), \
+                             sizeof(VAR->FLEX_ARRAY[0]), LEN)
 
 // ==== SLICES =====================================================
 

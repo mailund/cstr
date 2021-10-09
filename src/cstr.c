@@ -29,9 +29,9 @@ void *cstr_malloc(size_t size)
     return buf;
 }
 
-void *cstr_malloc_flex_array(size_t base_size,
-                             size_t elm_size,
-                             size_t len)
+void *cstr_malloc_header_array(size_t base_size,
+                                size_t elm_size,
+                                size_t len)
 {
     if ((SIZE_MAX - base_size) / elm_size < len) {
         fprintf(stderr, "Trying to allocte a buffer longer than SIZE_MAX\n");
@@ -44,7 +44,7 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
 {
     // a buffer is just a flexible array in a struct that
     // has zero header...
-    return cstr_malloc_flex_array(0, obj_size, len);
+    return cstr_malloc_header_array(0, obj_size, len);
 }
 
 

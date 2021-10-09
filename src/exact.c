@@ -130,9 +130,7 @@ cstr_ba_matcher(sslice x, sslice p)
     // allocate space for the the struct + the border array
     // in the flexible array for ba.
     struct ba_matcher_state *state =
-        cstr_malloc_flex_array(//offsetof(struct ba_matcher_state, ba),
-                               offsetof(__typeof__(*state), ba),
-                               sizeof state->ba[0], p.len);
+        CSTR_MALLOC_FLEX_ARRAY(state, ba, p.len);
     *state = (struct ba_matcher_state){
         MATCHER(ba_next, free, x, p),
         .i = 0, .b = 0};
@@ -180,9 +178,7 @@ static int kmp_next(struct kmp_matcher_state *s)
 struct cstr_exact_matcher *cstr_kmp_matcher(sslice x, sslice p)
 {
     struct kmp_matcher_state *state =
-        cstr_malloc_flex_array(//offsetof(struct kmp_matcher_state, ba),
-                               offsetof(__typeof__(*state), ba),
-                               sizeof state->ba[0], p.len);
+        CSTR_MALLOC_FLEX_ARRAY(state, ba, p.len);
     *state = (struct kmp_matcher_state){
         MATCHER(kmp_next, free, x, p),
         .i = 0, .j = 0};
