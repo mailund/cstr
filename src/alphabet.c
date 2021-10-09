@@ -40,68 +40,60 @@ void cstr_init_alphabet(alpha *alpha, sslice slice)
 bool cstr_alphabet_map(
     sslice dst,
     sslice src,
-    alpha const *alpha,
-    errcodes *err)
+    alpha const *alpha)
 {
     assert(dst.len == src.len);
-    bool ok = false;
-    clear_error();
     
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        mapping_error_if(!map && src.buf[i], done);
+        if (!map && src.buf[i]) goto error;
         dst.buf[i] = (char)map;
     }
-    ok = true;
+    
+    return true;
 
-done:
-    return ok;
+error:
+    return false;
 }
 
 
 bool cstr_alphabet_map_to_int(
     islice dst,
     sslice src,
-    alpha const *alpha,
-    errcodes *err)
+    alpha const *alpha)
 {
     assert(dst.buf);
     assert(src.buf);
     assert(dst.len == src.len + 1);
     
-    bool ok = false;
-    clear_error();
-    
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        mapping_error_if(!map && src.buf[i], done);
+        if (!map && src.buf[i]) goto error;
         dst.buf[i] = map;
     }
     // remember sentinel
     dst.buf[src.len] = 0;
     
-    ok = true;
+    return true;
 
-done:
-    return ok;
+error:
+    return false;
 }
 
 bool cstr_alphabet_revmap(
     sslice dst,
     sslice src,
-    alpha const *alpha,
-    errcodes *err)
+    alpha const *alpha)
 {
     assert(src.buf && dst.buf);
     assert(dst.len == src.len);
-    clear_error();
     
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->revmap[(int)src.buf[i]];
-        mapping_error_if(!map && src.buf[i], error);
+        if (!map && src.buf[i]) goto error;
         dst.buf[i] = (char)map;
     }
 

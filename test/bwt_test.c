@@ -26,7 +26,7 @@ int main(void)
     struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
     assert(mapped.buf && sa.buf); // For the static analyser
 
-    cstr_alphabet_map_to_int(mapped, x, &alpha, 0);
+    cstr_alphabet_map_to_int(mapped, x, &alpha);
     
     cstr_skew(sa, mapped, &alpha);
     

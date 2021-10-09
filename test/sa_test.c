@@ -26,7 +26,7 @@ TL_TEST(test_mississippi)
     struct cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
     // since alpha was created from x we cannot get mapping errors
     // here
-    cstr_alphabet_map_to_int(mapped, x, &alpha, 0);
+    cstr_alphabet_map_to_int(mapped, x, &alpha);
     assert(mapped.buf); // for static analyser
     
     struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);

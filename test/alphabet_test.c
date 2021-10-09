@@ -39,8 +39,6 @@ TL_TEST(test_mapping)
     TL_BEGIN();
 
     bool ok = true;
-    enum cstr_errcodes err;
-
     
     sslice x = CSTR_SSLICE_STRING("foobar");
     struct cstr_alphabet alpha;
@@ -48,19 +46,17 @@ TL_TEST(test_mapping)
     
     sslice mapped = CSTR_ALLOC_SSLICE(x.len);
     
-    ok = cstr_alphabet_map(mapped, x, &alpha, &err);
+    ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
-    TL_FATAL_IF(CSTR_NO_ERROR != err);
     
 
     TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SSLICE_STRING("\3\4\4\2\1\5")));
     CSTR_FREE_SLICE_BUFFER(mapped);
     
     mapped = CSTR_ALLOC_SSLICE(3);
-    ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha, &err);
+    ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
-    TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
-
+    
     CSTR_FREE_SLICE_BUFFER(mapped);
         
     TL_END();
@@ -70,16 +66,13 @@ TL_TEST(test_int_mapping)
 {
     TL_BEGIN();
 
-    enum cstr_errcodes err;
-
     struct cstr_alphabet alpha;
     sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
     islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
-    bool ok = cstr_alphabet_map_to_int(mapped, x, &alpha, &err);
+    bool ok = cstr_alphabet_map_to_int(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
-    TL_FATAL_IF(CSTR_NO_ERROR != err);
 
     int expected[] = {3, 4, 4, 2, 1, 5, 0};
     TL_TEST_EQUAL_INT_ARRAYS(expected, mapped.buf,
@@ -87,9 +80,8 @@ TL_TEST(test_int_mapping)
     CSTR_FREE_SLICE_BUFFER(mapped);
     
     mapped = CSTR_ALLOC_ISLICE(4);
-    ok = cstr_alphabet_map_to_int(mapped, CSTR_SSLICE_STRING("qux"), &alpha, &err);
+    ok = cstr_alphabet_map_to_int(mapped, CSTR_SSLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
-    TL_ERROR_IF(CSTR_MAPPING_ERROR != err);
     
     CSTR_FREE_SLICE_BUFFER(mapped);
 
@@ -100,22 +92,18 @@ TL_TEST(test_revmapping)
 {
     TL_BEGIN();
 
-    enum cstr_errcodes err;
-
     struct cstr_alphabet alpha;
     sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
     sslice mapped = CSTR_ALLOC_SSLICE(x.len);
     
-    bool ok = cstr_alphabet_map(mapped, x, &alpha, &err);
+    bool ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
-    TL_FATAL_IF(CSTR_NO_ERROR != err);
 
     sslice rev = CSTR_ALLOC_SSLICE(x.len);
-    ok = cstr_alphabet_revmap(rev, mapped, &alpha, &err);
+    ok = cstr_alphabet_revmap(rev, mapped, &alpha);
     TL_FATAL_IF(!ok);
-    TL_FATAL_IF(CSTR_NO_ERROR != err);
     
     TL_ERROR_IF(!cstr_sslice_eq(x, rev));
 

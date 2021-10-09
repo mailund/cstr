@@ -45,12 +45,6 @@ void *cstr_malloc_flex_array(size_t base_size, // size of struct before array
                              size_t len        // number of elements in array
                              ) CSTR_MALLOC_FUNC;
 
-// Error handling, primitive as it is...
-enum cstr_errcodes
-{
-    CSTR_NO_ERROR,
-    CSTR_MAPPING_ERROR, // mapping via an alphabet failed
-};
 
 // ==== SLICES =====================================================
 
@@ -119,21 +113,18 @@ void cstr_init_alphabet(struct cstr_alphabet *alpha,
 // Write a mapped string into dst. dst.len must equal src.len
 bool cstr_alphabet_map(struct cstr_sslice dst,
                        struct cstr_sslice src,
-                       struct cstr_alphabet const *alpha,
-                       enum cstr_errcodes *err);
+                       struct cstr_alphabet const *alpha);
 
 // Map a slice into an integer slice. dst.len must match src.len + 1
 // to make room for a sentinel.
 bool cstr_alphabet_map_to_int(struct cstr_islice dst,
                               struct cstr_sslice src,
-                              struct cstr_alphabet const *alpha,
-                              enum cstr_errcodes *err);
+                              struct cstr_alphabet const *alpha);
 
 // Map a string back into the dst slice. dst.len must equal src.len.
 bool cstr_alphabet_revmap(struct cstr_sslice dst,
                           struct cstr_sslice src,
-                          struct cstr_alphabet const *alpha,
-                          enum cstr_errcodes *err);
+                          struct cstr_alphabet const *alpha);
 
 // == EXACT MATCHERS =============================
 struct cstr_exact_matcher; // Opaque polymorphic type
