@@ -70,16 +70,11 @@ static int naive_next(struct naive_matcher_state *s)
 struct cstr_exact_matcher *
 cstr_naive_matcher(sslice x, sslice p)
 {
-    struct naive_matcher_state *state = malloc(sizeof *state);
-    if (state)
-    {
-        // init struct, then move it, to get around const
-        struct naive_matcher_state data = {
-            MATCHER(naive_next, free, x, p),
-            .i = 0};
-        memcpy(state, &data, sizeof data);
-    }
-    return (void *)state; // void cast to change type
+    struct naive_matcher_state *state = cstr_malloc(sizeof *state);
+    *state = (struct naive_matcher_state){
+        MATCHER(naive_next, free, x, p),
+        .i = 0};
+    return (struct cstr_exact_matcher *)state;
 }
 
 // Border array algorithm O(n+m)
@@ -134,19 +129,12 @@ cstr_ba_matcher(sslice x, sslice p)
     // allocate space for the the struct + the border array
     // in the flexible array for ba.
     struct ba_matcher_state *state =
-        malloc(sizeof *state + p.len * sizeof(state->ba[0]));
-    if (state)
-    {
-        // init struct, then move it, to get around const
-        struct ba_matcher_state data = {
-            MATCHER(ba_next, free, x, p),
-            .i = 0, .b = 0};
-        // move sizeof data moves data up to ba, leaving ba
-        // to be filled out afterwards.
-        memcpy(state, &data, sizeof data);
-        compute_border_array(p, state->ba);
-    }
-    return (void *)state; // void cast to change type
+        cstr_malloc_flex_array(sizeof *state, sizeof state->ba[0], p.len);
+    *state = (struct ba_matcher_state){
+        MATCHER(ba_next, free, x, p),
+        .i = 0, .b = 0};
+    compute_border_array(p, state->ba);
+    return (struct cstr_exact_matcher *)state;
 }
 
 // KMP O(n+m)
@@ -189,19 +177,12 @@ static int kmp_next(struct kmp_matcher_state *s)
 struct cstr_exact_matcher *cstr_kmp_matcher(sslice x, sslice p)
 {
     struct kmp_matcher_state *state =
-        malloc(sizeof *state + p.len * sizeof(state->ba[0]));
-    if (state)
-    {
-        // init struct, then move it, to get around const
-        struct kmp_matcher_state data = {
-            MATCHER(kmp_next, free, x, p),
-            .i = 0, .j = 0};
-        // move sizeof data moves data up to ba, leaving ba
-        // to be filled out afterwards.
-        memcpy(state, &data, sizeof data);
-        compute_border_array(p, state->ba);
-    }
-    return (void *)state; // void cast to change type
+        cstr_malloc_flex_array(sizeof *state, sizeof state->ba[0], p.len);
+    *state = (struct kmp_matcher_state){
+        MATCHER(kmp_next, free, x, p),
+        .i = 0, .j = 0};
+    compute_border_array(p, state->ba);
+    return (struct cstr_exact_matcher *)state;
 }
 
 // while these are only defined in this compilation unit, and will
