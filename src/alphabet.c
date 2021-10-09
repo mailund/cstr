@@ -77,13 +77,15 @@ bool cstr_alphabet_map_to_int(
     // because we count the sentinel in the int slice.
     size_error_if(dst.len != src.len + 1, done);
 
-    // we iterate over s *including* the sentinel!
-    for (int i = 0; i < src.len + 1; i++)
+    for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
         mapping_error_if(!map && src.buf[i], done);
         dst.buf[i] = map;
     }
+    // remember sentinel
+    dst.buf[src.len] = 0;
+    
     ok = true;
 
 done:
