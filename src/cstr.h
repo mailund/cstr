@@ -35,16 +35,18 @@
 
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-void *cstr_malloc(size_t size) CSTR_MALLOC_FUNC;
-// Allocatte a buffer. Terminates if len * sizeof type exceeds
-// SIZE_MAX
-void *cstr_malloc_buffer(size_t obj_size, size_t len) CSTR_MALLOC_FUNC;
-// Allocate a flexible array as part of a struct
-void *cstr_malloc_flex_array(size_t base_size, // size of struct before array
-                             size_t elm_size,  // size of elements in array
-                             size_t len        // number of elements in array
-                             ) CSTR_MALLOC_FUNC;
-
+void *cstr_malloc(
+    size_t size // number of bytes to allocate
+    ) CSTR_MALLOC_FUNC;
+void *cstr_malloc_buffer(
+    size_t obj_size, // size of objects
+    size_t len       // how many of them
+    ) CSTR_MALLOC_FUNC;
+void *cstr_malloc_flex_array(
+    size_t base_size, // size of struct before array
+    size_t elm_size,  // size of elements in array
+    size_t len        // number of elements in array
+    ) CSTR_MALLOC_FUNC;
 
 // ==== SLICES =====================================================
 
