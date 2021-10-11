@@ -36,7 +36,7 @@
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
 void *cstr_malloc(
-    size_t size // number of bytes to allocate
+    size_t size // number of chars to allocate
     ) CSTR_MALLOC_FUNC;
 void *cstr_malloc_buffer(
     size_t obj_size, // size of objects
@@ -83,30 +83,36 @@ typedef CSTR_SLICE_TYPE(char) cstr_sslice;
 typedef CSTR_SLICE_TYPE(int) cstr_islice;
 
 // Creating slice instances
-#define CSTR_SLICE_STRUCT(TYPE, BUF, LEN) \
-    ((TYPE){.buf = (BUF), .len = (LEN)})
+#define CSTR_SLICE_INIT(BUF, LEN)  \
+    {                              \
+        .buf = (BUF), .len = (LEN) \
+    }
 #define CSTR_SSLICE(BUF, LEN) \
-    CSTR_SLICE_STRUCT(cstr_sslice, BUF, LEN)
+    (cstr_sslice) CSTR_SLICE_INIT(BUF, LEN)
 #define CSTR_ISLICE(BUF, LEN) \
-    CSTR_SLICE_STRUCT(cstr_islice, BUF, LEN)
+    (cstr_islice) CSTR_SLICE_INIT(BUF, LEN)
 
-#define CSTR_SSLICE_STRING(STR) CSTR_SSLICE(STR, strlen(STR))
+#define CSTR_SSLICE_STRING(STR) \
+    CSTR_SSLICE(STR, strlen(STR))
 
 // Using inline functions for allocation so we don't risk
-// evaluating the length expression twice and so we can
-// get the size of buffer elements from the type.
+// evaluating the length expression twice.
 INLINE cstr_sslice
 CSTR_ALLOC_SSLICE(size_t len)
 {
     cstr_sslice dummy; // for size calculation
-    return CSTR_SSLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
+    return CSTR_SSLICE(
+        cstr_malloc_buffer(sizeof dummy.buf[0], len),
+        len);
 }
 
 INLINE cstr_islice
 CSTR_ALLOC_ISLICE(size_t len)
 {
     cstr_islice dummy; // for size calculation
-    return CSTR_ISLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
+    return CSTR_ISLICE(
+        cstr_malloc_buffer(sizeof dummy.buf[0], len),
+        len);
 }
 
 #define CSTR_FREE_SLICE_BUFFER(SLICE) \
