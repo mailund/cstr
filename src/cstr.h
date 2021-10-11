@@ -67,6 +67,14 @@ void *cstr_malloc_header_array(
         CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY),         \
         sizeof(VAR->FLEX_ARRAY[0]), LEN)
 
+// Set a pointer to NULL when we free it
+#define CSTR_FREE_NULL(P) \
+    do                    \
+    {                     \
+        free(P);          \
+        P = 0;            \
+    } while (0)
+
 // ==== SLICES =====================================================
 
 // slices, for easier handling of sub-strings and sub-arrays.

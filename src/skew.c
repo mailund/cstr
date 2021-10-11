@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cstr_internal.h"
+#include <cstr.h>
+
+#include "unittests.h"
 
 // these calculations are only valid for n > 0. For n == 0, they are both
 // zero, but there is no need to check for this border case if we never
@@ -254,7 +256,7 @@ static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
         // We need to sort recursively
         cstr_islice u = CSTR_ALLOC_ISLICE(sa12.len);
         build_u(u, encoding);
-        free_and_null(encoding);
+        CSTR_FREE_NULL(encoding);
 
         cstr_islice u_sa = CSTR_ALLOC_ISLICE(u.len);
 

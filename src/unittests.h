@@ -7,7 +7,7 @@
 #include <testlib.h>
 
 // skew.c
-TL_TEST_PROTOTYPE(skew_test_len_calc);
+TL_TEST(skew_test_len_calc);
 
 #endif // GEN_UNIT_TESTS
 #endif // UNITTESTS_H

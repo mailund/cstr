@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <cstr_internal.h>
+#include <cstr.h>
 
 #include "fasta.h"
 #include "fastq.h"

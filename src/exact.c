@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "cstr.h"
-#include "cstr_internal.h"
 
 typedef int (*exact_next_fn)(cstr_exact_matcher *);
 typedef void (*exact_free_fn)(cstr_exact_matcher *);

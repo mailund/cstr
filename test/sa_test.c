@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include <cstr.h>
-#include <cstr_internal.h>
 #include "testlib.h"
 
 void check_suffix_ordered(char const* x, cstr_islice sa)

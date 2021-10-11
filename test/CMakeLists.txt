@@ -13,6 +13,11 @@ set_target_properties(testlib
     PROPERTIES FOLDER Tests/TestLib
 )
 
+# while this creates a circular dependency, we need it for
+# generating test strings, and it is only setting up the
+# dependency for header inclusion and linking.
+target_link_libraries(testlib cstr)
+
 # make all files that end in _test.c into tests
 file(GLOB test_sources *_test.c)
 foreach(test_c ${test_sources})

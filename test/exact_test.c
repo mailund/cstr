@@ -6,13 +6,15 @@
 
 #include "testlib.h"
 
-TL_TEST(test_simple_exact_cases)
+typedef struct cstr_exact_matcher *(*algorithm_fn)(cstr_sslice, cstr_sslice);
+
+TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 {
     TL_BEGIN();
     {
         char *x = "aaba";
         char *p = "a";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -26,7 +28,7 @@ TL_TEST(test_simple_exact_cases)
     {
         char *x = "abab";
         char *p = "ab";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -38,7 +40,7 @@ TL_TEST(test_simple_exact_cases)
     {
         char *x = "aaaa";
         char *p = "aa";
-        struct cstr_exact_matcher *m = cstr_kmp_matcher(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -49,6 +51,12 @@ TL_TEST(test_simple_exact_cases)
         TL_ERROR_IF_NEQ_INT(i, -1);
         cstr_free_exact_matcher(m);
     }
+    TL_END();
+}
+
+TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
+{
+    TL_BEGIN();
     TL_END();
 }
 
@@ -67,9 +75,18 @@ int main(void) {
 }
 #endif
 
+TL_TEST(simple_test)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("exact_test");
-    TL_RUN_TEST(test_simple_exact_cases);
+    TL_RUN_TEST(simple_test);
     TL_END_SUITE();
 }

@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include <cstr.h>
-#include <cstr_internal.h>
 
 #include "testlib.h"
 
@@ -39,26 +38,25 @@ TL_TEST(test_mapping)
     TL_BEGIN();
 
     bool ok = true;
-    
+
     cstr_sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
-    
+
     cstr_sslice mapped = CSTR_ALLOC_SSLICE(x.len);
-    
+
     ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
-    
 
     TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SSLICE_STRING("\3\4\4\2\1\5")));
     CSTR_FREE_SLICE_BUFFER(mapped);
-    
+
     mapped = CSTR_ALLOC_SSLICE(3);
     ok = cstr_alphabet_map(mapped, CSTR_SSLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
-    
+
     CSTR_FREE_SLICE_BUFFER(mapped);
-        
+
     TL_END();
 }
 
@@ -78,11 +76,11 @@ TL_TEST(test_int_mapping)
     TL_TEST_EQUAL_INT_ARRAYS(expected, mapped.buf,
                              sizeof(expected) / sizeof(*expected));
     CSTR_FREE_SLICE_BUFFER(mapped);
-    
+
     mapped = CSTR_ALLOC_ISLICE(4);
     ok = cstr_alphabet_map_to_int(mapped, CSTR_SSLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
-    
+
     CSTR_FREE_SLICE_BUFFER(mapped);
 
     TL_END();
@@ -97,18 +95,18 @@ TL_TEST(test_revmapping)
     cstr_init_alphabet(&alpha, x);
 
     cstr_sslice mapped = CSTR_ALLOC_SSLICE(x.len);
-    
+
     bool ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
     cstr_sslice rev = CSTR_ALLOC_SSLICE(x.len);
     ok = cstr_alphabet_revmap(rev, mapped, &alpha);
     TL_FATAL_IF(!ok);
-    
+
     TL_ERROR_IF(!cstr_sslice_eq(x, rev));
 
     CSTR_FREE_SLICE_BUFFER(mapped);
-    CSTR_FREE_SLICE_BUFFER(rev);    
+    CSTR_FREE_SLICE_BUFFER(rev);
 
     TL_END();
 }

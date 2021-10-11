@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cstr_internal.h"
+#include "cstr.h"
 
 void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice)
 {

@@ -7,16 +7,6 @@
 #define INLINE extern inline
 #include "cstr.h"
 
-#include "cstr_internal.h"
-
-#define ASSERT_BUFFER_SIZE_HEADER(HEADER_SIZE, OBJ_SIZE, LEN)                 \
-if ((SIZE_MAX - (HEADER)) / (OBJ_SIZE) < (LEN))                           \
-{                                                                         \
-fprintf(stderr, "Trying to allocte a buffer longer than SIZE_MAX\n"); \
-exit(2);                                                              \
-}
-#define ASSERT_BUFFER_SIZE(OBJ_SIZE, LEN) \
-ASSERT_BUFFER_SIZE_HEADER(0, OBJ_SIZE, LEN)
 
 void *cstr_malloc(size_t size)
 {

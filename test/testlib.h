@@ -1,6 +1,7 @@
 #ifndef TESTLIB_H
 #define TESTLIB_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
 struct tl_state
@@ -121,8 +122,12 @@ int tl_test_array(void *restrict expected,
                           _TL_HANDLE_ARRAY_GENERIC_FATAL)
 
 // MARK: Setting up test functions
-#define TL_TEST_PROTOTYPE(NAME) bool NAME(void);
-#define TL_TEST(NAME) bool NAME(void)
+// __VA_OPT__ is not standard C, so we need separate
+// macros here...
+#define TL_TEST(NAME) \
+    bool NAME(const char *_tl_test_name)
+#define TL_PARAM_TEST(NAME, ...) \
+    bool NAME(const char *_tl_test_name, __VA_ARGS__)
 
 #define TL_BEGIN()                      \
     struct tl_state _tl_state_ = {      \
@@ -130,21 +135,21 @@ int tl_test_array(void *restrict expected,
     if (0)                              \
         goto _tl_escape_; /* to avoid warnings */
 
-#define TL_END()                                                        \
-    if (_tl_state_.no_errors == 0)                                      \
-    {                                                                   \
-        fprintf(stderr, "%d tests passed in %s.\n",                     \
-                _tl_state_.no_tests, __func__);                         \
-        return true; /* success */                                      \
-    }                                                                   \
-    else                                                                \
-    {                                                                   \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n",           \
-                _tl_state_.no_errors, _tl_state_.no_tests, __func__);   \
-        return false;                                                   \
-    }                                                                   \
-    _tl_escape_:                                                        \
-    fprintf(stderr, "aborting test %s after fatal error.\n", __func__); \
+#define TL_END()                                                             \
+    if (_tl_state_.no_errors == 0)                                           \
+    {                                                                        \
+        fprintf(stderr, "%d tests passed in %s.\n",                          \
+                _tl_state_.no_tests, _tl_test_name);                         \
+        return true; /* success */                                           \
+    }                                                                        \
+    else                                                                     \
+    {                                                                        \
+        fprintf(stderr, "%d out of %d tests failed in %s.\n",                \
+                _tl_state_.no_errors, _tl_state_.no_tests, _tl_test_name);   \
+        return false;                                                        \
+    }                                                                        \
+    _tl_escape_:                                                             \
+    fprintf(stderr, "aborting test %s after fatal error.\n", _tl_test_name); \
     return false;
 
 #define TL_BEGIN_TEST_SUITE(NAME) \
@@ -155,8 +160,15 @@ int tl_test_array(void *restrict expected,
     do                              \
     {                               \
         _tl_state_.no_tests++;      \
-        if (FUNC() != true)         \
+        if (FUNC(#FUNC) != true)    \
             _tl_state_.no_errors++; \
+    } while (0)
+#define TL_RUN_PARAM_TEST(FUNC, NAME, ...)                 \
+    do                                                     \
+    {                                                      \
+        _tl_state_.no_tests++;                             \
+        if (FUNC(#FUNC "[" NAME "]", __VA_ARGS__) != true) \
+            _tl_state_.no_errors++;                        \
     } while (0)
 
 #define TL_END_SUITE()                                        \
