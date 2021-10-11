@@ -48,8 +48,8 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
 }
 
 
-bool cstr_sslice_eq(struct cstr_sslice x,
-                    struct cstr_sslice y)
+bool cstr_sslice_eq(cstr_sslice x,
+                    cstr_sslice y)
 {
     if (x.len != y.len)
         return false;

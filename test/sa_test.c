@@ -6,7 +6,7 @@
 #include <cstr_internal.h>
 #include "testlib.h"
 
-void check_suffix_ordered(char const* x, struct cstr_islice sa)
+void check_suffix_ordered(char const* x, cstr_islice sa)
 {
     for (int i = 1; i < sa.len; i++) {
         printf("%s vs %s\n", x + sa.buf[i - 1], x + sa.buf[i]);
@@ -18,18 +18,18 @@ TL_TEST(test_mississippi)
 {
     TL_BEGIN();
     
-    struct cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
+    cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
     
-    struct cstr_alphabet alpha;
+    cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
+    cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
     // since alpha was created from x we cannot get mapping errors
     // here
     cstr_alphabet_map_to_int(mapped, x, &alpha);
     assert(mapped.buf); // for static analyser
     
-    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
+    cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
     assert(sa.buf); // For the static analyser
 
     cstr_skew(sa, mapped, &alpha);

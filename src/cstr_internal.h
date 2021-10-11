@@ -7,11 +7,6 @@
 #include "config.h"
 #include "unittests.h"
 
-// shorten names a bit for the internal code...
-typedef struct cstr_alphabet alpha;
-typedef struct cstr_sslice sslice;
-typedef struct cstr_islice islice;
-
 // set pointers to 0 when we free them
 #define free_and_null(p) \
     do                   \

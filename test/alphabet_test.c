@@ -11,8 +11,8 @@ TL_TEST(test_create_alphabet)
 {
     TL_BEGIN();
 
-    struct cstr_alphabet alpha;
-    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_alphabet alpha;
+    cstr_sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
     TL_ERROR_IF(alpha.map[0] != 0);
@@ -40,11 +40,11 @@ TL_TEST(test_mapping)
 
     bool ok = true;
     
-    sslice x = CSTR_SSLICE_STRING("foobar");
-    struct cstr_alphabet alpha;
+    cstr_sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
     
-    sslice mapped = CSTR_ALLOC_SSLICE(x.len);
+    cstr_sslice mapped = CSTR_ALLOC_SSLICE(x.len);
     
     ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
@@ -66,11 +66,11 @@ TL_TEST(test_int_mapping)
 {
     TL_BEGIN();
 
-    struct cstr_alphabet alpha;
-    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_alphabet alpha;
+    cstr_sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
+    cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
     bool ok = cstr_alphabet_map_to_int(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
@@ -92,16 +92,16 @@ TL_TEST(test_revmapping)
 {
     TL_BEGIN();
 
-    struct cstr_alphabet alpha;
-    sslice x = CSTR_SSLICE_STRING("foobar");
+    cstr_alphabet alpha;
+    cstr_sslice x = CSTR_SSLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    sslice mapped = CSTR_ALLOC_SSLICE(x.len);
+    cstr_sslice mapped = CSTR_ALLOC_SSLICE(x.len);
     
     bool ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
-    sslice rev = CSTR_ALLOC_SSLICE(x.len);
+    cstr_sslice rev = CSTR_ALLOC_SSLICE(x.len);
     ok = cstr_alphabet_revmap(rev, mapped, &alpha);
     TL_FATAL_IF(!ok);
     

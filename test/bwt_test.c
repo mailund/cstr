@@ -17,13 +17,13 @@ static void print_rotation(int n, char const* x, int rot)
 
 int main(void)
 {
-    struct cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
+    cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
 
-    struct cstr_alphabet alpha;
+    cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    struct cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
-    struct cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
+    cstr_islice mapped = CSTR_ALLOC_ISLICE(x.len + 1);
+    cstr_islice sa = CSTR_ALLOC_ISLICE(x.len + 1);
     assert(mapped.buf && sa.buf); // For the static analyser
 
     cstr_alphabet_map_to_int(mapped, x, &alpha);

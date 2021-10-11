@@ -4,7 +4,7 @@
 
 #include "cstr_internal.h"
 
-void cstr_init_alphabet(alpha *alpha, sslice slice)
+void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice)
 {
     // initialise the maps to zero
     memset(alpha->map, 0, CSTR_NO_CHARS);
@@ -38,9 +38,9 @@ void cstr_init_alphabet(alpha *alpha, sslice slice)
 }
 
 bool cstr_alphabet_map(
-    sslice dst,
-    sslice src,
-    alpha const *alpha)
+    cstr_sslice dst,
+    cstr_sslice src,
+    cstr_alphabet const *alpha)
 {
     assert(dst.len == src.len);
     
@@ -59,9 +59,9 @@ error:
 
 
 bool cstr_alphabet_map_to_int(
-    islice dst,
-    sslice src,
-    alpha const *alpha)
+    cstr_islice dst,
+    cstr_sslice src,
+    cstr_alphabet const *alpha)
 {
     assert(dst.buf);
     assert(src.buf);
@@ -83,9 +83,9 @@ error:
 }
 
 bool cstr_alphabet_revmap(
-    sslice dst,
-    sslice src,
-    alpha const *alpha)
+    cstr_sslice dst,
+    cstr_sslice src,
+    cstr_alphabet const *alpha)
 {
     assert(src.buf && dst.buf);
     assert(dst.len == src.len);

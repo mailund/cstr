@@ -15,12 +15,12 @@
 static inline size_t sa3len(size_t n) { return (n - 1) / 3 + 1; }
 static inline size_t sa12len(size_t n) { return n - sa3len(n); }
 
-static inline int safe_idx(islice x, int i)
+static inline int safe_idx(cstr_islice x, int i)
 {
     return (i >= x.len) ? 0 : x.buf[i];
 }
 
-static void get_sa12(islice sa12, islice x)
+static void get_sa12(cstr_islice sa12, cstr_islice x)
 {
     // For the static analyser...
     assert(sa12.buf && sa12.len > 0 &&
@@ -38,7 +38,7 @@ static void get_sa12(islice sa12, islice x)
     assert(j == sa12.len); // for the static analyser
 }
 
-static void get_sa3(islice sa3, islice sa12, islice x)
+static void get_sa3(cstr_islice sa3, cstr_islice sa12, cstr_islice x)
 {
     assert(sa3.buf && sa12.buf && sa3.len > 0 && sa3.len == sa3len(x.len));
 
@@ -58,7 +58,7 @@ static void get_sa3(islice sa3, islice sa12, islice x)
     assert(k == sa3.len); // for the static analyser
 }
 
-static void bucket_sort_with_buffers(islice x, islice idx,
+static void bucket_sort_with_buffers(cstr_islice x, cstr_islice idx,
                                      int offset,
                                      int asize,
                                      int *restrict buckets,
@@ -94,8 +94,8 @@ static void bucket_sort_with_buffers(islice x, islice idx,
     memcpy(idx.buf, buffer, idx.len * sizeof(*buffer));
 }
 
-static void bucket_sort(islice x,
-                        islice idx,
+static void bucket_sort(cstr_islice x,
+                        cstr_islice idx,
                         int offset,
                         int asize)
 {
@@ -107,7 +107,7 @@ static void bucket_sort(islice x,
     free(buffer);
 }
 
-static void radix3(islice x, islice idx, int asize)
+static void radix3(cstr_islice x, cstr_islice idx, int asize)
 {
     int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
     int *buffer = cstr_malloc(idx.len * sizeof *buffer);
@@ -120,7 +120,7 @@ static void radix3(islice x, islice idx, int asize)
     free(buffer);
 }
 
-static bool less(islice x, int i, int j, int isa[])
+static bool less(cstr_islice x, int i, int j, int isa[])
 {
     int a = safe_idx(x, i);
     int b = safe_idx(x, j);
@@ -135,7 +135,7 @@ static bool less(islice x, int i, int j, int isa[])
     return less(x, i + 1, j + 1, isa);
 }
 
-static void merge(islice sa, islice x, islice sa12, islice sa3)
+static void merge(cstr_islice sa, cstr_islice x, cstr_islice sa12, cstr_islice sa3)
 {
     // For the static analyser.
     // We cannot have n==0 because of the sentinel, but the analyser
@@ -176,7 +176,7 @@ static void merge(islice sa, islice x, islice sa12, islice sa3)
     free(isa);
 }
 
-static inline bool equal3(islice x, int i, int j)
+static inline bool equal3(cstr_islice x, int i, int j)
 {
     return safe_idx(x, i + 0) == safe_idx(x, j + 0) &&
            safe_idx(x, i + 1) == safe_idx(x, j + 1) &&
@@ -194,8 +194,9 @@ static inline int map_u_x(int i, int m)
     return (i < m) ? (1 + 3 * i) : (2 + 3 * (i - m));
 }
 
-static int build_alphabet(int encoding[], islice x,
-                          islice sa12)
+static int build_alphabet(int encoding[],
+                          cstr_islice x,
+                          cstr_islice sa12)
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
@@ -221,7 +222,7 @@ static int build_alphabet(int encoding[], islice x,
 
 // this u is based on the terminal sentinel always being part of the input, so
 // we don't need a central sentinel.
-static void build_u(islice u, int encoding[])
+static void build_u(cstr_islice u, int encoding[])
 {
     assert(u.buf);
 
@@ -237,9 +238,9 @@ static void build_u(islice u, int encoding[])
     assert(k == u.len); // for the static analyser
 }
 
-static void skew_rec(islice sa, islice x, int asize)
+static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
 {
-    islice sa12 = CSTR_ALLOC_ISLICE(sa12len(x.len));
+    cstr_islice sa12 = CSTR_ALLOC_ISLICE(sa12len(x.len));
     get_sa12(sa12, x);
     radix3(x, sa12, asize);
 
@@ -251,11 +252,11 @@ static void skew_rec(islice sa, islice x, int asize)
     if (new_asize - 1 < sa12.len)
     {
         // We need to sort recursively
-        islice u = CSTR_ALLOC_ISLICE(sa12.len);
+        cstr_islice u = CSTR_ALLOC_ISLICE(sa12.len);
         build_u(u, encoding);
         free_and_null(encoding);
 
-        islice u_sa = CSTR_ALLOC_ISLICE(u.len);
+        cstr_islice u_sa = CSTR_ALLOC_ISLICE(u.len);
 
         skew_rec(u_sa, u, new_asize);
 
@@ -269,7 +270,7 @@ static void skew_rec(islice sa, islice x, int asize)
         CSTR_FREE_SLICE_BUFFER(u_sa);
     }
 
-    islice sa3 = CSTR_ALLOC_ISLICE(sa3len(x.len));
+    cstr_islice sa3 = CSTR_ALLOC_ISLICE(sa3len(x.len));
     get_sa3(sa3, sa12, x);
 
     bucket_sort(x, sa3, /* offset */ 0, asize);
@@ -281,7 +282,7 @@ static void skew_rec(islice sa, islice x, int asize)
     free(encoding);
 }
 
-void cstr_skew(islice sa, islice x, alpha *alpha)
+void cstr_skew(cstr_islice sa, cstr_islice x, cstr_alphabet *alpha)
 {
     // we need to store indices in int, so there is a limit to the
     // length.

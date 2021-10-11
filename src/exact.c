@@ -5,14 +5,14 @@
 #include "cstr.h"
 #include "cstr_internal.h"
 
-typedef int (*exact_next_fn)(struct cstr_exact_matcher *);
-typedef void (*exact_free_fn)(struct cstr_exact_matcher *);
+typedef int (*exact_next_fn)(cstr_exact_matcher *);
+typedef void (*exact_free_fn)(cstr_exact_matcher *);
 
 struct cstr_exact_matcher
 {
     exact_next_fn next;
     exact_free_fn free;
-    sslice x, p;
+    cstr_sslice x, p;
 };
 
 // Helper macro for initialising the matcher header
@@ -26,12 +26,12 @@ struct cstr_exact_matcher
     }
 
 // polymorphic interface
-int cstr_exact_next_match(struct cstr_exact_matcher *matcher)
+int cstr_exact_next_match(cstr_exact_matcher *matcher)
 {
     return matcher->next(matcher);
 }
 
-void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher)
+void cstr_free_exact_matcher(cstr_exact_matcher *matcher)
 {
     matcher->free(matcher);
 }
@@ -45,7 +45,7 @@ void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher)
 // Naive O(nm) algorithm
 struct naive_matcher_state
 {
-    struct cstr_exact_matcher matcher;
+    cstr_exact_matcher matcher;
     int i;
 };
 
@@ -68,8 +68,8 @@ static int naive_next(struct naive_matcher_state *s)
     return -1; // If we get here, we are done.
 }
 
-struct cstr_exact_matcher *
-cstr_naive_matcher(sslice x, sslice p)
+cstr_exact_matcher *
+cstr_naive_matcher(cstr_sslice x, cstr_sslice p)
 {
     struct naive_matcher_state *state = cstr_malloc(sizeof *state);
     *state = (struct naive_matcher_state){
@@ -80,7 +80,7 @@ cstr_naive_matcher(sslice x, sslice p)
 
 // Border array algorithm O(n+m)
 
-static void compute_border_array(sslice p, int *ba)
+static void compute_border_array(cstr_sslice p, int *ba)
 {
     // Border array
     ba[0] = 0;
@@ -124,8 +124,8 @@ static int ba_next(struct ba_matcher_state *s)
     return -1;
 }
 
-struct cstr_exact_matcher *
-cstr_ba_matcher(sslice x, sslice p)
+cstr_exact_matcher *
+cstr_ba_matcher(cstr_sslice x, cstr_sslice p)
 {
     // allocate space for the the struct + the border array
     // in the flexible array for ba.
@@ -175,7 +175,8 @@ static int kmp_next(struct kmp_matcher_state *s)
     return -1;
 }
 
-struct cstr_exact_matcher *cstr_kmp_matcher(sslice x, sslice p)
+cstr_exact_matcher *
+cstr_kmp_matcher(cstr_sslice x, cstr_sslice p)
 {
     struct kmp_matcher_state *state =
         CSTR_MALLOC_FLEX_ARRAY(state, ba, p.len);

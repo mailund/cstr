@@ -8,7 +8,7 @@
 #include "fastq.h"
 #include "sam.h"
 
-typedef struct cstr_exact_matcher *(*algorithm_fn)(sslice, sslice);
+typedef struct cstr_exact_matcher *(*algorithm_fn)(cstr_sslice, cstr_sslice);
 
 struct alg_choice {
     const char *name;

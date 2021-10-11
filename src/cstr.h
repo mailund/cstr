@@ -48,49 +48,64 @@ void *cstr_malloc_header_array(
     size_t len        // number of elements in array
     ) CSTR_MALLOC_FUNC;
 
+// Macro for getting the offset of a flexible member array
+// from an instance rather than a type (as for
+// offsetof(type,member)). This ensures we get the right
+// type to match the instance. The macro destroys the
+// pointer variable by setting it to NULL, so use with care.
+#define CSTR_OFFSETOF_INST(PTR, MEMBER) \
+    (size_t)(&(PTR = 0)->MEMBER)
+
 // Macro for allocating a struct with a flexible array
 // element. Gets the offset of the array from a varialble,
 // which requires less redundancy and potential for errors
 // than offsetof() which requires a type.
 // VAR is the struct variable (must be a pointer), FLEX_ARRAY
 // is the name of the flexible array member.
-#define CSTR_MALLOC_FLEX_ARRAY(VAR, FLEX_ARRAY, LEN)             \
-    cstr_malloc_header_array((size_t)(&((VAR = 0)->FLEX_ARRAY)), \
-                             sizeof(VAR->FLEX_ARRAY[0]), LEN)
+#define CSTR_MALLOC_FLEX_ARRAY(VAR, FLEX_ARRAY, LEN) \
+    cstr_malloc_header_array(                        \
+        CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY),         \
+        sizeof(VAR->FLEX_ARRAY[0]), LEN)
 
 // ==== SLICES =====================================================
 
 // slices, for easier handling of sub-strings and sub-arrays.
 // These should be passed by value and never dynamically allocated
 // (although the underlying buffer can be).
-struct cstr_sslice
-{
-    char *buf;
-    size_t len;
-};
-struct cstr_islice
-{
-    int *buf;
-    size_t len;
-};
+#define CSTR_SLICE_TYPE(MEMBER_TYPE) \
+    struct                           \
+    {                                \
+        size_t len;                  \
+        MEMBER_TYPE *buf;            \
+    }
 
-#define CSTR_SLICE_STRUCT(TYPE, BUF, LEN) ((TYPE){.buf = (BUF), .len = (LEN)})
-#define CSTR_SSLICE(BUF, LEN) CSTR_SLICE_STRUCT(struct cstr_sslice, BUF, LEN)
-#define CSTR_ISLICE(BUF, LEN) CSTR_SLICE_STRUCT(struct cstr_islice, BUF, LEN)
+typedef CSTR_SLICE_TYPE(char) cstr_sslice;
+typedef CSTR_SLICE_TYPE(int) cstr_islice;
+
+// Creating slice instances
+#define CSTR_SLICE_STRUCT(TYPE, BUF, LEN) \
+    ((TYPE){.buf = (BUF), .len = (LEN)})
+#define CSTR_SSLICE(BUF, LEN) \
+    CSTR_SLICE_STRUCT(cstr_sslice, BUF, LEN)
+#define CSTR_ISLICE(BUF, LEN) \
+    CSTR_SLICE_STRUCT(cstr_islice, BUF, LEN)
 
 #define CSTR_SSLICE_STRING(STR) CSTR_SSLICE(STR, strlen(STR))
 
-INLINE struct cstr_sslice
+// Using inline functions for allocation so we don't risk
+// evaluating the length expression twice and so we can
+// get the size of buffer elements from the type.
+INLINE cstr_sslice
 CSTR_ALLOC_SSLICE(size_t len)
 {
-    struct cstr_sslice dummy; // for size calculation
+    cstr_sslice dummy; // for size calculation
     return CSTR_SSLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
 }
 
-INLINE struct cstr_islice
+INLINE cstr_islice
 CSTR_ALLOC_ISLICE(size_t len)
 {
-    struct cstr_islice dummy; // for size calculation
+    cstr_islice dummy; // for size calculation
     return CSTR_ISLICE(cstr_malloc_buffer(sizeof dummy.buf[0], len), len);
 }
 
@@ -103,66 +118,62 @@ CSTR_ALLOC_ISLICE(size_t len)
     } while (0)
 
 // Comparing string-slices
-bool
-cstr_sslice_eq(struct cstr_sslice x,
-               struct cstr_sslice y);
+bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);
 
 // == ALPHABET =====================================================
 
 // Alphabets, for when we remap strings to smaller alphabets
-struct cstr_alphabet
+typedef struct cstr_alphabet
 {
     unsigned int size;
     unsigned char map[CSTR_NO_CHARS];
     unsigned char revmap[CSTR_NO_CHARS];
-};
+} cstr_alphabet;
 
 // Initialise an alphabet form a slice. Since the alphabet is already
 // allocated, this function cannot fail.
-void cstr_init_alphabet(struct cstr_alphabet *alpha,
-                        struct cstr_sslice slice);
+void cstr_init_alphabet(cstr_alphabet *alpha,
+                        cstr_sslice slice);
 
 // Write a mapped string into dst. dst.len must equal src.len
-bool cstr_alphabet_map(struct cstr_sslice dst,
-                       struct cstr_sslice src,
-                       struct cstr_alphabet const *alpha);
+bool cstr_alphabet_map(cstr_sslice dst,
+                       cstr_sslice src,
+                       cstr_alphabet const *alpha);
 
 // Map a slice into an integer slice. dst.len must match src.len + 1
 // to make room for a sentinel.
-bool cstr_alphabet_map_to_int(struct cstr_islice dst,
-                              struct cstr_sslice src,
-                              struct cstr_alphabet const *alpha);
+bool cstr_alphabet_map_to_int(cstr_islice dst,
+                              cstr_sslice src,
+                              cstr_alphabet const *alpha);
 
 // Map a string back into the dst slice. dst.len must equal src.len.
-bool cstr_alphabet_revmap(struct cstr_sslice dst,
-                          struct cstr_sslice src,
-                          struct cstr_alphabet const *alpha);
+bool cstr_alphabet_revmap(cstr_sslice dst,
+                          cstr_sslice src,
+                          cstr_alphabet const *alpha);
 
 // == EXACT MATCHERS =============================
-struct cstr_exact_matcher; // Opaque polymorphic type
+// Opaque polymorphic type
+typedef struct cstr_exact_matcher cstr_exact_matcher;
 
 // returns -1 when there are no more matches, otherwise an index of a match
-int cstr_exact_next_match(struct cstr_exact_matcher *matcher);
-void cstr_free_exact_matcher(struct cstr_exact_matcher *matcher);
+int cstr_exact_next_match(cstr_exact_matcher *matcher);
+void cstr_free_exact_matcher(cstr_exact_matcher *matcher);
 
-struct cstr_exact_matcher *
-cstr_naive_matcher(struct cstr_sslice x, struct cstr_sslice p);
-struct cstr_exact_matcher *
-cstr_ba_matcher(struct cstr_sslice x, struct cstr_sslice p);
-struct cstr_exact_matcher *
-cstr_kmp_matcher(struct cstr_sslice x, struct cstr_sslice p);
+cstr_exact_matcher *cstr_naive_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_ba_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
-// Suffix arrays stored in islice objects can only handle lenghts up to
-// x.len > INT_MAX - 1, and the caller must ensure that.
+// Suffix arrays stored in islice objects can only handle lenghts
+// up to x.len > INT_MAX - 1, and the caller must ensure that.
 
 // Suffix array construction.
 // slice x must be mapped to alphabet and slice sa
 // must be same length of x. The result will be put
 // into sa.
-void cstr_skew(struct cstr_islice sa,
-               struct cstr_islice x,
-               struct cstr_alphabet *alpha);
+void cstr_skew(cstr_islice sa,
+               cstr_islice x,
+               cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 
