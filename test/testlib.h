@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <cstr.h>
+
 struct tl_state
 {
     int no_tests;
@@ -44,9 +46,9 @@ struct tl_state
 
 // MARK: Testing primitive types
 #define TL_ERROR_IF_NEQ(FMT, A, B) \
-    TL_ERROR_IF_((A) != (B), FMT " != " FMT, A, B)
+    TL_ERROR_IF_((A) != (B), FMT " != " FMT "\n", A, B)
 #define TL_FATAL_IF_NEQ(FMT, A, B) \
-    TL_FATAL_IF_((A) != (B), FMT " != " FMT, A, B)
+    TL_FATAL_IF_((A) != (B), FMT " != " FMT "\n", A, B)
 
 #define TL_ERROR_IF_NEQ_INT(A, B) TL_ERROR_IF_NEQ("%d", A, B)
 #define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
@@ -191,7 +193,7 @@ int tl_test_array(void *restrict expected,
     return 1;
 
 // MARK: Generating test strings
-void tl_random_string(const char *alpha, int alpha_size,
-                      char *buf, int buf_len);
+void tl_random_string(cstr_sslice x,
+                      const char *alpha, int alpha_size);
 
 #endif // TESTLIB_H

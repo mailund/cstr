@@ -14,7 +14,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "aaba";
         char *p = "a";
-        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -28,7 +28,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "abab";
         char *p = "ab";
-        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -40,7 +40,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "aaaa";
         char *p = "aa";
-        struct cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -57,23 +57,32 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
+    
+    cstr_sslice x = CSTR_ALLOC_SSLICE(100);
+    cstr_sslice p = CSTR_ALLOC_SSLICE(5);
+    
+    for (int i = 0; i < 10; i++) {
+        tl_random_string(x, "abc", 3);
+        for (int j = 0; j < 10; j++) {
+            tl_random_string(p, "abc", 3);
+            
+            cstr_exact_matcher *matcher = f(x, p);
+            for (int m = cstr_exact_next_match(matcher);
+                 m != -1;
+                 m = cstr_exact_next_match(matcher)) {
+                cstr_sslice match = CSTR_SSLICE(x.buf + m, p.len);
+                TL_ERROR_IF(!cstr_sslice_eq(match, p));
+            }
+            cstr_free_exact_matcher(matcher);
+            
+        }
+    }
+    
+    CSTR_FREE_SLICE_BUFFER(p);
+    CSTR_FREE_SLICE_BUFFER(x);
+    
     TL_END();
 }
-
-#if 0
-int main(void) {
-    const char *alpha = "acgt";
-    int alpha_len = strlen(alpha);
-    char buf[100];
-    tl_random_string(alpha, alpha_len, buf, 100);
-    for (int i = 0; i < 100; i++) {
-        putchar(buf[i]);
-    }
-    putchar('\n');
-
-    return 0;
-}
-#endif
 
 TL_TEST(simple_test)
 {
@@ -84,9 +93,19 @@ TL_TEST(simple_test)
     TL_END();
 }
 
+TL_TEST(random_string)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_random_string_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_random_string_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_random_string_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("exact_test");
     TL_RUN_TEST(simple_test);
+    TL_RUN_TEST(random_string);
     TL_END_SUITE();
 }

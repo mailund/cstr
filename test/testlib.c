@@ -20,12 +20,16 @@ int tl_test_array(void *restrict expected, void *restrict actual, size_t arrlen,
 }
 
 // test strings
-void tl_random_string(const char *alpha, int alpha_size, char *buf,
-                      int buf_len)
+void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
 {
-    for (int i = 0; i < buf_len - 1; i++)
+    for (int i = 0; i < x.len; i++)
     {
-        *buf++ = alpha[rand() % alpha_size];
+        x.buf[i] = alpha[rand() % alpha_size];
     }
-    *buf = '\0';
+}
+
+cstr_sslice tl_random_prefix(cstr_sslice x)
+{
+    int k = rand() % (x.len - 1); // pick non-empty prefix
+    return CSTR_SSLICE(x.buf, x.len - k);
 }

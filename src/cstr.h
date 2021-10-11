@@ -95,6 +95,7 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
     {                              \
         .buf = (BUF), .len = (LEN) \
     }
+
 #define CSTR_SSLICE(BUF, LEN) \
     (cstr_sslice) CSTR_SLICE_INIT(BUF, LEN)
 #define CSTR_ISLICE(BUF, LEN) \
@@ -109,7 +110,7 @@ INLINE cstr_sslice
 CSTR_ALLOC_SSLICE(size_t len)
 {
     cstr_sslice dummy; // for size calculation
-    return CSTR_SSLICE(
+    return (cstr_sslice)CSTR_SLICE_INIT(
         cstr_malloc_buffer(sizeof dummy.buf[0], len),
         len);
 }
@@ -118,7 +119,7 @@ INLINE cstr_islice
 CSTR_ALLOC_ISLICE(size_t len)
 {
     cstr_islice dummy; // for size calculation
-    return CSTR_ISLICE(
+    return (cstr_islice)CSTR_SLICE_INIT(
         cstr_malloc_buffer(sizeof dummy.buf[0], len),
         len);
 }
