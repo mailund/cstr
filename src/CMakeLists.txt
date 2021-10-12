@@ -58,7 +58,7 @@ target_compile_options(${PROJECT_NAME}
         -Wweak-vtables
         -Werror
         -Wall
-        -O3
+        #-O3
 )
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

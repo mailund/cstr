@@ -54,6 +54,15 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     TL_END();
 }
 
+TL_TEST(simple_test)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
@@ -70,7 +79,7 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
             for (int m = cstr_exact_next_match(matcher);
                  m != -1;
                  m = cstr_exact_next_match(matcher)) {
-                cstr_sslice match = CSTR_SLICE(x.buf + m, p.len);
+                cstr_sslice match = CSTR_SUBSLICE(x, m, m + p.len);
                 TL_ERROR_IF(!cstr_sslice_eq(match, p));
             }
             cstr_free_exact_matcher(matcher);
@@ -84,16 +93,7 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
     TL_END();
 }
 
-TL_TEST(simple_test)
-{
-    TL_BEGIN();
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
-    TL_END();
-}
-
-TL_TEST(random_string)
+TL_TEST(test_random_string)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_random_string_p, "naive", cstr_naive_matcher);
@@ -102,10 +102,43 @@ TL_TEST(random_string)
     TL_END();
 }
 
+
+TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
+{
+    TL_BEGIN();
+    
+    cstr_sslice x = cstr_alloc_sslice_buffer(100);
+    
+    for (int i = 0; i < 10; i++) {
+        tl_random_string(x, "abc", 3);
+        for (int j = 0; j < 10; j++) {
+            cstr_sslice p = tl_random_prefix(x);
+            cstr_exact_matcher *matcher = f(x, p);
+            TL_ERROR_IF_NEQ_INT(0, cstr_exact_next_match(matcher));
+            cstr_free_exact_matcher(matcher);
+            
+        }
+    }
+    
+    CSTR_FREE_SLICE_BUFFER(x);
+    
+    TL_END();
+}
+
+TL_TEST(test_prefix)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_prefix_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_prefix_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_prefix_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("exact_test");
     TL_RUN_TEST(simple_test);
-    TL_RUN_TEST(random_string);
+    TL_RUN_TEST(test_random_string);
+    TL_RUN_TEST(test_prefix);
     TL_END_SUITE();
 }

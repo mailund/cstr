@@ -121,7 +121,7 @@ INLINE size_t cstr_idx(int i, size_t len)
     // when we cast the negative i to unsigned size_t we use
     // twos-complement addition to get len - abs(i).
     size_t j = i >= 0 ? (size_t)i : len + (size_t)i;
-    assert(j < len); // rudementary check when DEBUG flag enabled
+    assert(j <= len); // rudementary check when DEBUG flag enabled
     return j;
 }
 

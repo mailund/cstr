@@ -30,6 +30,6 @@ void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
 
 cstr_sslice tl_random_prefix(cstr_sslice x)
 {
-    int k = rand() % (x.len - 1); // pick non-empty prefix
-    return CSTR_SLICE(x.buf, x.len - k);
+    // pick non-empty prefix
+    return CSTR_PREFIX(x, rand() % (x.len - 1));
 }

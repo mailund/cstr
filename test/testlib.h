@@ -195,5 +195,6 @@ int tl_test_array(void *restrict expected,
 // MARK: Generating test strings
 void tl_random_string(cstr_sslice x,
                       const char *alpha, int alpha_size);
+cstr_sslice tl_random_prefix(cstr_sslice x);
 
 #endif // TESTLIB_H
