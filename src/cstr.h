@@ -77,7 +77,7 @@ void *cstr_malloc_header_array(
 
 // ==== SLICES =====================================================
 
-// slices, for easier handling of sub-strings and sub-arrays.
+// Slices, for easier handling of sub-strings and sub-arrays.
 // These should be passed by value and never dynamically allocated
 // (although the underlying buffer can be).
 #define CSTR_SLICE_TYPE(MEMBER_TYPE) \
@@ -106,6 +106,44 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
              : (cstr_islice)CSTR_SLICE_INIT((void *)BUF, LEN))
 
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
+
+// Getting sub-slices.
+// Since standard C doesn't have statement-expressions, we are
+// relying heavily on the compiler optimising away repeated calls
+// to the index calculations, but this should not be a problem for
+// it with a simple inlined function.
+
+// When indexing x[i], if 0 <= i < x.len, we get x.buf[i], and
+// if x.len < i <= -1 we get x.buf[x.len - abs(i)], i.e., we
+// index from the back.
+INLINE size_t cstr_idx(int i, size_t len)
+{
+    // when we cast the negative i to unsigned size_t we use
+    // twos-complement addition to get len - abs(i).
+    size_t j = i >= 0 ? (size_t)i : len + (size_t)i;
+    assert(j < len); // rudementary check when DEBUG flag enabled
+    return j;
+}
+
+// x[i] handling both positive and negative indices. Usually,
+// x.buf[i] is more natural, if you only need to use positive
+// indices
+#define CSTR_IDX(S, I) ((S).buf[cstr_idx(I, (S).len)])
+
+// x => x[i:j].
+#define CSTR_SUBSLICE(S, I, J)                             \
+    (assert(cstr_idx(I, (S).len) <= cstr_idx(J, (S).len)), \
+     CSTR_SLICE((S).buf + cstr_idx(I, (S).len),            \
+                cstr_idx(J, (S).len) - cstr_idx(I, (S).len)))
+
+// x => x[0:i] (x[:i])
+#define CSTR_PREFIX(S, I) \
+    CSTR_SLICE((S).buf, cstr_idx(I, (S).len))
+
+// x => x[i:x.len] (x[i:])
+#define CSTR_SUFFIX(S, I)                      \
+    CSTR_SLICE((S).buf + cstr_idx(I, (S).len), \
+               (S).len - cstr_idx(I, (S).len))
 
 // Using inline functions for allocation so we don't risk
 // evaluating the length expression twice.
