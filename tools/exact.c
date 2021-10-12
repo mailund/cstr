@@ -56,8 +56,8 @@ int main(int argc, const char *argv[]) {
         init_fasta_iter(&faiter, chromosomes);
         while (next_fasta_record(&faiter, &farec)) {
             matcher =
-                algo(CSTR_SSLICE((char *)farec.seq, farec.seq_len),
-                     CSTR_SSLICE_STRING(fqrec.sequence));
+                algo(CSTR_SLICE((char *)farec.seq, farec.seq_len),
+                     CSTR_SLICE_STRING(fqrec.sequence));
             
             for (int pos = cstr_exact_next_match(matcher); pos != -1;
                  pos = cstr_exact_next_match(matcher)) {

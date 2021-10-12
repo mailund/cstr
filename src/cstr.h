@@ -96,13 +96,14 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
         .buf = (BUF), .len = (LEN) \
     }
 
-#define CSTR_SSLICE(BUF, LEN) \
-    (cstr_sslice) CSTR_SLICE_INIT(BUF, LEN)
-#define CSTR_ISLICE(BUF, LEN) \
-    (cstr_islice) CSTR_SLICE_INIT(BUF, LEN)
+// Generic slice construction; the (void *) cast is necessary
+// to get around the rules for _Generic.
+#define CSTR_SLICE(BUF, LEN) \
+    _Generic((BUF), \
+    char *: (cstr_sslice)CSTR_SLICE_INIT((void *)BUF,LEN), \
+    int *:  (cstr_islice)CSTR_SLICE_INIT((void *)BUF,LEN))
 
-#define CSTR_SSLICE_STRING(STR) \
-    CSTR_SSLICE(STR, strlen(STR))
+#define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
 
 // Using inline functions for allocation so we don't risk
 // evaluating the length expression twice.

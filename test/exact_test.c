@@ -14,7 +14,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "aaba";
         char *p = "a";
-        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -28,7 +28,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "abab";
         char *p = "ab";
-        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -40,7 +40,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         char *x = "aaaa";
         char *p = "aa";
-        cstr_exact_matcher *m = f(CSTR_SSLICE_STRING(x), CSTR_SSLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
         int i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_INT(i, 0);
         i = cstr_exact_next_match(m);
@@ -70,7 +70,7 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
             for (int m = cstr_exact_next_match(matcher);
                  m != -1;
                  m = cstr_exact_next_match(matcher)) {
-                cstr_sslice match = CSTR_SSLICE(x.buf + m, p.len);
+                cstr_sslice match = CSTR_SLICE(x.buf + m, p.len);
                 TL_ERROR_IF(!cstr_sslice_eq(match, p));
             }
             cstr_free_exact_matcher(matcher);

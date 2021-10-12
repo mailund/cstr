@@ -17,7 +17,7 @@ TL_TEST(test_mississippi)
 {
     TL_BEGIN();
     
-    cstr_sslice x = CSTR_SSLICE_STRING("mississippi");
+    cstr_sslice x = CSTR_SLICE_STRING("mississippi");
     
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
