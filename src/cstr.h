@@ -98,32 +98,29 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
 
 // Generic slice construction; the (void *) cast is necessary
 // to get around the rules for _Generic.
-#define CSTR_SLICE(BUF, LEN) \
-    _Generic((BUF), \
-    char *: (cstr_sslice)CSTR_SLICE_INIT((void *)BUF,LEN), \
-    int *:  (cstr_islice)CSTR_SLICE_INIT((void *)BUF,LEN))
+#define CSTR_SLICE(BUF, LEN)                                   \
+    _Generic((BUF),                                            \
+             char *                                            \
+             : (cstr_sslice)CSTR_SLICE_INIT((void *)BUF, LEN), \
+               int *                                           \
+             : (cstr_islice)CSTR_SLICE_INIT((void *)BUF, LEN))
 
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
 
 // Using inline functions for allocation so we don't risk
 // evaluating the length expression twice.
-INLINE cstr_sslice
-CSTR_ALLOC_SSLICE(size_t len)
-{
-    cstr_sslice dummy; // for size calculation
-    return (cstr_sslice)CSTR_SLICE_INIT(
-        cstr_malloc_buffer(sizeof dummy.buf[0], len),
-        len);
-}
+#define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                         \
+    INLINE cstr_##TYPE cstr_alloc_##TYPE##_buffer(size_t len)     \
+    {                                                             \
+        cstr_##TYPE dummy; /* use dummy to get underlying type */ \
+        return (cstr_##TYPE)CSTR_SLICE_INIT(                      \
+            cstr_malloc_buffer(sizeof dummy.buf[0], len),         \
+            len);                                                 \
+    }
 
-INLINE cstr_islice
-CSTR_ALLOC_ISLICE(size_t len)
-{
-    cstr_islice dummy; // for size calculation
-    return (cstr_islice)CSTR_SLICE_INIT(
-        cstr_malloc_buffer(sizeof dummy.buf[0], len),
-        len);
-}
+// for each type T we get cstr_alloc_T_buffer(size_t len)
+CSTR_BUFFER_ALLOC_GENERATOR(sslice)
+CSTR_BUFFER_ALLOC_GENERATOR(islice)
 
 #define CSTR_FREE_SLICE_BUFFER(SLICE) \
     do                                \

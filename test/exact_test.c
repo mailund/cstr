@@ -58,8 +58,8 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
     
-    cstr_sslice x = CSTR_ALLOC_SSLICE(100);
-    cstr_sslice p = CSTR_ALLOC_SSLICE(5);
+    cstr_sslice x = cstr_alloc_sslice_buffer(100);
+    cstr_sslice p = cstr_alloc_sslice_buffer(5);
     
     for (int i = 0; i < 10; i++) {
         tl_random_string(x, "abc", 3);
