@@ -126,7 +126,7 @@ TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
                 res = cstr_exact_next_match(matcher);
             }
             
-            TL_ERROR_IF_NEQ_INT(last, (int)(x.len - p.len));
+            TL_ERROR_IF_NEQ_LL((long long)last, x.len - p.len);
             
             cstr_free_exact_matcher(matcher);
             

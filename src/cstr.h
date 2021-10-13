@@ -80,10 +80,15 @@ void *cstr_malloc_header_array(
 // Slices, for easier handling of sub-strings and sub-arrays.
 // These should be passed by value and never dynamically allocated
 // (although the underlying buffer can be).
+// The most natural type for a length would be size_t, but we will
+// allow indexing with negative numbers, so we use a signed long long.
+// That will be at least 64 bits, so even if signed will be enough
+// for any sane amount of data. Lengths should still be non-negative,
+// of course
 #define CSTR_SLICE_TYPE(MEMBER_TYPE) \
     struct                           \
     {                                \
-        size_t len;                  \
+        signed long long len;        \
         MEMBER_TYPE *buf;            \
     }
 
@@ -116,12 +121,11 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
 // When indexing x[i], if 0 <= i < x.len, we get x.buf[i], and
 // if x.len < i <= -1 we get x.buf[x.len - abs(i)], i.e., we
 // index from the back.
-INLINE size_t cstr_idx(int i, size_t len)
+INLINE long long cstr_idx(long long i, long long len)
 {
-    // when we cast the negative i to unsigned size_t we use
-    // twos-complement addition to get len - abs(i).
-    size_t j = i >= 0 ? (size_t)i : len + (size_t)i;
-    assert(j <= len); // rudementary check when DEBUG flag enabled
+    // When i is negative we add it to len to get len - abs(i).
+    long long j = i >= 0 ? i : len + i;
+    assert(0 <= j && j <= len); // rudementary check when DEBUG flag enabled
     return j;
 }
 
@@ -148,11 +152,11 @@ INLINE size_t cstr_idx(int i, size_t len)
 // Using inline functions for allocation so we don't risk
 // evaluating the length expression twice.
 #define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                         \
-    INLINE cstr_##TYPE cstr_alloc_##TYPE##_buffer(size_t len)     \
+    INLINE cstr_##TYPE cstr_alloc_##TYPE##_buffer(long long len)  \
     {                                                             \
         cstr_##TYPE dummy; /* use dummy to get underlying type */ \
         return (cstr_##TYPE)CSTR_SLICE_INIT(                      \
-            cstr_malloc_buffer(sizeof dummy.buf[0], len),         \
+            cstr_malloc_buffer(sizeof dummy.buf[0], (size_t)len), \
             len);                                                 \
     }
 

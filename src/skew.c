@@ -14,8 +14,8 @@
 // These operate on size_t, although the suffix arrays can only handle
 // unsigned int, but they do that to fit with the slice interface. There
 // is a check for the size of input in the public functions.
-static inline size_t sa3len(size_t n) { return (n - 1) / 3 + 1; }
-static inline size_t sa12len(size_t n) { return n - sa3len(n); }
+static inline long long sa3len(long long n) { return (n - 1) / 3 + 1; }
+static inline long long sa12len(long long n) { return n - sa3len(n); }
 
 static inline int safe_idx(cstr_islice x, int i)
 {
@@ -93,7 +93,7 @@ static void bucket_sort_with_buffers(cstr_islice x, cstr_islice idx,
     }
 
     // copy sorted back into idx
-    memcpy(idx.buf, buffer, idx.len * sizeof(*buffer));
+    memcpy(idx.buf, buffer, (size_t)idx.len * sizeof(*buffer));
 }
 
 static void bucket_sort(cstr_islice x,
@@ -102,7 +102,7 @@ static void bucket_sort(cstr_islice x,
                         int asize)
 {
     int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
-    int *buffer = cstr_malloc(idx.len * sizeof *buffer);
+    int *buffer = cstr_malloc((size_t)idx.len * sizeof *buffer);
     bucket_sort_with_buffers(x, idx, offset, asize, buckets, buffer);
 
     free(buckets);
@@ -112,7 +112,7 @@ static void bucket_sort(cstr_islice x,
 static void radix3(cstr_islice x, cstr_islice idx, int asize)
 {
     int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
-    int *buffer = cstr_malloc(idx.len * sizeof *buffer);
+    int *buffer = cstr_malloc((size_t)idx.len * sizeof *buffer);
 
     bucket_sort_with_buffers(x, idx, 2, asize, buckets, buffer);
     bucket_sort_with_buffers(x, idx, 1, asize, buckets, buffer);
@@ -146,7 +146,7 @@ static void merge(cstr_islice sa, cstr_islice x, cstr_islice sa12, cstr_islice s
     assert(x.len > 0);
     assert(sa.buf && x.buf && sa12.buf && sa3.buf);
 
-    int *isa = cstr_malloc(x.len * sizeof *isa);
+    int *isa = cstr_malloc((size_t)x.len * sizeof *isa);
 
     // Without a map, the easiest solution for the inverse
     // suffix array is to use an array with the same
@@ -246,7 +246,7 @@ static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
     get_sa12(sa12, x);
     radix3(x, sa12, asize);
 
-    int *encoding = cstr_malloc(sa12.len * sizeof *encoding);
+    int *encoding = cstr_malloc((size_t)sa12.len * sizeof *encoding);
     int new_asize = build_alphabet(encoding, x, sa12);
 
     // if the alphabet minus the sentinel matches the length of sa12, then

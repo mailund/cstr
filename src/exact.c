@@ -129,7 +129,7 @@ cstr_ba_matcher(cstr_sslice x, cstr_sslice p)
     // allocate space for the the struct + the border array
     // in the flexible array for ba.
     struct ba_matcher_state *state =
-        CSTR_MALLOC_FLEX_ARRAY(state, ba, p.len);
+        CSTR_MALLOC_FLEX_ARRAY(state, ba, (size_t)p.len);
     *state = (struct ba_matcher_state){
         MATCHER(ba_next, free, x, p),
         .i = 0, .b = 0};
@@ -178,7 +178,7 @@ cstr_exact_matcher *
 cstr_kmp_matcher(cstr_sslice x, cstr_sslice p)
 {
     struct kmp_matcher_state *state =
-        CSTR_MALLOC_FLEX_ARRAY(state, ba, p.len);
+        CSTR_MALLOC_FLEX_ARRAY(state, ba, (size_t)p.len);
     *state = (struct kmp_matcher_state){
         MATCHER(kmp_next, free, x, p),
         .i = 0, .j = 0};

@@ -52,6 +52,8 @@ struct tl_state
 
 #define TL_ERROR_IF_NEQ_INT(A, B) TL_ERROR_IF_NEQ("%d", A, B)
 #define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
+#define TL_ERROR_IF_NEQ_LL(A, B) TL_ERROR_IF_NEQ("%lld", A, B)
+#define TL_FATAL_IF_NEQ_LL(A, B) TL_FATAL_IF_NEQ("%lld", A, B)
 
 // MARK: Testing arrays
 int tl_test_array(void *restrict expected,
