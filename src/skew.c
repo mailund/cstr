@@ -242,7 +242,7 @@ static void build_u(cstr_islice u, int encoding[])
 
 static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
 {
-    cstr_islice sa12 = cstr_alloc_islice_buffer(sa12len(x.len));
+    cstr_islice sa12 = CSTR_ALLOC_SLICE_BUFFER(sa12, sa12len(x.len));
     get_sa12(sa12, x);
     radix3(x, sa12, asize);
 
@@ -254,11 +254,11 @@ static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
     if (new_asize - 1 < sa12.len)
     {
         // We need to sort recursively
-        cstr_islice u = cstr_alloc_islice_buffer(sa12.len);
+        cstr_islice u = CSTR_ALLOC_SLICE_BUFFER(u, sa12.len);
         build_u(u, encoding);
         CSTR_FREE_NULL(encoding);
 
-        cstr_islice u_sa = cstr_alloc_islice_buffer(u.len);
+        cstr_islice u_sa = CSTR_ALLOC_SLICE_BUFFER(u_sa, u.len);
 
         skew_rec(u_sa, u, new_asize);
 
@@ -272,7 +272,7 @@ static void skew_rec(cstr_islice sa, cstr_islice x, int asize)
         CSTR_FREE_SLICE_BUFFER(u_sa);
     }
 
-    cstr_islice sa3 = cstr_alloc_islice_buffer(sa3len(x.len));
+    cstr_islice sa3 = CSTR_ALLOC_SLICE_BUFFER(sa3, sa3len(x.len));
     get_sa3(sa3, sa12, x);
 
     bucket_sort(x, sa3, /* offset */ 0, asize);

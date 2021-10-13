@@ -92,31 +92,43 @@ void *cstr_malloc_header_array(
         MEMBER_TYPE *buf;            \
     }
 
-typedef CSTR_SLICE_TYPE(char) cstr_sslice;
-typedef CSTR_SLICE_TYPE(int) cstr_islice;
-
 // Creating slice instances
 #define CSTR_SLICE_INIT(BUF, LEN)  \
     {                              \
         .buf = (BUF), .len = (LEN) \
     }
 
-// Generic slice construction; the (void *) cast is necessary
-// to get around the rules for _Generic.
-#define CSTR_SLICE(BUF, LEN)                                   \
-    _Generic((BUF),                                            \
-             char *                                            \
-             : (cstr_sslice)CSTR_SLICE_INIT((void *)BUF, LEN), \
-               int *                                           \
-             : (cstr_islice)CSTR_SLICE_INIT((void *)BUF, LEN))
+// Memory management
+// -----------------
+// Using inline functions for allocation so we don't risk
+// evaluating the length expression twice.
+#define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                         \
+    INLINE cstr_##TYPE cstr_alloc_##TYPE##_buffer(long long len)  \
+    {                                                             \
+        cstr_##TYPE dummy; /* use dummy to get underlying type */ \
+        return (cstr_##TYPE)CSTR_SLICE_INIT(                      \
+            cstr_malloc_buffer(sizeof dummy.buf[0], (size_t)len), \
+            len);                                                 \
+    }
 
-#define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
+#define CSTR_FREE_SLICE_BUFFER(SLICE) \
+    do                                \
+    {                                 \
+        free((SLICE).buf);            \
+        (SLICE).buf = 0;              \
+        (SLICE).len = 0;              \
+    } while (0)
 
 // Getting sub-slices.
-// Since standard C doesn't have statement-expressions, we are
-// relying heavily on the compiler optimising away repeated calls
-// to the index calculations, but this should not be a problem for
-// it with a simple inlined function.
+// -------------------
+// Since standard C doesn't have statement-expressions, we have to
+// jump through a few hoops to avoid evaluating the index calculations
+// more than once (which would be disastrous if they are not
+// deterministic, e.g. if we slice to random indices for testing).
+// That means that we need to use generated functions, even though
+// we do exactly the same computation for all types of slices.
+// We can then use a _Generic expression to give the slices a
+// uniform interface.
 
 // When indexing x[i], if 0 <= i < x.len, we get x.buf[i], and
 // if x.len < i <= -1 we get x.buf[x.len - abs(i)], i.e., we
@@ -129,48 +141,114 @@ INLINE long long cstr_idx(long long i, long long len)
     return j;
 }
 
-// x[i] handling both positive and negative indices. Usually,
-// x.buf[i] is more natural, if you only need to use positive
-// indices
-#define CSTR_IDX(S, I) ((S).buf[cstr_idx(I, (S).len)])
-
-// x => x[i:j].
-#define CSTR_SUBSLICE(S, I, J)                             \
-    (assert(cstr_idx(I, (S).len) <= cstr_idx(J, (S).len)), \
-     CSTR_SLICE((S).buf + cstr_idx(I, (S).len),            \
-                cstr_idx(J, (S).len) - cstr_idx(I, (S).len)))
-
-// x => x[0:i] (x[:i])
-#define CSTR_PREFIX(S, I) \
-    CSTR_SLICE((S).buf, cstr_idx(I, (S).len))
-
-// x => x[i:x.len] (x[i:])
-#define CSTR_SUFFIX(S, I)                      \
-    CSTR_SLICE((S).buf + cstr_idx(I, (S).len), \
-               (S).len - cstr_idx(I, (S).len))
-
-// Using inline functions for allocation so we don't risk
-// evaluating the length expression twice.
-#define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                         \
-    INLINE cstr_##TYPE cstr_alloc_##TYPE##_buffer(long long len)  \
-    {                                                             \
-        cstr_##TYPE dummy; /* use dummy to get underlying type */ \
-        return (cstr_##TYPE)CSTR_SLICE_INIT(                      \
-            cstr_malloc_buffer(sizeof dummy.buf[0], (size_t)len), \
-            len);                                                 \
+#define CSTR_INDEX_AND_SLICING_GENERATOR(STYPE)          \
+    INLINE CSTR_SLICE_BASETYPE(STYPE)                    \
+        cstr_idx_##STYPE(cstr_##STYPE x, long long i)    \
+    {                                                    \
+        return x.buf[cstr_idx(i, x.len)];                \
+    }                                                    \
+    INLINE cstr_##STYPE                                  \
+        cstr_subslice_##STYPE(cstr_##STYPE x,            \
+                              long long i, long long j)  \
+    {                                                    \
+        i = cstr_idx(i, x.len);                          \
+        j = cstr_idx(j, x.len);                          \
+        assert(i <= j);                                  \
+        return CSTR_SLICE(x.buf + i, j - i);             \
+    }                                                    \
+    INLINE cstr_##STYPE                                  \
+        cstr_prefix_##STYPE(cstr_##STYPE x, long long i) \
+    {                                                    \
+        return CSTR_SLICE(x.buf, cstr_idx(i, x.len));    \
+    }                                                    \
+    INLINE cstr_##STYPE                                  \
+        cstr_suffix_##STYPE(cstr_##STYPE x, long long i) \
+    {                                                    \
+        return CSTR_SLICE(x.buf + cstr_idx(i, x.len),    \
+                          x.len - cstr_idx(i, x.len));   \
     }
+
+// Instantiate for different types...
+typedef CSTR_SLICE_TYPE(char) cstr_sslice;
+typedef CSTR_SLICE_TYPE(int) cstr_islice;
+
+// Generic slice construction; the (void *) cast is necessary
+// to get around the rules for _Generic.
+#define CSTR_SLICE(BUF, LEN)                                   \
+    _Generic((BUF),                                            \
+             char *                                            \
+             : (cstr_sslice)CSTR_SLICE_INIT((void *)BUF, LEN), \
+               int *                                           \
+             : (cstr_islice)CSTR_SLICE_INIT((void *)BUF, LEN))
+
+#define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
+
+// These are for when a macro needs to get the underlying
+// type from a slice type
+#define CSTR_SLICE_BASETYPE_sslice char
+#define CSTR_SLICE_BASETYPE_islice int
+#define CSTR_SLICE_BASETYPE(STYPE) CSTR_SLICE_BASETYPE_##STYPE
 
 // for each type T we get cstr_alloc_T_buffer(size_t len)
 CSTR_BUFFER_ALLOC_GENERATOR(sslice)
 CSTR_BUFFER_ALLOC_GENERATOR(islice)
 
-#define CSTR_FREE_SLICE_BUFFER(SLICE) \
-    do                                \
-    {                                 \
-        free((SLICE).buf);            \
-        (SLICE).buf = 0;              \
-        (SLICE).len = 0;              \
-    } while (0)
+// If you have a variable you intend to assign a freshly allocated
+// slice-buffer to, you can use this macro to automatically pick the
+// right function from the type
+#define CSTR_ALLOC_SLICE_BUFFER(SLICE, LEN)   \
+    _Generic((SLICE),                         \
+             cstr_sslice                      \
+             : cstr_alloc_sslice_buffer(LEN), \
+               cstr_islice                    \
+             : cstr_alloc_islice_buffer(LEN))
+
+// For each type T we get cstr_idx_T, cstr_subslice_T,
+// cstr_prefix_T and cstr_suffix_T.
+CSTR_INDEX_AND_SLICING_GENERATOR(sslice)
+CSTR_INDEX_AND_SLICING_GENERATOR(islice)
+
+// x[i] handling both positive and negative indices. Usually,
+// x.buf[i] is more natural, if you only need to use positive
+// indices.
+#define CSTR_IDX(S, I)          \
+    _Generic((S),               \
+             cstr_sslice        \
+             : cstr_idx_sslice, \
+               cstr_islice      \
+             : cstr_idx_islice)(S, I)
+
+// subslice: x => x[i:j]
+#define CSTR_SUBSLICE(S, I, J)       \
+    _Generic((S),                    \
+             cstr_sslice             \
+             : cstr_subslice_sslice, \
+               cstr_islice           \
+             : cstr_subslice_islice)(S, I, J)
+
+// prefix: x => x[0:i] (x[:i])
+#define CSTR_PREFIX(S, I)          \
+    _Generic((S),                  \
+             cstr_sslice           \
+             : cstr_prefix_sslice, \
+               cstr_islice         \
+             : cstr_prefix_islice)(S, I)
+
+// suffix: x => x[i:x.len] (x[i:])
+#define CSTR_SUFFIX(S, I)          \
+    _Generic((S),                  \
+             cstr_sslice           \
+             : cstr_suffix_sslice, \
+               cstr_islice         \
+             : cstr_suffix_islice)(S, I)
+
+// Clean up namespace... you cannot add new types without changing
+// all the _Generic expressions anyway, so they are useless from
+// now on...
+#undef CSTR_SLICE_TYPE
+#undef CSTR_BUFFER_ALLOC_GENERATOR
+#undef CSTR_IDX_GENERATOR
+#undef CSTR_INDEX_AND_SLICING_GENERATOR
 
 // Comparing string-slices
 bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);
