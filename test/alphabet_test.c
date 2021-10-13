@@ -43,7 +43,7 @@ TL_TEST(test_mapping)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_sslice mapped = cstr_alloc_sslice_buffer(x.len);
+    cstr_sslice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
 
     ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
@@ -51,7 +51,7 @@ TL_TEST(test_mapping)
     TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SLICE_STRING("\3\4\4\2\1\5")));
     CSTR_FREE_SLICE_BUFFER(mapped);
 
-    mapped = cstr_alloc_sslice_buffer(3);
+    mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 3);
     ok = cstr_alphabet_map(mapped, CSTR_SLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
 
@@ -68,7 +68,7 @@ TL_TEST(test_int_mapping)
     cstr_sslice x = CSTR_SLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    cstr_islice mapped = cstr_alloc_islice_buffer(x.len + 1);
+    cstr_islice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
     bool ok = cstr_alphabet_map_to_int(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
@@ -77,7 +77,7 @@ TL_TEST(test_int_mapping)
                              sizeof(expected) / sizeof(*expected));
     CSTR_FREE_SLICE_BUFFER(mapped);
 
-    mapped = cstr_alloc_islice_buffer(4);
+    mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 4);
     ok = cstr_alphabet_map_to_int(mapped, CSTR_SLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
 
@@ -94,12 +94,12 @@ TL_TEST(test_revmapping)
     cstr_sslice x = CSTR_SLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    cstr_sslice mapped = cstr_alloc_sslice_buffer(x.len);
+    cstr_sslice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
 
     bool ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
-    cstr_sslice rev = cstr_alloc_sslice_buffer(x.len);
+    cstr_sslice rev = CSTR_ALLOC_SLICE_BUFFER(rev, x.len);
     ok = cstr_alphabet_revmap(rev, mapped, &alpha);
     TL_FATAL_IF(!ok);
 

@@ -22,13 +22,13 @@ TL_TEST(test_mississippi)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_islice mapped = cstr_alloc_islice_buffer(x.len + 1);
+    cstr_islice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
     // since alpha was created from x we cannot get mapping errors
     // here
     cstr_alphabet_map_to_int(mapped, x, &alpha);
     assert(mapped.buf); // for static analyser
     
-    cstr_islice sa = cstr_alloc_islice_buffer(x.len + 1);
+    cstr_islice sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len + 1);
     assert(sa.buf); // For the static analyser
 
     cstr_skew(sa, mapped, &alpha);
