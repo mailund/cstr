@@ -172,6 +172,12 @@ INLINE long long cstr_idx(long long i, long long len)
 typedef CSTR_SLICE_TYPE(char) cstr_sslice;
 typedef CSTR_SLICE_TYPE(int) cstr_islice;
 
+// These are for when a macro needs to get the underlying
+// type from a slice type
+#define CSTR_SLICE_BASETYPE_sslice char
+#define CSTR_SLICE_BASETYPE_islice int
+#define CSTR_SLICE_BASETYPE(STYPE) CSTR_SLICE_BASETYPE_##STYPE
+
 // Generic slice construction; the (void *) cast is necessary
 // to get around the rules for _Generic.
 #define CSTR_SLICE(BUF, LEN)                                   \
@@ -183,12 +189,6 @@ typedef CSTR_SLICE_TYPE(int) cstr_islice;
 
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
 
-// These are for when a macro needs to get the underlying
-// type from a slice type
-#define CSTR_SLICE_BASETYPE_sslice char
-#define CSTR_SLICE_BASETYPE_islice int
-#define CSTR_SLICE_BASETYPE(STYPE) CSTR_SLICE_BASETYPE_##STYPE
-
 // for each type T we get cstr_alloc_T_buffer(size_t len)
 CSTR_BUFFER_ALLOC_GENERATOR(sslice)
 CSTR_BUFFER_ALLOC_GENERATOR(islice)
@@ -196,12 +196,12 @@ CSTR_BUFFER_ALLOC_GENERATOR(islice)
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
 // right function from the type
-#define CSTR_ALLOC_SLICE_BUFFER(SLICE, LEN)   \
-    _Generic((SLICE),                         \
-             cstr_sslice                      \
-             : cstr_alloc_sslice_buffer(LEN), \
-               cstr_islice                    \
-             : cstr_alloc_islice_buffer(LEN))
+#define CSTR_ALLOC_SLICE_BUFFER(SLICE, LEN) \
+    _Generic((SLICE),                       \
+             cstr_sslice                    \
+             : cstr_alloc_sslice_buffer,    \
+               cstr_islice                  \
+             : cstr_alloc_islice_buffer)(LEN)
 
 // For each type T we get cstr_idx_T, cstr_subslice_T,
 // cstr_prefix_T and cstr_suffix_T.
