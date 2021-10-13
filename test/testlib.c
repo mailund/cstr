@@ -31,11 +31,15 @@ void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
 cstr_sslice tl_random_prefix(cstr_sslice x)
 {
     // pick non-empty prefix
-    return CSTR_PREFIX(x, 1 + rand() % (x.len - 1));
+    assert(x.len > 0);
+    int pre = 1 + rand() % (x.len - 1);
+    return CSTR_PREFIX(x, pre);
 }
 
 cstr_sslice tl_random_suffix(cstr_sslice x)
 {
     // pick non-empty suffix
-    return CSTR_PREFIX(x, rand() % (x.len - 1));
+    assert(x.len > 0);
+    int suf = rand() % (x.len - 1);
+    return CSTR_SUFFIX(x, suf);
 }

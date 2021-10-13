@@ -52,3 +52,14 @@ bool cstr_sslice_eq(cstr_sslice x,
 
     return true;
 }
+
+void cstr_fprint_sslice(FILE *f, cstr_sslice x)
+{
+    fprintf(f, "[");
+    char *sep = "";
+    for (int i = 0; i < x.len; i++) {
+        fprintf(f, "%s%c", sep, x.buf[i]);
+        sep = ", ";
+    }
+    fprintf(f, "]");
+}

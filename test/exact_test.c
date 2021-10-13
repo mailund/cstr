@@ -54,15 +54,6 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     TL_END();
 }
 
-TL_TEST(simple_test)
-{
-    TL_BEGIN();
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
-    TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
-    TL_END();
-}
-
 TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
@@ -93,15 +84,6 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
     TL_END();
 }
 
-TL_TEST(test_random_string)
-{
-    TL_BEGIN();
-    TL_RUN_PARAM_TEST(test_random_string_p, "naive", cstr_naive_matcher);
-    TL_RUN_PARAM_TEST(test_random_string_p, "ba", cstr_ba_matcher);
-    TL_RUN_PARAM_TEST(test_random_string_p, "kmp", cstr_kmp_matcher);
-    TL_END();
-}
-
 
 TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
 {
@@ -125,6 +107,55 @@ TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
     TL_END();
 }
 
+TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
+{
+    TL_BEGIN();
+    
+    cstr_sslice x = cstr_alloc_sslice_buffer(100);
+    
+    for (int i = 0; i < 10; i++) {
+        tl_random_string(x, "abc", 3);
+        for (int j = 0; j < 10; j++) {
+            cstr_sslice p = tl_random_suffix(x);
+            cstr_exact_matcher *matcher = f(x, p);
+            
+            int res = cstr_exact_next_match(matcher);
+            int last = res;
+            while (res != -1) {
+                last = res;
+                res = cstr_exact_next_match(matcher);
+            }
+            
+            TL_ERROR_IF_NEQ_INT(last, (int)(x.len - p.len));
+            
+            cstr_free_exact_matcher(matcher);
+            
+        }
+    }
+    
+    CSTR_FREE_SLICE_BUFFER(x);
+    
+    TL_END();
+}
+
+TL_TEST(simple_test)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
+TL_TEST(test_random_string)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_random_string_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_random_string_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_random_string_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 TL_TEST(test_prefix)
 {
     TL_BEGIN();
@@ -134,11 +165,21 @@ TL_TEST(test_prefix)
     TL_END();
 }
 
+TL_TEST(test_suffix)
+{
+    TL_BEGIN();
+    TL_RUN_PARAM_TEST(test_suffix_p, "naive", cstr_naive_matcher);
+    TL_RUN_PARAM_TEST(test_suffix_p, "ba", cstr_ba_matcher);
+    TL_RUN_PARAM_TEST(test_suffix_p, "kmp", cstr_kmp_matcher);
+    TL_END();
+}
+
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("exact_test");
     TL_RUN_TEST(simple_test);
     TL_RUN_TEST(test_random_string);
     TL_RUN_TEST(test_prefix);
+    TL_RUN_TEST(test_suffix);
     TL_END_SUITE();
 }

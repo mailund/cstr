@@ -171,6 +171,10 @@ CSTR_BUFFER_ALLOC_GENERATOR(islice)
 // Comparing string-slices
 bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);
 
+// I/O
+void cstr_fprint_sslice(FILE *f, cstr_sslice x);
+#define cstr_print_sslice(X) cstr_fprint_sslice(stdout, X)
+
 // == ALPHABET =====================================================
 
 // Alphabets, for when we remap strings to smaller alphabets
