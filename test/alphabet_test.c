@@ -68,8 +68,8 @@ TL_TEST(test_int_mapping)
     cstr_sslice x = CSTR_SLICE_STRING("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    cstr_islice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
-    bool ok = cstr_alphabet_map_to_int(mapped, x, &alpha);
+    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
+    bool ok = cstr_alphabet_map_to_uint(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
     int expected[] = {3, 4, 4, 2, 1, 5, 0};
@@ -78,7 +78,7 @@ TL_TEST(test_int_mapping)
     CSTR_FREE_SLICE_BUFFER(mapped);
 
     mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 4);
-    ok = cstr_alphabet_map_to_int(mapped, CSTR_SLICE_STRING("qux"), &alpha);
+    ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_STRING("qux"), &alpha);
     TL_ERROR_IF(ok);
 
     CSTR_FREE_SLICE_BUFFER(mapped);

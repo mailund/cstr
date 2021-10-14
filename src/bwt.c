@@ -5,7 +5,7 @@
 
 #include "cstr.h"
 
-char* cstr_bwt(int n, char const* x, int sa[n])
+char* cstr_bwt(int n, char const* x, unsigned int sa[n])
 {
     char* b = malloc((size_t)(n + 1) * sizeof *b);
     for (int i = 0; i < n; i++) {

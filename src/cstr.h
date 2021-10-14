@@ -296,9 +296,9 @@ bool cstr_alphabet_map(cstr_sslice dst,
 
 // Map a slice into an integer slice. dst.len must match src.len + 1
 // to make room for a sentinel.
-bool cstr_alphabet_map_to_int(cstr_islice dst,
-                              cstr_sslice src,
-                              cstr_alphabet const *alpha);
+bool cstr_alphabet_map_to_uint(cstr_uislice dst,
+                               cstr_sslice src,
+                               cstr_alphabet const *alpha);
 
 // Map a string back into the dst slice. dst.len must equal src.len.
 bool cstr_alphabet_revmap(cstr_sslice dst,
@@ -320,18 +320,19 @@ cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 // == SUFFIX ARRAYS =====================================================
 // Suffix arrays stored in uislice objects can only handle lenghts
 // up to x.len <= UINT_MAX, and the caller must ensure that.
+typedef cstr_uislice cstr_suffix_array;
 
 // Suffix array construction.
 // slice x must be mapped to alphabet and slice sa
 // must be same length of x. The result will be put
 // into sa.
-void cstr_skew(cstr_islice sa,
-               cstr_islice x,
+void cstr_skew(cstr_suffix_array sa,
+               cstr_uislice x,
                cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 
-char *cstr_bwt(int n, char const *x, int sa[n]);
+char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table
 {

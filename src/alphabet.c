@@ -58,8 +58,8 @@ error:
 }
 
 
-bool cstr_alphabet_map_to_int(
-    cstr_islice dst,
+bool cstr_alphabet_map_to_uint(
+    cstr_uislice dst,
     cstr_sslice src,
     cstr_alphabet const *alpha)
 {

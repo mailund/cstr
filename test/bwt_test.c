@@ -21,11 +21,11 @@ int main(void)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_islice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
-    cstr_islice sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len + 1);
+    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
+    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len + 1);
     assert(mapped.buf && sa.buf); // For the static analyser
 
-    cstr_alphabet_map_to_int(mapped, x, &alpha);
+    cstr_alphabet_map_to_uint(mapped, x, &alpha);
     
     cstr_skew(sa, mapped, &alpha);
     
