@@ -90,17 +90,28 @@ void *cstr_malloc_header_array(
 // That will be at least 64 bits, so even if signed will be enough
 // for any sane amount of data. Lengths should still be non-negative,
 // of course
-#define CSTR_SLICE_TYPE(MEMBER_TYPE) \
-    struct                           \
-    {                                \
-        signed long long len;        \
-        MEMBER_TYPE *buf;            \
+#define CSTR_SLICE_TYPE(TYPE) \
+    struct                    \
+    {                         \
+        signed long long len; \
+        TYPE *buf;            \
     }
 
 // Creating slice instances
 #define CSTR_SLICE_INIT(BUF, LEN)  \
     {                              \
         .buf = (BUF), .len = (LEN) \
+    }
+
+// We can create structs with macros, but we need to cast
+// to the slice type for composite expressions, which requires
+// some _Generic hacks. It is easier to generate inline functions
+// and use the dispatch mechanism below.
+#define CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)           \
+    INLINE cstr_##NAME                                 \
+        cstr_new_##NAME(TYPE *buf, long long len)      \
+    {                                                  \
+        return (cstr_##NAME)CSTR_SLICE_INIT(buf, len); \
     }
 
 // Memory management
@@ -176,11 +187,33 @@ INLINE long long cstr_idx(long long i, long long len)
 // Define the slice types we need.
 #define CSTR_DEFINE_SLICE(NAME, TYPE)          \
     typedef CSTR_SLICE_TYPE(TYPE) cstr_##NAME; \
+    CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)       \
     CSTR_BUFFER_ALLOC_GENERATOR(NAME)          \
     CSTR_INDEX_AND_SLICING_GENERATOR(NAME, TYPE)
 
+// Creating the concrete slice types. To add a new slice type
+// you need to define it here, add a "base macro", and add the
+// type to the dispatch table. Unfortunately, we cannot do it
+// all in the type definition macro, since macros cannot create
+// new macros.
 CSTR_DEFINE_SLICE(sslice, char)
 CSTR_DEFINE_SLICE(islice, int)
+CSTR_DEFINE_SLICE(uislice, unsigned int)
+
+// Need these to map from a slice type to the underlying
+// type when dispatching. We cannot define macros in macros,
+// so this is, unfortunately, not something we can do with
+// CSTTR_DEFINE_SLICE, which would otherwise be ideal.
+#define CSTR_SLICE_BASE_sslice char
+#define CSTR_SLICE_BASE_islice int
+#define CSTR_SLICE_BASE_uislice unsigned int
+#define CSTR_SLICE_BASE(TYPE) CSTR_SLICE_BASE_##TYPE
+
+// This macro needs a dispatch map for each slice type
+#define CSTR_DISPATCH_TABLE(FUNC, MTYPE)        \
+    CSTR_DISPATCH_MAP(sslice, FUNC, MTYPE),     \
+        CSTR_DISPATCH_MAP(islice, FUNC, MTYPE), \
+        CSTR_DISPATCH_MAP(uislice, FUNC, MTYPE)
 
 // Type-based static dispatch.
 // ---------------------------
@@ -189,55 +222,50 @@ CSTR_DEFINE_SLICE(islice, int)
 // remaining arguments.
 
 // Maps a type to the corresponding function
-#define CSTR_DISPATCH_MAP(TYPE, FUNC) \
+#define CSTR_DISPATCH_MAP_(TYPE, FUNC) \
     cstr_##TYPE : cstr_##FUNC##_##TYPE
+#define CSTR_DISPATCH_MAP_B(TYPE, FUNC) \
+    CSTR_SLICE_BASE(TYPE) * : cstr_##FUNC##_##TYPE
+#define CSTR_DISPATCH_MAP(TYPE, FUNC, MTYPE) \
+    CSTR_DISPATCH_MAP_##MTYPE(TYPE, FUNC)
 
-// Create the dispatch table for all slice types for a given
-// function
-#define CSTR_SLICE_DISPATCH_TABLE(FUNC) \
-    CSTR_DISPATCH_MAP(sslice, FUNC),    \
-        CSTR_DISPATCH_MAP(islice, FUNC)
+// Dispatch a function based on the type of X
+#define CSTR_SLICE_DISPATCH(X, B, FUNC, ...) \
+    _Generic((X), CSTR_DISPATCH_TABLE(FUNC, B))(__VA_ARGS__)
 
-// Dispatch a function based on the type of S
-#define CSTR_SLICE_DISPATCH(S, FUNC, ...) \
-    _Generic((S), CSTR_SLICE_DISPATCH_TABLE(FUNC))(__VA_ARGS__)
+// ... returning from macro programming madness...
+// Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
 // right function from the type
 #define CSTR_ALLOC_SLICE_BUFFER(S, LEN) \
-    CSTR_SLICE_DISPATCH(S, alloc_buffer, LEN)
+    CSTR_SLICE_DISPATCH(S, , alloc_buffer, LEN)
 
 // x[i] handling both positive and negative indices. Usually,
 // x.buf[i] is more natural, if you only need to use positive
 // indices.
 #define CSTR_IDX(S, I) \
-    CSTR_SLICE_DISPATCH(S, idx, S, I)
+    CSTR_SLICE_DISPATCH(S, , idx, S, I)
 
 // subslice: x => x[i:j]
 #define CSTR_SUBSLICE(S, I, J) \
-    CSTR_SLICE_DISPATCH(S, subslice, S, I, J)
+    CSTR_SLICE_DISPATCH(S, , subslice, S, I, J)
 
 // prefix: x => x[0:i] (x[:i])
 #define CSTR_PREFIX(S, I) \
-    CSTR_SLICE_DISPATCH(S, prefix, S, I)
+    CSTR_SLICE_DISPATCH(S, , prefix, S, I)
 
 // suffix: x => x[i:x.len] (x[i:])
 #define CSTR_SUFFIX(S, I) \
-    CSTR_SLICE_DISPATCH(S, suffix, S, I)
+    CSTR_SLICE_DISPATCH(S, , suffix, S, I)
 
-// Generic slice construction; the (void *) cast is necessary
-// to get around the rules for _Generic.
-// We cannot use CSTR_SLICE_DISPATCH because CSTR_SLICE_INIT
-// isn't a function, and we cannot use _Generic to pick a macro.
-#define CSTR_SLICE(BUF, LEN)                                   \
-    _Generic((BUF),                                            \
-             char *                                            \
-             : (cstr_sslice)CSTR_SLICE_INIT((void *)BUF, LEN), \
-               int *                                           \
-             : (cstr_islice)CSTR_SLICE_INIT((void *)BUF, LEN))
+#define CSTR_SLICE(BUF, LEN) \
+    CSTR_SLICE_DISPATCH(BUF, B, new, BUF, LEN)
 
-#define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
+// Special constructor for C-strings to slices.
+#define CSTR_SLICE_STRING(STR) \
+    CSTR_SLICE(STR, strlen(STR))
 
 // Comparing string-slices
 bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);
@@ -290,8 +318,8 @@ cstr_exact_matcher *cstr_ba_matcher(cstr_sslice x, cstr_sslice p);
 cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
-// Suffix arrays stored in islice objects can only handle lenghts
-// up to x.len > INT_MAX - 1, and the caller must ensure that.
+// Suffix arrays stored in uislice objects can only handle lenghts
+// up to x.len <= UINT_MAX, and the caller must ensure that.
 
 // Suffix array construction.
 // slice x must be mapped to alphabet and slice sa

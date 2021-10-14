@@ -61,7 +61,7 @@ int tl_test_array(void *restrict expected,
                   size_t arrlen,
                   size_t objsize);
 
-#define _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN, HANDLER)         \
+#define TL_TEST_EQUAL_ARRAYS_(EXPECTED, ACTUAL, LEN, HANDLER)         \
     do                                                                \
     {                                                                 \
         _tl_state_.no_tests++;                                        \
@@ -73,7 +73,7 @@ int tl_test_array(void *restrict expected,
         }                                                             \
     } while (0)
 
-#define _TL_HANDLE_ARRAY_GENERIC(EXPECTED, ACTUAL, IDX) \
+#define TL_HANDLE_ARRAY_GENERIC_(EXPECTED, ACTUAL, IDX) \
     do                                                  \
     {                                                   \
         _tl_state_.no_errors++;                         \
@@ -81,7 +81,7 @@ int tl_test_array(void *restrict expected,
                      #EXPECTED, IDX, #ACTUAL, IDX);     \
     } while (0)
 
-#define _TL_HANDLE_ARRAY_GENERIC_FATAL(EXPECTED, ACTUAL, IDX) \
+#define TL_HANDLE_ARRAY_GENERIC_FATAL_(EXPECTED, ACTUAL, IDX) \
     do                                                        \
     {                                                         \
         _tl_state_.no_errors++;                               \
@@ -90,7 +90,7 @@ int tl_test_array(void *restrict expected,
         goto _tl_escape_;                                     \
     } while (0)
 
-#define _TL_HANDLE_ARRAY_INT(EXPECTED, ACTUAL, IDX)     \
+#define TL_HANDLE_ARRAY_INT_(EXPECTED, ACTUAL, IDX)     \
     do                                                  \
     {                                                   \
         _tl_state_.no_errors++;                         \
@@ -99,7 +99,7 @@ int tl_test_array(void *restrict expected,
                      #ACTUAL, IDX, (ACTUAL)[(IDX)]);    \
     } while (0)
 
-#define _TL_HANDLE_ARRAY_INT_FATAL(EXPECTED, ACTUAL, IDX) \
+#define TL_HANDLE_ARRAY_INT_FATAL_(EXPECTED, ACTUAL, IDX) \
     do                                                    \
     {                                                     \
         _tl_state_.no_errors++;                           \
@@ -110,20 +110,20 @@ int tl_test_array(void *restrict expected,
     } while (0)
 
 #define TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,    \
-                          _TL_HANDLE_ARRAY_GENERIC)
+    TL_TEST_EQUAL_ARRAYS_(EXPECTED, ACTUAL, LEN,    \
+                          TL_HANDLE_ARRAY_GENERIC_)
 
 #define TL_TEST_EQUAL_ARRAYS_FATAL(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,          \
-                          _TL_HANDLE_ARRAY_GENERIC_FATAL)
+    TL_TEST_EQUAL_ARRAYS_(EXPECTED, ACTUAL, LEN,          \
+                          TL_HANDLE_ARRAY_GENERIC_FATAL_)
 
 #define TL_TEST_EQUAL_INT_ARRAYS(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,        \
-                          _TL_HANDLE_ARRAY_GENERIC)
+    TL_TEST_EQUAL_ARRAYS_(EXPECTED, ACTUAL, LEN,        \
+                          TL_HANDLE_ARRAY_GENERIC_)
 
 #define TL_TEST_EQUAL_INT_ARRAYS_FATAL(EXPECTED, ACTUAL, LEN) \
-    _TL_TEST_EQUAL_ARRAYS(EXPECTED, ACTUAL, LEN,              \
-                          _TL_HANDLE_ARRAY_GENERIC_FATAL)
+    TL_TEST_EQUAL_ARRAYS_(EXPECTED, ACTUAL, LEN,              \
+                          TL_HANDLE_ARRAY_GENERIC_FATAL_)
 
 // MARK: Setting up test functions
 // __VA_OPT__ is not standard C, so we need separate
