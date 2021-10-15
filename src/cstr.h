@@ -319,7 +319,12 @@ cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
 // Suffix arrays stored in uislice objects can only handle lenghts
-// up to x.len <= UINT_MAX, and the caller must ensure that.
+// up to x.len <= UINT_MAX, and the caller must ensure that. We limit
+// ourselves to this size to save space. If we used size_t for the
+// values we would likely end up using twice as much memory, and unsigned
+// int is likely to be at least 32 bits which means that we can index
+// strings of length above four billion. That's most strings we are likely
+// to work with.
 typedef cstr_uislice cstr_suffix_array;
 
 // Suffix array construction.
