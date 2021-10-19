@@ -200,20 +200,11 @@ CSTR_DEFINE_SLICE(sslice, char)
 CSTR_DEFINE_SLICE(islice, int)
 CSTR_DEFINE_SLICE(uislice, unsigned int)
 
-// Need these to map from a slice type to the underlying
-// type when dispatching. We cannot define macros in macros,
-// so this is, unfortunately, not something we can do with
-// CSTTR_DEFINE_SLICE, which would otherwise be ideal.
-#define CSTR_SLICE_BASE_sslice char
-#define CSTR_SLICE_BASE_islice int
-#define CSTR_SLICE_BASE_uislice unsigned int
-#define CSTR_SLICE_BASE(TYPE) CSTR_SLICE_BASE_##TYPE
-
 // This macro needs a dispatch map for each slice type
-#define CSTR_DISPATCH_TABLE(FUNC, MTYPE)        \
-    CSTR_DISPATCH_MAP(sslice, FUNC, MTYPE),     \
-        CSTR_DISPATCH_MAP(islice, FUNC, MTYPE), \
-        CSTR_DISPATCH_MAP(uislice, FUNC, MTYPE)
+#define CSTR_DISPATCH_TABLE(FUNC, MAP_TYPE)             \
+    CSTR_DISPATCH_MAP(sslice, char, FUNC, MAP_TYPE),    \
+        CSTR_DISPATCH_MAP(islice, int, FUNC, MAP_TYPE), \
+        CSTR_DISPATCH_MAP(uislice, unsigned int, FUNC, MAP_TYPE)
 
 // Type-based static dispatch.
 // ---------------------------
@@ -222,16 +213,16 @@ CSTR_DEFINE_SLICE(uislice, unsigned int)
 // remaining arguments.
 
 // Maps a type to the corresponding function
-#define CSTR_DISPATCH_MAP_(TYPE, FUNC) \
-    cstr_##TYPE : cstr_##FUNC##_##TYPE
-#define CSTR_DISPATCH_MAP_B(TYPE, FUNC) \
-    CSTR_SLICE_BASE(TYPE) * : cstr_##FUNC##_##TYPE
-#define CSTR_DISPATCH_MAP(TYPE, FUNC, MTYPE) \
-    CSTR_DISPATCH_MAP_##MTYPE(TYPE, FUNC)
+#define CSTR_DISPATCH_MAP_BASE(STYPE, BTYPE, FUNC) \
+    BTYPE * : cstr_##FUNC##_##STYPE
+#define CSTR_DISPATCH_MAP_SLICE(STYPE, BTYPE, FUNC) \
+    cstr_##STYPE : cstr_##FUNC##_##STYPE
+#define CSTR_DISPATCH_MAP(STYPE, BTYPE, FUNC, MAP_TYPE) \
+    CSTR_DISPATCH_MAP_##MAP_TYPE(STYPE, BTYPE, FUNC)
 
 // Dispatch a function based on the type of X
-#define CSTR_SLICE_DISPATCH(X, B, FUNC, ...) \
-    _Generic((X), CSTR_DISPATCH_TABLE(FUNC, B))(__VA_ARGS__)
+#define CSTR_SLICE_DISPATCH(X, MAP_TYPE, FUNC, ...) \
+    _Generic((X), CSTR_DISPATCH_TABLE(FUNC, MAP_TYPE))(__VA_ARGS__)
 
 // ... returning from macro programming madness...
 // Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn
@@ -240,28 +231,28 @@ CSTR_DEFINE_SLICE(uislice, unsigned int)
 // slice-buffer to, you can use this macro to automatically pick the
 // right function from the type
 #define CSTR_ALLOC_SLICE_BUFFER(S, LEN) \
-    CSTR_SLICE_DISPATCH(S, , alloc_buffer, LEN)
+    CSTR_SLICE_DISPATCH(S, SLICE, alloc_buffer, LEN)
 
 // x[i] handling both positive and negative indices. Usually,
 // x.buf[i] is more natural, if you only need to use positive
 // indices.
 #define CSTR_IDX(S, I) \
-    CSTR_SLICE_DISPATCH(S, , idx, S, I)
+    CSTR_SLICE_DISPATCH(S, SLICE, idx, S, I)
 
 // subslice: x => x[i:j]
 #define CSTR_SUBSLICE(S, I, J) \
-    CSTR_SLICE_DISPATCH(S, , subslice, S, I, J)
+    CSTR_SLICE_DISPATCH(S, SLICE, subslice, S, I, J)
 
 // prefix: x => x[0:i] (x[:i])
 #define CSTR_PREFIX(S, I) \
-    CSTR_SLICE_DISPATCH(S, , prefix, S, I)
+    CSTR_SLICE_DISPATCH(S, SLICE, prefix, S, I)
 
 // suffix: x => x[i:x.len] (x[i:])
 #define CSTR_SUFFIX(S, I) \
-    CSTR_SLICE_DISPATCH(S, , suffix, S, I)
+    CSTR_SLICE_DISPATCH(S, SLICE, suffix, S, I)
 
 #define CSTR_SLICE(BUF, LEN) \
-    CSTR_SLICE_DISPATCH(BUF, B, new, BUF, LEN)
+    CSTR_SLICE_DISPATCH(BUF, BASE, new, BUF, LEN)
 
 // Special constructor for C-strings to slices.
 #define CSTR_SLICE_STRING(STR) \
