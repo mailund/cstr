@@ -205,8 +205,8 @@ static inline unsigned int map_u_x(unsigned int i, unsigned int m)
 }
 
 static unsigned int build_alphabet(unsigned int encoding[],
-                                    cstr_uislice x,
-                                    cstr_suffix_array sa12)
+                                   cstr_uislice x,
+                                   cstr_suffix_array sa12)
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
@@ -232,7 +232,7 @@ static unsigned int build_alphabet(unsigned int encoding[],
 
 // this u is based on the terminal sentinel always being part of the input, so
 // we don't need a central sentinel.
-static void build_u(cstr_uislice u, unsigned int encoding[])
+static void build_u(cstr_uislice u, unsigned int const encoding[])
 {
     assert(u.buf);
 

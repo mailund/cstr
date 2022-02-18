@@ -20,33 +20,15 @@
 #define INLINE inline
 #endif
 
-// We can give the compiler hints, if it understands them...
-#if defined(__GNUC__) || defined(__clang__)
-#define CSTR_FUNC_ATTR(a) __attribute__((a))
-#else
-#define CSTR_FUNC_ATTR(a) /* ignore */
-#endif
-
-// Tell the compiler that we return clean new memory
-#define CSTR_MALLOC_FUNC CSTR_FUNC_ATTR(malloc)
-// Tell the compiler that a function is pure (only depend
-// on input to determine output, so completely deterministic).
-#define CSTR_PURE_FUNC CSTR_FUNC_ATTR(pure)
-
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-void *
-cstr_malloc(size_t size // number of chars to allocate
-            ) CSTR_MALLOC_FUNC;
-void *
-cstr_malloc_buffer(size_t obj_size, // size of objects
-                   size_t len       // how many of them
-                   ) CSTR_MALLOC_FUNC;
-void *
-cstr_malloc_header_array(size_t base_size, // size of struct before array
-                         size_t elm_size,  // size of elements in array
-                         size_t len        // number of elements in array
-                         ) CSTR_MALLOC_FUNC;
+void *cstr_malloc(size_t size);
+void *cstr_malloc_buffer(size_t obj_size, // size of objects
+                         size_t len);     // how many of them
+
+void *cstr_malloc_header_array(size_t base_size, // size of struct before array
+                               size_t elm_size,  // size of elements in array
+                               size_t len);      // number of elements in array
 
 // Macro for getting the offset of a flexible member array
 // from an instance rather than a type (as for
@@ -188,64 +170,52 @@ cstr_idx(long long i, long long len)
 // Creating the concrete slice types. To add a new slice type
 // you need to define it here. The map is used to generate
 // types and do type-based dispatch. Add new types in calls to F
-// following the pattern from the other types.
+// following the pattern from the other types. To be able to dispatch
+// functions based on static types, you must add the new type to the
+// dispatch tables.
 
 // clang-format off
-#define CSTR_MAP_SLICE_TYPES(F, SEP, ...) \
-  F (sslice, char, __VA_ARGS__) SEP       \
-  F (islice, int, __VA_ARGS__) SEP        \
-  F (uislice, unsigned int, __VA_ARGS__)
-#define CSTR_COMMA_SEP() ,
-// clang-format on
-
-CSTR_MAP_SLICE_TYPES(CSTR_DEFINE_SLICE, /* no sep */)
-
-// Type-based static dispatch.
-// ---------------------------
-// Select a function based on the type of S and
-// the dispatch table in, then call it with the
-// remaining arguments.
-
-// This macro needs a dispatch map for each slice type
-// Maps a type to the corresponding function
-#define CSTR_DISPATCH_MAP_BASE(STYPE, BTYPE, FUNC) \
-  BTYPE * : cstr_##FUNC##_##STYPE
-#define CSTR_DISPATCH_MAP_SLICE(STYPE, BTYPE, FUNC) \
-  cstr_##STYPE : cstr_##FUNC##_##STYPE
-#define CSTR_DISPATCH_MAP(STYPE, BTYPE, FUNC, MAP_TYPE) \
-  CSTR_DISPATCH_MAP_##MAP_TYPE(STYPE, BTYPE, FUNC)
-
-#define CSTR_DISPATCH_TABLE(FUNC, MAP_TYPE) \
-  CSTR_MAP_SLICE_TYPES(CSTR_DISPATCH_MAP, CSTR_COMMA_SEP(), FUNC, MAP_TYPE)
-
-// Dispatch a function based on the type of X
-#define CSTR_SLICE_DISPATCH(X, MAP_TYPE, FUNC, ...) \
-  _Generic((X), CSTR_DISPATCH_TABLE(FUNC, MAP_TYPE))(__VA_ARGS__)
-
-// ... returning from macro programming madness...
-// Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn
+CSTR_DEFINE_SLICE(sslice, char);
+CSTR_DEFINE_SLICE(islice, int);
+CSTR_DEFINE_SLICE(uislice, unsigned int);
+#define CSTR_SLICE_DISPATCH(X, FUNC)     \
+  _Generic((X),                          \
+           cstr_sslice                   \
+           : cstr_##FUNC##_sslice,       \
+           cstr_islice                   \
+           : cstr_##FUNC##_islice,       \
+           cstr_uislice                  \
+           : cstr_##FUNC##_uislice)
+#define CSTR_BASE_DISPATCH(B, FUNC)      \
+  _Generic((B),                          \
+           char *                        \
+           : cstr_##FUNC##_sslice,       \
+           int *                         \
+           : cstr_##FUNC##_islice,       \
+           unsigned int *                \
+           : cstr_##FUNC##_uislice)
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
 // right function from the type
-#define CSTR_ALLOC_SLICE_BUFFER(S, LEN) \
-  CSTR_SLICE_DISPATCH(S, SLICE, alloc_buffer, LEN)
+#define CSTR_ALLOC_SLICE_BUFFER(S, LEN) CSTR_SLICE_DISPATCH(S, alloc_buffer)(LEN)
 
 // x[i] handling both positive and negative indices. Usually,
 // x.buf[i] is more natural, if you only need to use positive
 // indices.
-#define CSTR_IDX(S, I) CSTR_SLICE_DISPATCH(S, SLICE, idx, S, I)
+#define CSTR_IDX(S, I) CSTR_SLICE_DISPATCH(S, idx)(S, I)
 
 // subslice: x => x[i:j]
-#define CSTR_SUBSLICE(S, I, J) CSTR_SLICE_DISPATCH(S, SLICE, subslice, S, I, J)
+#define CSTR_SUBSLICE(S, I, J) CSTR_SLICE_DISPATCH(S, subslice)(S, I, J)
 
 // prefix: x => x[0:i] (x[:i])
-#define CSTR_PREFIX(S, I) CSTR_SLICE_DISPATCH(S, SLICE, prefix, S, I)
+#define CSTR_PREFIX(S, I) CSTR_SLICE_DISPATCH(S, prefix)(S, I)
 
 // suffix: x => x[i:x.len] (x[i:])
-#define CSTR_SUFFIX(S, I) CSTR_SLICE_DISPATCH(S, SLICE, suffix, S, I)
+#define CSTR_SUFFIX(S, I) CSTR_SLICE_DISPATCH(S, suffix)(S, I)
 
-#define CSTR_SLICE(BUF, LEN) CSTR_SLICE_DISPATCH(BUF, BASE, new, BUF, LEN)
+#define CSTR_SLICE(BUF, LEN) CSTR_BASE_DISPATCH(BUF, new)(BUF, LEN)
+// clang-format on
 
 // Special constructor for C-strings to slices.
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
@@ -318,8 +288,7 @@ void cstr_skew(cstr_suffix_array sa, cstr_uislice x, cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 
-char *
-cstr_bwt(int n, char const *x, unsigned int sa[n]);
+char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table
 {
@@ -327,20 +296,17 @@ struct cstr_bwt_c_table
   int cumsum[];
 };
 
-struct cstr_bwt_c_table *
-cstr_compute_bwt_c_table(int n, char const *x, int asize);
+struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, char const *x, int asize);
 void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
-INLINE int
-cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i)
+INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i)
 {
   return ctab->cumsum[(int)i];
 }
 
 struct cstr_bwt_o_table;
-struct cstr_bwt_o_table *
-cstr_compute_bwt_o_table(int n,
-                         char const *bwt,
-                         struct cstr_bwt_c_table const *ctab);
+struct cstr_bwt_o_table *cstr_compute_bwt_o_table(int n,
+                                                  char const *bwt,
+                                                  struct cstr_bwt_c_table const *ctab);
 void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab);
 int cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, char a, int i);
 
