@@ -218,7 +218,9 @@ CSTR_DEFINE_SLICE(uislice, unsigned int);
 // clang-format on
 
 // Special constructor for C-strings to slices.
+// With and without including the sentinel
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
+#define CSTR_SLICE_STRING0(STR) CSTR_SLICE(STR, strlen(STR) + 1)
 
 // Comparing string-slices
 bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);

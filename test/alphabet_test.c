@@ -11,7 +11,10 @@ TL_TEST(test_create_alphabet)
     TL_BEGIN();
 
     cstr_alphabet alpha;
-    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice x = CSTR_SLICE_STRING0("foobar");
+    TL_ERROR_IF_NEQ_LL(x.len, (long long)strlen("foobar") + 1);
+    TL_ERROR_IF(strcmp(x.buf, "foobar") != 0);
+
     cstr_init_alphabet(&alpha, x);
 
     TL_ERROR_IF(alpha.map[0] != 0);
@@ -39,16 +42,19 @@ TL_TEST(test_mapping)
 
     bool ok = true;
 
-    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice x = CSTR_SLICE_STRING0("foobar");
+    TL_ERROR_IF_NEQ_LL(x.len, 7ll);
+
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
     cstr_sslice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
+    TL_ERROR_IF_NEQ_LL(x.len, mapped.len);
 
     ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
-    TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SLICE_STRING("\3\4\4\2\1\5")));
+    TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SLICE_STRING0("\3\4\4\2\1\5")));
     CSTR_FREE_SLICE_BUFFER(mapped);
 
     mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 3);
@@ -65,10 +71,10 @@ TL_TEST(test_int_mapping)
     TL_BEGIN();
 
     cstr_alphabet alpha;
-    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice x = CSTR_SLICE_STRING0("foobar");
     cstr_init_alphabet(&alpha, x);
 
-    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
+    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
     bool ok = cstr_alphabet_map_to_uint(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
@@ -78,7 +84,7 @@ TL_TEST(test_int_mapping)
     CSTR_FREE_SLICE_BUFFER(mapped);
 
     mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 4);
-    ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_STRING("qux"), &alpha);
+    ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_STRING0("qux"), &alpha);
     TL_ERROR_IF(ok);
 
     CSTR_FREE_SLICE_BUFFER(mapped);
@@ -91,7 +97,7 @@ TL_TEST(test_revmapping)
     TL_BEGIN();
 
     cstr_alphabet alpha;
-    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice x = CSTR_SLICE_STRING0("foobar");
     cstr_init_alphabet(&alpha, x);
 
     cstr_sslice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);

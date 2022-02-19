@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <cstr.h>
 #include "testlib.h"
+#include <cstr.h>
 
-void check_suffix_ordered(char const* x, cstr_suffix_array sa)
+void check_suffix_ordered(char const *x, cstr_suffix_array sa)
 {
-    for (int i = 1; i < sa.len; i++) {
+    for (int i = 1; i < sa.len; i++)
+    {
         printf("%s vs %s\n", x + sa.buf[i - 1], x + sa.buf[i]);
         assert(strcmp(x + sa.buf[i - 1], x + sa.buf[i]) < 0);
     }
@@ -16,24 +17,25 @@ void check_suffix_ordered(char const* x, cstr_suffix_array sa)
 TL_TEST(test_mississippi)
 {
     TL_BEGIN();
-    
-    cstr_sslice x = CSTR_SLICE_STRING("mississippi");
-    
+
+    cstr_sslice x = CSTR_SLICE_STRING0("mississippi");
+
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len + 1);
+    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
     // since alpha was created from x we cannot get mapping errors
     // here
     cstr_alphabet_map_to_uint(mapped, x, &alpha);
     assert(mapped.buf); // for static analyser
-    
-    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len + 1);
+
+    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len);
     assert(sa.buf); // For the static analyser
 
     cstr_skew(sa, mapped, &alpha);
-        
-    for (int i = 0; i < x.len + 1; i++) {
+
+    for (int i = 0; i < x.len + 1; i++)
+    {
         printf("sa[%d] == %d %s\n", i, sa.buf[i], x.buf + sa.buf[i]);
     }
 

@@ -16,9 +16,8 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice)
         alpha->map[(unsigned char)slice.buf[i]] = 1;
     }
 
-    // then give those letters a number, starting with 1 to reserve
-    // the sentinel
-    alpha->size = 1;
+    // Assign consequtive numbers to the letters.
+    alpha->size = 0;
     for (int i = 0; i < CSTR_NO_CHARS; i++)
     {
         if (alpha->map[i])
@@ -43,20 +42,20 @@ bool cstr_alphabet_map(
     cstr_alphabet const *alpha)
 {
     assert(dst.len == src.len);
-    
+
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        if (!map && src.buf[i]) goto error;
+        if (!map && src.buf[i])
+            goto error;
         dst.buf[i] = (char)map;
     }
-    
+
     return true;
 
 error:
     return false;
 }
-
 
 bool cstr_alphabet_map_to_uint(
     cstr_uislice dst,
@@ -65,17 +64,16 @@ bool cstr_alphabet_map_to_uint(
 {
     assert(dst.buf);
     assert(src.buf);
-    assert(dst.len == src.len + 1);
-    
+    assert(dst.len == src.len);
+
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->map[(unsigned char)src.buf[i]];
-        if (!map && src.buf[i]) goto error;
+        if (!map && src.buf[i])
+            goto error;
         dst.buf[i] = map;
     }
-    // remember sentinel
-    dst.buf[src.len] = 0;
-    
+
     return true;
 
 error:
@@ -89,11 +87,12 @@ bool cstr_alphabet_revmap(
 {
     assert(src.buf && dst.buf);
     assert(dst.len == src.len);
-    
+
     for (int i = 0; i < src.len; i++)
     {
         unsigned char map = alpha->revmap[(int)src.buf[i]];
-        if (!map && src.buf[i]) goto error;
+        if (!map && src.buf[i])
+            goto error;
         dst.buf[i] = (char)map;
     }
 
@@ -102,4 +101,3 @@ bool cstr_alphabet_revmap(
 error:
     return false;
 }
-

@@ -133,10 +133,11 @@ int tl_test_array(void *restrict expected,
 #define TL_PARAM_TEST(NAME, ...) \
     bool NAME(const char *_tl_test_name, __VA_ARGS__)
 
-#define TL_BEGIN()                      \
-    struct tl_state _tl_state_ = {      \
-        .no_tests = 0, .no_errors = 0}; \
-    if (0)                              \
+#define TL_BEGIN()                         \
+    printf("Running test %s\n", __func__); \
+    struct tl_state _tl_state_ = {         \
+        .no_tests = 0, .no_errors = 0};    \
+    if (0)                                 \
         goto _tl_escape_; /* to avoid warnings */
 
 #define TL_END()                                                             \
