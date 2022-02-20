@@ -5,13 +5,17 @@
 #include "testlib.h"
 #include <cstr.h>
 
-void check_suffix_ordered(char const *x, cstr_suffix_array sa)
+TL_PARAM_TEST(check_suffix_ordered,
+              char const *x, cstr_suffix_array sa)
 {
+    TL_BEGIN();
     for (int i = 1; i < sa.len; i++)
     {
-        printf("%s vs %s\n", x + sa.buf[i - 1], x + sa.buf[i]);
-        assert(strcmp(x + sa.buf[i - 1], x + sa.buf[i]) < 0);
+        printf("sa[%d] == %d %s\n", i, sa.buf[i - 1], x + sa.buf[i - 1]);
+        printf("sa[%d] == %d %s\n", i, sa.buf[i], x + sa.buf[i]);
+        TL_ERROR_IF_GE_STRING(x + sa.buf[i - 1], x + sa.buf[i]);
     }
+    TL_END();
 }
 
 TL_TEST(test_mississippi)
@@ -34,12 +38,7 @@ TL_TEST(test_mississippi)
 
     cstr_skew(sa, mapped, &alpha);
 
-    for (int i = 0; i < x.len + 1; i++)
-    {
-        printf("sa[%d] == %d %s\n", i, sa.buf[i], x.buf + sa.buf[i]);
-    }
-
-    check_suffix_ordered(x.buf, sa);
+    TL_RUN_PARAM_TEST(check_suffix_ordered, "mississippi", x.buf, sa);
 
     CSTR_FREE_SLICE_BUFFER(sa);
 
@@ -50,7 +49,7 @@ TL_TEST(test_random)
 {
     TL_BEGIN();
 
-    const long long n = 100;
+    const long long n = 10;
 
     cstr_sslice letters = CSTR_SLICE_STRING("acgt");
     cstr_alphabet alpha;
@@ -66,16 +65,12 @@ TL_TEST(test_random)
 
     for (int k = 0; k < 10; k++)
     {
-        tl_random_string(x, letters.buf, letters.len);
+        // len-1 since we don't want to overwrite sentinel.
+        tl_random_string0(x, letters.buf, letters.len);
         cstr_alphabet_map_to_uint(mapped, x, &alpha);
         cstr_skew(sa, mapped, &alpha);
 
-        for (int i = 0; i < x.len + 1; i++)
-        {
-            printf("sa[%d] == %d %s\n", i, sa.buf[i], x.buf + sa.buf[i]);
-        }
-
-        check_suffix_ordered(x.buf, sa);
+        TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);
     }
 
     CSTR_FREE_SLICE_BUFFER(sa);

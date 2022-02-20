@@ -60,6 +60,26 @@ struct tl_state
 #define TL_FATAL_IF_NEQ_STRING(A, B) \
     TL_FATAL_IF_(strcmp(A, B) != 0, "%s != %s\n", A, B)
 
+#define TL_ERROR_IF_GT_STRING(A, B) \
+    TL_ERROR_IF_(strcmp(A, B) > 0, "%s > %s\n", A, B)
+#define TL_FATAL_IF_GT_STRING(A, B) \
+    TL_FATAL_IF_(strcmp(A, B) > 0, "%s > %s\n", A, B)
+
+#define TL_ERROR_IF_GE_STRING(A, B) \
+    TL_ERROR_IF_(strcmp(A, B) >= 0, "%s >= %s\n", A, B)
+#define TL_FATAL_IF_GE_STRING(A, B) \
+    TL_FATAL_IF_(strcmp(A, B) >= 0, "%s >= %s\n", A, B)
+
+#define TL_ERROR_IF_LT_STRING(A, B) \
+    TL_ERROR_IF_(strcmp(A, B) < 0, "%s < %s\n", A, B)
+#define TL_FATAL_IF_LT_STRING(A, B) \
+    TL_FATAL_IF_(strcmp(A, B) < 0, "%s < %s\n", A, B)
+
+#define TL_ERROR_IF_LE_STRING(A, B) \
+    TL_ERROR_IF_(strcmp(A, B) <= 0, "%s <= %s\n", A, B)
+#define TL_FATAL_IF_LE_STRING(A, B) \
+    TL_FATAL_IF_(strcmp(A, B) <= 0, "%s <= %s\n", A, B)
+
 #define TL_ERROR_IF_NEQ_SLICE(A, B) \
     TL_ERROR_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
 #define TL_FATAL_IF_NEQ_SLICE(A, B) \
@@ -208,6 +228,8 @@ int tl_test_array(void *restrict expected,
 // MARK: Generating test strings
 void tl_random_string(cstr_sslice x,
                       const char *alpha, int alpha_size);
+void tl_random_string0(cstr_sslice x,
+                       const char *alpha, int alpha_size);
 
 cstr_sslice tl_random_prefix(cstr_sslice x);
 cstr_sslice tl_random_suffix(cstr_sslice x);

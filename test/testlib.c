@@ -28,6 +28,15 @@ void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
     }
 }
 
+void tl_random_string0(cstr_sslice x, const char *alpha, int alpha_size)
+{
+    for (int i = 0; i < x.len - 1; i++)
+    {
+        x.buf[i] = alpha[rand() % alpha_size];
+    }
+    x.buf[x.len - 1] = '\0';
+}
+
 cstr_sslice tl_random_prefix(cstr_sslice x)
 {
     // pick non-empty prefix
