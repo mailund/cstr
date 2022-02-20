@@ -215,19 +215,24 @@ CSTR_DEFINE_SLICE(uislice, unsigned int);
 #define CSTR_SUFFIX(S, I) CSTR_SLICE_DISPATCH(S, suffix)(S, I)
 
 #define CSTR_SLICE(BUF, LEN) CSTR_BASE_DISPATCH(BUF, new)(BUF, LEN)
-// clang-format on
 
 // Special constructor for C-strings to slices.
 // With and without including the sentinel
 #define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
 #define CSTR_SLICE_STRING0(STR) CSTR_SLICE(STR, strlen(STR) + 1)
 
-// Comparing string-slices
-bool cstr_sslice_eq(cstr_sslice x, cstr_sslice y);
+// Comparing slices
+bool cstr_eq_sslice(cstr_sslice x, cstr_sslice y);
+bool cstr_eq_islice(cstr_islice x, cstr_islice y);
+bool cstr_eq_uislice(cstr_uislice x, cstr_uislice y);
+
+#define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq)(A, B)
+
 
 // I/O
 void cstr_fprint_sslice(FILE *f, cstr_sslice x);
 #define cstr_print_sslice(X) cstr_fprint_sslice(stdout, X)
+// clang-format on
 
 // == ALPHABET =====================================================
 

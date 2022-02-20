@@ -34,143 +34,143 @@ TL_TEST(slices)
     TL_FATAL_IF(x.len != strlen("foobarbaz"));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("bar"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("bar"),
                         CSTR_SUBSLICE(x, 3, 6)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("bar"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("bar"),
                         CSTR_SUBSLICE(x, -6, -3)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foo"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foo"),
                         CSTR_PREFIX(x, 3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobar"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobar"),
                         CSTR_PREFIX(x, -3)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("barbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("barbaz"),
                         CSTR_SUFFIX(x, 3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("baz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("baz"),
                         CSTR_SUFFIX(x, -3)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING(""),
+        !cstr_eq_sslice(CSTR_SLICE_STRING(""),
                         CSTR_PREFIX(x, 0)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("f"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("f"),
                         CSTR_PREFIX(x, 1)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("fo"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("fo"),
                         CSTR_PREFIX(x, 2)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foo"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foo"),
                         CSTR_PREFIX(x, 3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foob"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foob"),
                         CSTR_PREFIX(x, 4)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("fooba"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("fooba"),
                         CSTR_PREFIX(x, 5)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobar"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobar"),
                         CSTR_PREFIX(x, 6)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarb"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarb"),
                         CSTR_PREFIX(x, 7)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarba"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarba"),
                         CSTR_PREFIX(x, 8)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarbaz"),
                         CSTR_PREFIX(x, 9)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarba"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarba"),
                         CSTR_PREFIX(x, -1)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarb"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarb"),
                         CSTR_PREFIX(x, -2)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobar"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobar"),
                         CSTR_PREFIX(x, -3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("fooba"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("fooba"),
                         CSTR_PREFIX(x, -4)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foob"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foob"),
                         CSTR_PREFIX(x, -5)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foo"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foo"),
                         CSTR_PREFIX(x, -6)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("fo"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("fo"),
                         CSTR_PREFIX(x, -7)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("f"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("f"),
                         CSTR_PREFIX(x, -8)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING(""),
+        !cstr_eq_sslice(CSTR_SLICE_STRING(""),
                         CSTR_PREFIX(x, -9)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING(""),
+        !cstr_eq_sslice(CSTR_SLICE_STRING(""),
                         CSTR_SUFFIX(x, x.len)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("z"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("z"),
                         CSTR_SUFFIX(x, x.len - 1)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("az"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("az"),
                         CSTR_SUFFIX(x, x.len - 2)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("baz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("baz"),
                         CSTR_SUFFIX(x, x.len - 3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("rbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("rbaz"),
                         CSTR_SUFFIX(x, x.len - 4)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("arbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("arbaz"),
                         CSTR_SUFFIX(x, x.len - 5)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("barbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("barbaz"),
                         CSTR_SUFFIX(x, x.len - 6)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("obarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("obarbaz"),
                         CSTR_SUFFIX(x, x.len - 7)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("oobarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("oobarbaz"),
                         CSTR_SUFFIX(x, x.len - 8)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarbaz"),
                         CSTR_SUFFIX(x, x.len - 9)));
 
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("z"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("z"),
                         CSTR_SUFFIX(x, -1)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("az"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("az"),
                         CSTR_SUFFIX(x, -2)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("baz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("baz"),
                         CSTR_SUFFIX(x, -3)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("rbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("rbaz"),
                         CSTR_SUFFIX(x, -4)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("arbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("arbaz"),
                         CSTR_SUFFIX(x, -5)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("barbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("barbaz"),
                         CSTR_SUFFIX(x, -6)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("obarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("obarbaz"),
                         CSTR_SUFFIX(x, -7)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("oobarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("oobarbaz"),
                         CSTR_SUFFIX(x, -8)));
     TL_ERROR_IF(
-        !cstr_sslice_eq(CSTR_SLICE_STRING("foobarbaz"),
+        !cstr_eq_sslice(CSTR_SLICE_STRING("foobarbaz"),
                         CSTR_SUFFIX(x, -9)));
 
     TL_END();

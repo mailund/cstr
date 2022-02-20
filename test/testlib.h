@@ -55,6 +55,16 @@ struct tl_state
 #define TL_ERROR_IF_NEQ_LL(A, B) TL_ERROR_IF_NEQ("%lld", A, B)
 #define TL_FATAL_IF_NEQ_LL(A, B) TL_FATAL_IF_NEQ("%lld", A, B)
 
+#define TL_ERROR_IF_NEQ_STRING(A, B) \
+    TL_ERROR_IF_(strcmp(A, B) != 0, "%s != %s\n", A, B)
+#define TL_FATAL_IF_NEQ_STRING(A, B) \
+    TL_FATAL_IF_(strcmp(A, B) != 0, "%s != %s\n", A, B)
+
+#define TL_ERROR_IF_NEQ_SLICE(A, B) \
+    TL_ERROR_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
+#define TL_FATAL_IF_NEQ_SLICE(A, B) \
+    TL_FATAL_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
+
 // MARK: Testing arrays
 int tl_test_array(void *restrict expected,
                   void *restrict actual,

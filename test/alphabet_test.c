@@ -12,8 +12,8 @@ TL_TEST(test_create_alphabet)
 
     cstr_alphabet alpha;
     cstr_sslice x = CSTR_SLICE_STRING0("foobar");
-    TL_ERROR_IF_NEQ_LL(x.len, (long long)strlen("foobar") + 1);
-    TL_ERROR_IF(strcmp(x.buf, "foobar") != 0);
+    TL_FATAL_IF_NEQ_LL(x.len, (long long)strlen("foobar") + 1);
+    TL_FATAL_IF_NEQ_STRING(x.buf, "foobar");
 
     cstr_init_alphabet(&alpha, x);
 
@@ -54,7 +54,8 @@ TL_TEST(test_mapping)
     ok = cstr_alphabet_map(mapped, x, &alpha);
     TL_FATAL_IF(!ok);
 
-    TL_ERROR_IF(!cstr_sslice_eq(mapped, CSTR_SLICE_STRING0("\3\4\4\2\1\5")));
+    cstr_sslice expected = CSTR_SLICE_STRING0("\3\4\4\2\1\5");
+    TL_ERROR_IF_NEQ_SLICE(mapped, expected);
     CSTR_FREE_SLICE_BUFFER(mapped);
 
     mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, 3);
@@ -109,7 +110,7 @@ TL_TEST(test_revmapping)
     ok = cstr_alphabet_revmap(rev, mapped, &alpha);
     TL_FATAL_IF(!ok);
 
-    TL_ERROR_IF(!cstr_sslice_eq(x, rev));
+    TL_ERROR_IF_NEQ_SLICE(x, rev);
 
     CSTR_FREE_SLICE_BUFFER(mapped);
     CSTR_FREE_SLICE_BUFFER(rev);

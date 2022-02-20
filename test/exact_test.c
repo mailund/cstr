@@ -57,84 +57,88 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
-    
+
     cstr_sslice x = CSTR_ALLOC_SLICE_BUFFER(x, 100);
     cstr_sslice p = CSTR_ALLOC_SLICE_BUFFER(p, 5);
-    
-    for (int i = 0; i < 10; i++) {
+
+    for (int i = 0; i < 10; i++)
+    {
         tl_random_string(x, "abc", 3);
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             tl_random_string(p, "abc", 3);
-            
+
             cstr_exact_matcher *matcher = f(x, p);
             for (int m = cstr_exact_next_match(matcher);
                  m != -1;
-                 m = cstr_exact_next_match(matcher)) {
+                 m = cstr_exact_next_match(matcher))
+            {
                 cstr_sslice match = CSTR_SUBSLICE(x, m, m + p.len);
-                TL_ERROR_IF(!cstr_sslice_eq(match, p));
+                TL_ERROR_IF(!CSTR_SLICE_EQ(match, p));
             }
             cstr_free_exact_matcher(matcher);
-            
         }
     }
-    
+
     CSTR_FREE_SLICE_BUFFER(p);
     CSTR_FREE_SLICE_BUFFER(x);
-    
+
     TL_END();
 }
-
 
 TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
 {
     TL_BEGIN();
-    
+
     cstr_sslice x = CSTR_ALLOC_SLICE_BUFFER(x, 100);
-    
-    for (int i = 0; i < 10; i++) {
+
+    for (int i = 0; i < 10; i++)
+    {
         tl_random_string(x, "abc", 3);
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             cstr_sslice p = tl_random_prefix(x);
             cstr_exact_matcher *matcher = f(x, p);
             TL_ERROR_IF_NEQ_INT(0, cstr_exact_next_match(matcher));
             cstr_free_exact_matcher(matcher);
-            
         }
     }
-    
+
     CSTR_FREE_SLICE_BUFFER(x);
-    
+
     TL_END();
 }
 
 TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
 {
     TL_BEGIN();
-    
+
     cstr_sslice x = CSTR_ALLOC_SLICE_BUFFER(x, 100);
-    
-    for (int i = 0; i < 10; i++) {
+
+    for (int i = 0; i < 10; i++)
+    {
         tl_random_string(x, "abc", 3);
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             cstr_sslice p = tl_random_suffix(x);
             cstr_exact_matcher *matcher = f(x, p);
-            
+
             int res = cstr_exact_next_match(matcher);
             int last = res;
-            while (res != -1) {
+            while (res != -1)
+            {
                 last = res;
                 res = cstr_exact_next_match(matcher);
             }
-            
+
             TL_ERROR_IF_NEQ_LL((long long)last, x.len - p.len);
-            
+
             cstr_free_exact_matcher(matcher);
-            
         }
     }
-    
+
     CSTR_FREE_SLICE_BUFFER(x);
-    
+
     TL_END();
 }
 
