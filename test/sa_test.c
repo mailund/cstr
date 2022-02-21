@@ -14,6 +14,7 @@ TL_PARAM_TEST(check_suffix_ordered,
         //printf("sa[%d] == %d %s\n", i - 1, sa.buf[i - 1], x + sa.buf[i - 1]);
         //printf("sa[%d] == %d %s\n", i, sa.buf[i], x + sa.buf[i]);
         TL_ERROR_IF_GE_STRING(x + sa.buf[i - 1], x + sa.buf[i]);
+        assert(strcmp((char*)x + sa.buf[i-1], (char *)x + sa.buf[i]) < 0);
         //printf("OK\n");
     }
     TL_END();
@@ -52,7 +53,7 @@ TL_TEST(test_random)
 
     const long long n = 10;
 
-    cstr_sslice letters = CSTR_SLICE_STRING("acgt");
+    cstr_sslice letters = CSTR_SLICE_STRING0("acgt");
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, letters);
 
@@ -61,13 +62,13 @@ TL_TEST(test_random)
     cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, n);
 
     assert(x.buf);      // For the static analyser
-    assert(mapped.buf); // for static analyser
+    assert(mapped.buf); // For the static analyser
     assert(sa.buf);     // For the static analyser
 
     for (int k = 0; k < 10; k++)
     {
-        // len-1 since we don't want to overwrite sentinel.
-        tl_random_string0(x, letters.buf, letters.len);
+        // len-1 since we don't want to sample the sentinel
+        tl_random_string0(x, letters.buf, letters.len - 1);
         bool ok = cstr_alphabet_map_to_uint(mapped, x, &alpha);
         TL_FATAL_IF(!ok);
         cstr_skew(sa, mapped, &alpha);
