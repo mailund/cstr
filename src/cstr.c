@@ -59,8 +59,11 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
     }
 
 GEN_SLICE_EQ(sslice);
+GEN_SLICE_EQ(const_sslice);
 GEN_SLICE_EQ(islice);
+GEN_SLICE_EQ(const_islice);
 GEN_SLICE_EQ(uislice);
+GEN_SLICE_EQ(const_uislice);
 
 void cstr_fprint_sslice(FILE *f, cstr_sslice x)
 {

@@ -190,25 +190,57 @@ cstr_idx(long long i, long long len)
 // dispatch tables.
 
 // clang-format off
-CSTR_DEFINE_SLICE(sslice, uint8_t); // bytes for chars for convinience
+CSTR_DEFINE_SLICE(sslice, uint8_t);
+CSTR_DEFINE_SLICE(const_sslice, const uint8_t);
 CSTR_DEFINE_SLICE(islice, int);
+CSTR_DEFINE_SLICE(const_islice, const int);
 CSTR_DEFINE_SLICE(uislice, unsigned int);
-#define CSTR_SLICE_DISPATCH(X, FUNC)     \
-  _Generic((X),                          \
-           cstr_sslice                   \
-           : cstr_##FUNC##_sslice,       \
-           cstr_islice                   \
-           : cstr_##FUNC##_islice,       \
-           cstr_uislice                  \
-           : cstr_##FUNC##_uislice)
-#define CSTR_BASE_DISPATCH(B, FUNC)      \
-  _Generic((B),                          \
-           uint8_t *                     \
-           : cstr_##FUNC##_sslice,       \
-           int *                         \
-           : cstr_##FUNC##_islice,       \
-           unsigned int *                \
-           : cstr_##FUNC##_uislice)
+CSTR_DEFINE_SLICE(const_uislice, const unsigned int);
+
+#define CSTR_SLICE_DISPATCH(X, FUNC)       \
+  _Generic((X),                            \
+           cstr_sslice                     \
+           : cstr_##FUNC##_sslice,         \
+           cstr_const_sslice               \
+           : cstr_##FUNC##_const_sslice,   \
+           cstr_islice                     \
+           : cstr_##FUNC##_islice,         \
+           cstr_const_islice               \
+           : cstr_##FUNC##_const_islice,   \
+           cstr_uislice                    \
+           : cstr_##FUNC##_uislice,        \
+           cstr_const_uislice              \
+           : cstr_##FUNC##_const_uislice)
+
+#define CSTR_BASE_DISPATCH(B, FUNC)        \
+  _Generic((B),                            \
+           uint8_t *                       \
+           : cstr_##FUNC##_sslice,         \
+           const uint8_t *                 \
+           : cstr_##FUNC##_const_sslice,   \
+           int *                           \
+           : cstr_##FUNC##_islice,         \
+           const int *                     \
+           : cstr_##FUNC##_const_islice,   \
+           unsigned int *                  \
+           : cstr_##FUNC##_uislice,        \
+           const unsigned int *            \
+           : cstr_##FUNC##_const_uislice)
+
+#define CSTR_SLICE_CONST_CAST(S)                               \
+  _Generic((S),                                                \
+           cstr_sslice                                         \
+           : CSTR_SLICE((const uint8_t *)(S).buf, S.len),      \
+           cstr_const_sslice                                   \
+           : CSTR_SLICE((uint8_t *)(S).buf, S.len),            \
+           cstr_islice                                         \
+           : CSTR_SLICE((const int *)(S).buf, S.len),          \
+           cstr_const_islice                                   \
+           : CSTR_SLICE((int *)(S).buf, S.len),                \
+           cstr_uislice                                        \
+           : CSTR_SLICE((const unsigned int *)(S).buf, S.len), \
+           cstr_const_uislice                                  \
+           : CSTR_SLICE((unsigned int *)(S).buf, S.len))
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
@@ -233,21 +265,36 @@ CSTR_DEFINE_SLICE(uislice, unsigned int);
 
 // Special constructor for C-strings to slices.
 // With and without including the sentinel
-#define CSTR_SLICE_STRING(STR) CSTR_SLICE((uint8_t*)STR, cstr_strlen(STR))
-#define CSTR_SLICE_STRING0(STR) CSTR_SLICE((uint8_t*)STR, cstr_strlen(STR) + 1)
+#define CSTR_SLICE_STRING(STR)                                       \
+  _Generic((STR),                                                    \
+           char *                                                    \
+           : CSTR_SLICE((uint8_t *)STR, cstr_strlen(STR)),           \
+           const char *                                              \
+           : CSTR_SLICE((const uint8_t *)STR, cstr_strlen(STR)))
+
+#define CSTR_SLICE_STRING0(STR)                                      \
+  _Generic((STR),                                                    \
+           char *                                                    \
+           : CSTR_SLICE((uint8_t *)STR, cstr_strlen(STR) + 1),       \
+             const char *                                            \
+           : CSTR_SLICE((const uint8_t *)STR, cstr_strlen(STR) + 1))
 
 // Comparing slices
 bool cstr_eq_sslice(cstr_sslice x, cstr_sslice y);
+bool cstr_eq_const_sslice(cstr_const_sslice x, cstr_const_sslice y);
 bool cstr_eq_islice(cstr_islice x, cstr_islice y);
+bool cstr_eq_const_islice(cstr_const_islice x, cstr_const_islice y);
 bool cstr_eq_uislice(cstr_uislice x, cstr_uislice y);
+bool cstr_eq_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
 
-#define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq)(A, B)
+#define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq) \
+(A, B)
 
+// clang-format on
 
 // I/O
 void cstr_fprint_sslice(FILE *f, cstr_sslice x);
 #define cstr_print_sslice(X) cstr_fprint_sslice(stdout, X)
-// clang-format on
 
 // == ALPHABET =====================================================
 
@@ -261,20 +308,20 @@ typedef struct cstr_alphabet
 
 // Initialise an alphabet form a slice. Since the alphabet is already
 // allocated, this function cannot fail.
-void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice);
+void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice);
 
 // Write a mapped string into dst. dst.len must equal src.len
-bool cstr_alphabet_map(cstr_sslice dst, cstr_sslice src, cstr_alphabet const *alpha);
+bool cstr_alphabet_map(cstr_sslice dst, cstr_const_sslice src, cstr_alphabet const *alpha);
 
 // Map a slice into an integer slice. dst.len must match src.len + 1
 // to make room for a sentinel.
 bool cstr_alphabet_map_to_uint(cstr_uislice dst,
-                               cstr_sslice src,
+                               cstr_const_sslice src,
                                cstr_alphabet const *alpha);
 
 // Map a string back into the dst slice. dst.len must equal src.len.
 bool cstr_alphabet_revmap(cstr_sslice dst,
-                          cstr_sslice src,
+                          cstr_const_sslice src,
                           cstr_alphabet const *alpha);
 
 // == EXACT MATCHERS =============================

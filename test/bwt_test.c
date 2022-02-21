@@ -16,7 +16,7 @@ static void print_rotation(int n, uint8_t const *x, int rot)
 
 int main(void)
 {
-    cstr_sslice x = CSTR_SLICE_STRING("mississippi");
+    cstr_const_sslice x = CSTR_SLICE_STRING((const char *)"mississippi");
 
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);

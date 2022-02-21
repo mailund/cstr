@@ -10,7 +10,7 @@
 #define IS_DEFINED(b) !IS_UNDEFINED(b)
 #define GET_BYTE(x) ((x)&0xff)
 
-void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice)
+void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
 {
     // initialise the maps to a non-byte. We can check if a byte is in the
     // map by checking if the higher bits are zero.
@@ -48,7 +48,7 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_sslice slice)
 
 bool cstr_alphabet_map(
     cstr_sslice dst,
-    cstr_sslice src,
+    cstr_const_sslice src,
     cstr_alphabet const *alpha)
 {
     assert(dst.len == src.len);
@@ -69,7 +69,7 @@ error:
 
 bool cstr_alphabet_map_to_uint(
     cstr_uislice dst,
-    cstr_sslice src,
+    cstr_const_sslice src,
     cstr_alphabet const *alpha)
 {
     assert(dst.buf);
@@ -92,7 +92,7 @@ error:
 
 bool cstr_alphabet_revmap(
     cstr_sslice dst,
-    cstr_sslice src,
+    cstr_const_sslice src,
     cstr_alphabet const *alpha)
 {
     assert(src.buf && dst.buf);
