@@ -46,9 +46,9 @@ struct tl_state
 
 // MARK: Testing primitive types
 #define TL_ERROR_IF_NEQ(FMT, A, B) \
-    TL_ERROR_IF_((A) != (B), FMT " != " FMT "\n", A, B)
+    TL_ERROR_IF_((A) != (B), "(%s) " FMT " != (%s) " FMT "\n", #A, A, #B, B)
 #define TL_FATAL_IF_NEQ(FMT, A, B) \
-    TL_FATAL_IF_((A) != (B), FMT " != " FMT "\n", A, B)
+    TL_FATAL_IF_((A) != (B), "(%s) " FMT " != (%s) " FMT "\n", #A, A, #B, B)
 
 #define TL_ERROR_IF_NEQ_INT(A, B) TL_ERROR_IF_NEQ("%d", A, B)
 #define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
@@ -56,29 +56,29 @@ struct tl_state
 #define TL_FATAL_IF_NEQ_LL(A, B) TL_FATAL_IF_NEQ("%lld", A, B)
 
 #define TL_ERROR_IF_NEQ_STRING(A, B) \
-    TL_ERROR_IF_(strcmp(A, B) != 0, "%s != %s\n", A, B)
+    TL_ERROR_IF_(strcmp((char *)A, (char *)B) != 0, "%s != %s\n", A, B)
 #define TL_FATAL_IF_NEQ_STRING(A, B) \
-    TL_FATAL_IF_(strcmp(A, B) != 0, "%s != %s\n", A, B)
+    TL_FATAL_IF_(strcmp((char *)A, (char *)B) != 0, "%s != %s\n", A, B)
 
 #define TL_ERROR_IF_GT_STRING(A, B) \
-    TL_ERROR_IF_(strcmp(A, B) > 0, "%s > %s\n", A, B)
+    TL_ERROR_IF_(strcmp((char *)A, (char *)B) > 0, "%s > %s\n", A, B)
 #define TL_FATAL_IF_GT_STRING(A, B) \
-    TL_FATAL_IF_(strcmp(A, B) > 0, "%s > %s\n", A, B)
+    TL_FATAL_IF_(strcmp((char *)A, (char *)B) > 0, "%s > %s\n", A, B)
 
 #define TL_ERROR_IF_GE_STRING(A, B) \
-    TL_ERROR_IF_(strcmp(A, B) >= 0, "%s >= %s\n", A, B)
+    TL_ERROR_IF_(strcmp((char *)A, (char *)B) >= 0, "%s >= %s\n", A, B)
 #define TL_FATAL_IF_GE_STRING(A, B) \
-    TL_FATAL_IF_(strcmp(A, B) >= 0, "%s >= %s\n", A, B)
+    TL_FATAL_IF_(strcmp((char *)A, (char *)B) >= 0, "%s >= %s\n", A, B)
 
 #define TL_ERROR_IF_LT_STRING(A, B) \
-    TL_ERROR_IF_(strcmp(A, B) < 0, "%s < %s\n", A, B)
+    TL_ERROR_IF_(strcmp((char *)A, (char *)B) < 0, "%s < %s\n", A, B)
 #define TL_FATAL_IF_LT_STRING(A, B) \
-    TL_FATAL_IF_(strcmp(A, B) < 0, "%s < %s\n", A, B)
+    TL_FATAL_IF_(strcmp((char *)A, (char *)B) < 0, "%s < %s\n", A, B)
 
 #define TL_ERROR_IF_LE_STRING(A, B) \
-    TL_ERROR_IF_(strcmp(A, B) <= 0, "%s <= %s\n", A, B)
+    TL_ERROR_IF_(strcmp((char *)A, (char *)B) <= 0, "%s <= %s\n", A, B)
 #define TL_FATAL_IF_LE_STRING(A, B) \
-    TL_FATAL_IF_(strcmp(A, B) <= 0, "%s <= %s\n", A, B)
+    TL_FATAL_IF_(strcmp((char *)A, (char *)B) <= 0, "%s <= %s\n", A, B)
 
 #define TL_ERROR_IF_NEQ_SLICE(A, B) \
     TL_ERROR_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
@@ -226,10 +226,8 @@ int tl_test_array(void *restrict expected,
     return 1;
 
 // MARK: Generating test strings
-void tl_random_string(cstr_sslice x,
-                      const char *alpha, int alpha_size);
-void tl_random_string0(cstr_sslice x,
-                       const char *alpha, int alpha_size);
+void tl_random_string(cstr_sslice x, const uint8_t *alpha, int alpha_size);
+void tl_random_string0(cstr_sslice x, const uint8_t *alpha, int alpha_size);
 
 cstr_sslice tl_random_prefix(cstr_sslice x);
 cstr_sslice tl_random_suffix(cstr_sslice x);

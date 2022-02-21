@@ -20,7 +20,7 @@ int tl_test_array(void *restrict expected, void *restrict actual, size_t arrlen,
 }
 
 // test strings
-void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
+void tl_random_string(cstr_sslice x, const uint8_t *alpha, int alpha_size)
 {
     for (int i = 0; i < x.len; i++)
     {
@@ -28,7 +28,7 @@ void tl_random_string(cstr_sslice x, const char *alpha, int alpha_size)
     }
 }
 
-void tl_random_string0(cstr_sslice x, const char *alpha, int alpha_size)
+void tl_random_string0(cstr_sslice x, const uint8_t *alpha, int alpha_size)
 {
     for (int i = 0; i < x.len - 1; i++)
     {

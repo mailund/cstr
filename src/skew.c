@@ -44,6 +44,7 @@ static void get_sa3(cstr_suffix_array sa3,
                     cstr_suffix_array sa12,
                     cstr_uislice x)
 {
+    // The static analyser is crazy about assertions like this...
     assert(sa3.buf && sa12.buf && sa3.len > 0 && sa3.len == sa3len(x.len));
 
     int k = 0;
@@ -68,8 +69,8 @@ static void bucket_sort_with_buffers(cstr_uislice x, cstr_uislice idx,
                                      unsigned int *restrict buckets,
                                      unsigned int *restrict buffer)
 {
-    assert(x.len > 0 && idx.len > 0 &&
-           asize > 0); // helping the static analyser.
+    // helping the static analyser.
+    assert(x.len > 0 && idx.len > 0 && asize > 0);
 
     // Compute buckets
     for (unsigned int i = 0; i < asize; i++)

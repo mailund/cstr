@@ -17,20 +17,20 @@ TL_TEST(test_create_alphabet)
 
     cstr_init_alphabet(&alpha, x);
 
-    TL_ERROR_IF(alpha.map[0] != 0);
-    TL_ERROR_IF(alpha.map['a'] != 1);
-    TL_ERROR_IF(alpha.map['b'] != 2);
-    TL_ERROR_IF(alpha.map['f'] != 3);
-    TL_ERROR_IF(alpha.map['o'] != 4);
-    TL_ERROR_IF(alpha.map['r'] != 5);
-    TL_ERROR_IF(6 != alpha.size);
+    TL_ERROR_IF_NEQ_INT(alpha.map[0], 0);
+    TL_ERROR_IF_NEQ_INT(alpha.map['a'], 1);
+    TL_ERROR_IF_NEQ_INT(alpha.map['b'], 2);
+    TL_ERROR_IF_NEQ_INT(alpha.map['f'], 3);
+    TL_ERROR_IF_NEQ_INT(alpha.map['o'], 4);
+    TL_ERROR_IF_NEQ_INT(alpha.map['r'], 5);
+    TL_ERROR_IF_NEQ_INT(6, alpha.size);
 
-    TL_ERROR_IF(alpha.revmap[1] != 'a');
+    TL_ERROR_IF_NEQ_INT(alpha.revmap[1], 'a');
 
     for (int i = 0; i < CSTR_NO_CHARS; i++)
     {
         // If we have a map, it is in error if it doesn't rev back.
-        TL_ERROR_IF(alpha.map[i] && alpha.revmap[alpha.map[i]] != i);
+        TL_ERROR_IF(!(alpha.map[i] & ~0xff) && alpha.revmap[alpha.map[i]] != i);
     }
 
     TL_END();

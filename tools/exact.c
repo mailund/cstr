@@ -56,13 +56,13 @@ int main(int argc, const char *argv[]) {
         init_fasta_iter(&faiter, chromosomes);
         while (next_fasta_record(&faiter, &farec)) {
             matcher =
-                algo(CSTR_SLICE((char *)farec.seq, farec.seq_len),
-                     CSTR_SLICE_STRING(fqrec.sequence));
+                algo(CSTR_SLICE(farec.seq, farec.seq_len),
+                     CSTR_SLICE_STRING((char *)fqrec.sequence));
             
             for (int pos = cstr_exact_next_match(matcher); pos != -1;
                  pos = cstr_exact_next_match(matcher)) {
                 print_sam_line(stdout, fqrec.name, farec.name, pos + 1,
-                               cigarbuf, (const char *)fqrec.sequence, fqrec.quality);
+                               cigarbuf, fqrec.sequence, fqrec.quality);
             }
             cstr_free_exact_matcher(matcher);
         }

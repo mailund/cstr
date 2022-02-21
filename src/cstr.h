@@ -14,6 +14,21 @@
 // check it with a static assert if you like.
 #define CSTR_NO_CHARS (1 << CHAR_BIT)
 
+// Many places, it is more convinient to work with bytes (where
+// we know their size) than to work with char, so generally we use
+// uint8_t instead of char. That requires a few casts here and there
+// but only when we interact with the outer world.
+// The only real consern is that functions such as strlen returns
+// lengths in char and not bytes, if the two differs. So we need
+// our own version of that. Be careful, however, if you want to use
+// the nul-char ('\0') as a sentinel. It may not be the null byte!
+size_t cstr_strlen(const char *x); // returns length of x in bytes
+#define CSTR_STR_TO_BYTES(X) ((uint8_t *)(X))
+#define CSTR_CONST_STR_TO_CONST_BYTES(X) ((const uint8_t *)(X))
+// WARNING: only valid if nul-terminated!
+#define CSTR_BYTES_TO_STR(X) ((char *)(X))
+#define CSTR_CONST_BYTES_TO_CONST_STR(X) ((const char *)(X))
+
 // This is to provide inline functions without putting the
 // static code in each output file...
 #ifndef INLINE
@@ -175,7 +190,7 @@ cstr_idx(long long i, long long len)
 // dispatch tables.
 
 // clang-format off
-CSTR_DEFINE_SLICE(sslice, char);
+CSTR_DEFINE_SLICE(sslice, uint8_t); // bytes for chars for convinience
 CSTR_DEFINE_SLICE(islice, int);
 CSTR_DEFINE_SLICE(uislice, unsigned int);
 #define CSTR_SLICE_DISPATCH(X, FUNC)     \
@@ -188,7 +203,7 @@ CSTR_DEFINE_SLICE(uislice, unsigned int);
            : cstr_##FUNC##_uislice)
 #define CSTR_BASE_DISPATCH(B, FUNC)      \
   _Generic((B),                          \
-           char *                        \
+           uint8_t *                     \
            : cstr_##FUNC##_sslice,       \
            int *                         \
            : cstr_##FUNC##_islice,       \
@@ -218,8 +233,8 @@ CSTR_DEFINE_SLICE(uislice, unsigned int);
 
 // Special constructor for C-strings to slices.
 // With and without including the sentinel
-#define CSTR_SLICE_STRING(STR) CSTR_SLICE(STR, strlen(STR))
-#define CSTR_SLICE_STRING0(STR) CSTR_SLICE(STR, strlen(STR) + 1)
+#define CSTR_SLICE_STRING(STR) CSTR_SLICE((uint8_t*)STR, cstr_strlen(STR))
+#define CSTR_SLICE_STRING0(STR) CSTR_SLICE((uint8_t*)STR, cstr_strlen(STR) + 1)
 
 // Comparing slices
 bool cstr_eq_sslice(cstr_sslice x, cstr_sslice y);
@@ -240,8 +255,8 @@ void cstr_fprint_sslice(FILE *f, cstr_sslice x);
 typedef struct cstr_alphabet
 {
   unsigned int size;
-  unsigned char map[CSTR_NO_CHARS];
-  unsigned char revmap[CSTR_NO_CHARS];
+  uint16_t map[CSTR_NO_CHARS];
+  uint16_t revmap[CSTR_NO_CHARS];
 } cstr_alphabet;
 
 // Initialise an alphabet form a slice. Since the alphabet is already
@@ -295,7 +310,7 @@ void cstr_skew(cstr_suffix_array sa, cstr_uislice x, cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 
-char *cstr_bwt(int n, char const *x, unsigned int sa[n]);
+uint8_t *cstr_bwt(int n, uint8_t const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table
 {
@@ -303,24 +318,24 @@ struct cstr_bwt_c_table
   int cumsum[];
 };
 
-struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, char const *x, int asize);
+struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, uint8_t const *x, int asize);
 void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
-INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, char i)
+INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, uint8_t i)
 {
-  return ctab->cumsum[(int)i];
+  return ctab->cumsum[i];
 }
 
 struct cstr_bwt_o_table;
 struct cstr_bwt_o_table *cstr_compute_bwt_o_table(int n,
-                                                  char const *bwt,
+                                                  uint8_t const *bwt,
                                                   struct cstr_bwt_c_table const *ctab);
 void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab);
-int cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, char a, int i);
+int cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, uint8_t a, int i);
 
 void cstr_bwt_search(int *left,
                      int *right,
-                     char const *x,
-                     char const *p,
+                     uint8_t const *x,
+                     uint8_t const *p,
                      struct cstr_bwt_c_table const *ctab,
                      struct cstr_bwt_o_table const *otab);
 

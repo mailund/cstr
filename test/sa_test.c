@@ -6,14 +6,15 @@
 #include <cstr.h>
 
 TL_PARAM_TEST(check_suffix_ordered,
-              char const *x, cstr_suffix_array sa)
+              uint8_t const *x, cstr_suffix_array sa)
 {
     TL_BEGIN();
     for (int i = 1; i < sa.len; i++)
     {
-        printf("sa[%d] == %d %s\n", i - 1, sa.buf[i - 1], x + sa.buf[i - 1]);
-        printf("sa[%d] == %d %s\n", i, sa.buf[i], x + sa.buf[i]);
+        //printf("sa[%d] == %d %s\n", i - 1, sa.buf[i - 1], x + sa.buf[i - 1]);
+        //printf("sa[%d] == %d %s\n", i, sa.buf[i], x + sa.buf[i]);
         TL_ERROR_IF_GE_STRING(x + sa.buf[i - 1], x + sa.buf[i]);
+        //printf("OK\n");
     }
     TL_END();
 }
@@ -67,7 +68,8 @@ TL_TEST(test_random)
     {
         // len-1 since we don't want to overwrite sentinel.
         tl_random_string0(x, letters.buf, letters.len);
-        cstr_alphabet_map_to_uint(mapped, x, &alpha);
+        bool ok = cstr_alphabet_map_to_uint(mapped, x, &alpha);
+        TL_FATAL_IF(!ok);
         cstr_skew(sa, mapped, &alpha);
 
         TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);

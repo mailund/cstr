@@ -4,7 +4,7 @@
 
 #include <cstr.h>
 
-static void print_rotation(int n, char const *x, int rot)
+static void print_rotation(int n, uint8_t const *x, int rot)
 {
     for (int i = rot; i < n; i++)
         putchar(x[i]);
@@ -35,7 +35,7 @@ int main(void)
     }
     printf("\n");
 
-    char *b = cstr_bwt(x.len, x.buf, sa.buf);
+    uint8_t *b = cstr_bwt(x.len, x.buf, sa.buf);
     for (int i = 0; i < sa.len; i++)
     {
         putchar(b[i] ? b[i] : '$');
@@ -45,7 +45,7 @@ int main(void)
     struct cstr_bwt_c_table *ctab = cstr_compute_bwt_c_table(x.len, b, 256);
     struct cstr_bwt_o_table *otab = cstr_compute_bwt_o_table(x.len, b, ctab);
     int left, right;
-    cstr_bwt_search(&left, &right, x.buf, "is", ctab, otab);
+    cstr_bwt_search(&left, &right, x.buf, (uint8_t *)"is", ctab, otab);
     printf("[%d,%d]\n", left, right);
     for (int i = left; i < right; i++)
     {

@@ -7,6 +7,11 @@
 #define INLINE extern inline
 #include "cstr.h"
 
+size_t cstr_strlen(const char *x)
+{
+    return strlen(x) * sizeof(uint8_t);
+}
+
 void *cstr_malloc(size_t size)
 {
     void *buf = malloc(size);
