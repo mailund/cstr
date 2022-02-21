@@ -8,12 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// The number of characters we have for char * strings.
-// WARNING: if this is too large, the alphabet structure
-// will suffer, but a char is likely to be 8 bits. You can
-// check it with a static assert if you like.
-#define CSTR_NO_CHARS (1 << CHAR_BIT)
-
 // Many places, it is more convinient to work with bytes (where
 // we know their size) than to work with char, so generally we use
 // uint8_t instead of char. That requires a few casts here and there
@@ -302,8 +296,8 @@ void cstr_fprint_sslice(FILE *f, cstr_sslice x);
 typedef struct cstr_alphabet
 {
   unsigned int size;
-  uint16_t map[CSTR_NO_CHARS];
-  uint16_t revmap[CSTR_NO_CHARS];
+  uint16_t map[256];
+  uint16_t revmap[256];
 } cstr_alphabet;
 
 // Initialise an alphabet form a slice. Since the alphabet is already
