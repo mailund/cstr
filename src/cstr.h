@@ -281,8 +281,7 @@ bool cstr_eq_const_islice(cstr_const_islice x, cstr_const_islice y);
 bool cstr_eq_uislice(cstr_uislice x, cstr_uislice y);
 bool cstr_eq_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
 
-#define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq) \
-(A, B)
+#define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq)(A, B)
 
 // clang-format on
 
@@ -344,10 +343,10 @@ cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 typedef cstr_uislice cstr_suffix_array;
 
 // Suffix array construction.
-// slice x must be mapped to alphabet and slice sa
+// slice x must be mapped to alphabet alpha and slice sa
 // must be same length of x. The result will be put
 // into sa.
-void cstr_skew(cstr_suffix_array sa, cstr_uislice x, cstr_alphabet *alpha);
+void cstr_skew(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 

@@ -14,7 +14,7 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
 {
     // initialise the maps to a non-byte. We can check if a byte is in the
     // map by checking if the higher bits are zero.
-    for (int i = 0; i < CSTR_NO_CHARS; i++)
+    for (int i = 0; i < 256; i++)
     {
         alpha->map[i] = UNDEFINED;
         alpha->revmap[i] = UNDEFINED;
@@ -28,7 +28,7 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
 
     // Assign consequtive numbers to the letters.
     alpha->size = 0;
-    for (int i = 0; i < CSTR_NO_CHARS; i++)
+    for (int i = 0; i < 256; i++)
     {
         if (IS_DEFINED(alpha->map[i]))
         {
@@ -37,7 +37,7 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
     }
 
     // Finally, construct the reverse map
-    for (int i = 0; i < CSTR_NO_CHARS; i++)
+    for (int i = 0; i < 256; i++)
     {
         if (IS_DEFINED(alpha->map[i]))
         {

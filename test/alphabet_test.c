@@ -27,7 +27,7 @@ TL_TEST(test_create_alphabet)
 
     TL_ERROR_IF_NEQ_INT(alpha.revmap[1], 'a');
 
-    for (int i = 0; i < CSTR_NO_CHARS; i++)
+    for (int i = 0; i < 256; i++)
     {
         // If we have a map, it is in error if it doesn't rev back.
         TL_ERROR_IF(!(alpha.map[i] & ~0xff) && alpha.revmap[alpha.map[i]] != i);

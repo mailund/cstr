@@ -37,7 +37,7 @@ TL_TEST(test_mississippi)
     cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len);
     assert(sa.buf); // For the static analyser
 
-    cstr_skew(sa, mapped, &alpha);
+    cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
     TL_RUN_PARAM_TEST(check_suffix_ordered, "mississippi", x.buf, sa);
 
@@ -70,7 +70,7 @@ TL_TEST(test_random)
         tl_random_string0(x, letters.buf, letters.len - 1);
         bool ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_CONST_CAST(x), &alpha);
         TL_FATAL_IF(!ok);
-        cstr_skew(sa, mapped, &alpha);
+        cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
         TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);
     }

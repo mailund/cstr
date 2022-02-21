@@ -27,7 +27,7 @@ int main(void)
 
     cstr_alphabet_map_to_uint(mapped, x, &alpha);
 
-    cstr_skew(sa, mapped, &alpha);
+    cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
     for (int i = 0; i < sa.len; i++)
     {
