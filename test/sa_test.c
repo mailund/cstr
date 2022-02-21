@@ -11,7 +11,7 @@ TL_PARAM_TEST(check_suffix_ordered,
     TL_BEGIN();
     for (int i = 1; i < sa.len; i++)
     {
-        printf("sa[%d] == %d %s\n", i, sa.buf[i - 1], x + sa.buf[i - 1]);
+        printf("sa[%d] == %d %s\n", i - 1, sa.buf[i - 1], x + sa.buf[i - 1]);
         printf("sa[%d] == %d %s\n", i, sa.buf[i], x + sa.buf[i]);
         TL_ERROR_IF_GE_STRING(x + sa.buf[i - 1], x + sa.buf[i]);
     }
