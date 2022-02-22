@@ -85,14 +85,21 @@ GEN_SLICE_LCP(const_islice);
 GEN_SLICE_LCP(uislice);
 GEN_SLICE_LCP(const_uislice);
 
-void cstr_fprint_sslice(FILE *f, cstr_sslice x)
-{
-    fprintf(f, "[");
-    char *sep = "";
-    for (int i = 0; i < x.len; i++)
-    {
-        fprintf(f, "%s%c", sep, x.buf[i]);
-        sep = ", ";
+#define GEN_FPRINT_SLICE(STYPE, FMT)                  \
+    void cstr_fprint_##STYPE(FILE *f, cstr_##STYPE x) \
+    {                                                 \
+        fprintf(f, "[");                              \
+        char *sep = "";                               \
+        for (int i = 0; i < x.len; i++)               \
+        {                                             \
+            fprintf(f, "%s" FMT, sep, x.buf[i]);      \
+            sep = ", ";                               \
+        }                                             \
+        fprintf(f, "]");                              \
     }
-    fprintf(f, "]");
-}
+GEN_FPRINT_SLICE(sslice, "%c")
+GEN_FPRINT_SLICE(const_sslice, "%c")
+GEN_FPRINT_SLICE(islice, "%d")
+GEN_FPRINT_SLICE(const_islice, "%d")
+GEN_FPRINT_SLICE(uislice, "%u")
+GEN_FPRINT_SLICE(const_uislice, "%u")

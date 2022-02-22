@@ -291,11 +291,17 @@ long long cstr_lcp_uislice(cstr_uislice x, cstr_uislice y);
 long long cstr_lcp_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
 #define CSTR_SLICE_LCP(A, B) CSTR_SLICE_DISPATCH(A, lcp)(A, B)
 
-// clang-format on
-
 // I/O
 void cstr_fprint_sslice(FILE *f, cstr_sslice x);
-#define cstr_print_sslice(X) cstr_fprint_sslice(stdout, X)
+void cstr_fprint_islice(FILE *f, cstr_islice x);
+void cstr_fprint_uislice(FILE *f, cstr_uislice x);
+void cstr_fprint_const_sslice(FILE *f, cstr_const_sslice x);
+void cstr_fprint_const_islice(FILE *f, cstr_const_islice x);
+void cstr_fprint_const_uislice(FILE *f, cstr_const_uislice x);
+#define CSTR_SLICE_FPRINT(F, S) CSTR_SLICE_DISPATCH(S, fprint)(F, S)
+#define CSTR_SLICE_PRINT(F, S) CSTR_SLICE_DISPATCH(S, fprint)(stdout, S)
+
+// clang-format on
 
 // == ALPHABET =====================================================
 
