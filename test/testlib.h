@@ -54,6 +54,8 @@ struct tl_state
 #define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
 #define TL_ERROR_IF_NEQ_LL(A, B) TL_ERROR_IF_NEQ("%lld", A, B)
 #define TL_FATAL_IF_NEQ_LL(A, B) TL_FATAL_IF_NEQ("%lld", A, B)
+#define TL_ERROR_IF_NEQ_SIZE_T(A, B) TL_ERROR_IF_NEQ("%zu", A, B)
+#define TL_FATAL_IF_NEQ_SIZE_T(A, B) TL_FATAL_IF_NEQ("%zu", A, B)
 
 #define TL_ERROR_IF_NEQ_STRING(A, B) \
     TL_ERROR_IF_(strcmp((char *)A, (char *)B) != 0, "%s != %s\n", A, B)

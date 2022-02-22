@@ -303,6 +303,23 @@ void cstr_fprint_const_uislice(FILE *f, cstr_const_uislice x);
 
 // clang-format on
 
+// == BIT VECTOR ===================================================
+typedef struct cstr_bit_vector
+{
+  size_t no_bits;
+  size_t no_words; // you can get this from no_bits, but no need for calculations each time
+  uint64_t words[];
+} cstr_bit_vector;
+
+struct cstr_bit_vector *cstr_new_bv(size_t no_bits);
+INLINE bool cstr_bv_get(cstr_bit_vector *bv, size_t bit)
+{
+  size_t word = bit >> 6;    // bit / 64;
+  size_t bit_ = bit & 0x3f;  // bit % 64 (0x3f == 63)
+  uint64_t mask = 1 << bit_; // set the one bit we want
+  return bv->words[word] & mask;
+}
+
 // == ALPHABET =====================================================
 
 // Alphabets, for when we remap strings to smaller alphabets
