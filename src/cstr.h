@@ -311,14 +311,25 @@ typedef struct cstr_bit_vector
   uint64_t words[];
 } cstr_bit_vector;
 
+#define CSTR_WORD_IDX(BIT_IDX) ((BIT_IDX) >> 6)                 // bit divided by 64
+#define CSTR_BIT_IDX(BIT_IDX) ((uint64_t)(BIT_IDX)&0x3f)        // bit % 64 (0x3f == 63)
+#define CSTR_BV_WORD(BV, BIT) ((BV)->words[CSTR_WORD_IDX(BIT)]) // pick the word in the vector
+#define CSTR_BV_MASK(BIT) (1ull << CSTR_BIT_IDX(BIT))           // mask for the right bit in the word
+
 struct cstr_bit_vector *cstr_new_bv(size_t no_bits);
 INLINE bool cstr_bv_get(cstr_bit_vector *bv, size_t bit)
 {
-  size_t word = bit >> 6;    // bit / 64;
-  size_t bit_ = bit & 0x3f;  // bit % 64 (0x3f == 63)
-  uint64_t mask = 1 << bit_; // set the one bit we want
-  return bv->words[word] & mask;
+  return CSTR_BV_WORD(bv, bit) & CSTR_BV_MASK(bit);
 }
+INLINE void cstr_bv_set(cstr_bit_vector *bv, size_t bit, bool val)
+{
+  uint64_t mask = CSTR_BV_MASK(bit);
+  uint64_t *word = &CSTR_BV_WORD(bv, bit);
+  *word = val ? (*word | mask) : (*word & ~mask);
+}
+
+void cstr_bv_fprint(FILE *f, cstr_bit_vector *bv);
+#define cstr_bv_print(BV) cstr_bv_fprint(stdout, BV)
 
 // == ALPHABET =====================================================
 
