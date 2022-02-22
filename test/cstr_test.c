@@ -176,6 +176,37 @@ TL_TEST(slices)
     TL_END();
 }
 
+TL_TEST(eq)
+{
+    TL_BEGIN();
+
+    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice y = CSTR_SLICE_STRING("foobar");
+    TL_FATAL_IF(!CSTR_SLICE_EQ(x, y));
+    
+    cstr_sslice z = CSTR_SLICE_STRING("foo");
+    TL_FATAL_IF(CSTR_SLICE_EQ(x, z));
+
+    TL_END();
+}
+
+TL_TEST(lcp)
+{
+    TL_BEGIN();
+
+    cstr_sslice x = CSTR_SLICE_STRING("foobar");
+    cstr_sslice y = CSTR_SLICE_STRING("foobar");
+    TL_FATAL_IF_NEQ_LL(CSTR_SLICE_LCP(x, y), x.len);
+    
+    cstr_sslice z = CSTR_SLICE_STRING("foo");
+    TL_FATAL_IF_NEQ_LL(CSTR_SLICE_LCP(x, z), z.len);
+
+    cstr_sslice w = CSTR_SLICE_STRING("foobaz");
+    TL_FATAL_IF_NEQ_LL(CSTR_SLICE_LCP(x, w), 6ll);
+
+    TL_END();
+}
+
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("cstr");

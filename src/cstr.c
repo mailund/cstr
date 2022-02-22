@@ -57,13 +57,33 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
                                            \
         return true;                       \
     }
-
 GEN_SLICE_EQ(sslice);
 GEN_SLICE_EQ(const_sslice);
 GEN_SLICE_EQ(islice);
 GEN_SLICE_EQ(const_islice);
 GEN_SLICE_EQ(uislice);
 GEN_SLICE_EQ(const_uislice);
+
+#define GEN_SLICE_LCP(STYPE)                           \
+    long long cstr_lcp_##STYPE(cstr_##STYPE x,         \
+                               cstr_##STYPE y)         \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+                                                       \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] != y.buf[i])                  \
+                return i;                              \
+        }                                              \
+                                                       \
+        return n;                                      \
+    }
+GEN_SLICE_LCP(sslice);
+GEN_SLICE_LCP(const_sslice);
+GEN_SLICE_LCP(islice);
+GEN_SLICE_LCP(const_islice);
+GEN_SLICE_LCP(uislice);
+GEN_SLICE_LCP(const_uislice);
 
 void cstr_fprint_sslice(FILE *f, cstr_sslice x)
 {

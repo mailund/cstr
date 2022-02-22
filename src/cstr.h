@@ -258,7 +258,8 @@ CSTR_DEFINE_SLICE(const_uislice, const unsigned int);
 #define CSTR_SLICE(BUF, LEN) CSTR_BASE_DISPATCH(BUF, new)(BUF, LEN)
 
 // Special constructor for C-strings to slices.
-// With and without including the sentinel
+// With and without including the sentinel (the -0 version includes the
+// nul-char as a sentinel).
 #define CSTR_SLICE_STRING(STR)                                       \
   _Generic((STR),                                                    \
            char *                                                    \
@@ -280,8 +281,15 @@ bool cstr_eq_islice(cstr_islice x, cstr_islice y);
 bool cstr_eq_const_islice(cstr_const_islice x, cstr_const_islice y);
 bool cstr_eq_uislice(cstr_uislice x, cstr_uislice y);
 bool cstr_eq_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
-
 #define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq)(A, B)
+
+long long cstr_lcp_sslice(cstr_sslice x, cstr_sslice y);
+long long cstr_lcp_const_sslice(cstr_const_sslice x, cstr_const_sslice y);
+long long cstr_lcp_islice(cstr_islice x, cstr_islice y);
+long long cstr_lcp_const_islice(cstr_const_islice x, cstr_const_islice y);
+long long cstr_lcp_uislice(cstr_uislice x, cstr_uislice y);
+long long cstr_lcp_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
+#define CSTR_SLICE_LCP(A, B) CSTR_SLICE_DISPATCH(A, lcp)(A, B)
 
 // clang-format on
 
