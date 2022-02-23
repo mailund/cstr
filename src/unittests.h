@@ -10,6 +10,7 @@
 TL_TEST(skew_test_len_calc);
 
 // sais.c
+TL_TEST(buckets_mississippi);
 TL_TEST(sais_classify_sl_mississippi);
 TL_TEST(sais_classify_sl_random);
 
