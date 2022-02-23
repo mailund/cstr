@@ -8,7 +8,7 @@
 
 typedef struct cstr_exact_matcher *(*algorithm_fn)(cstr_sslice, cstr_sslice);
 
-TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
+static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 {
     TL_BEGIN();
     {
@@ -54,7 +54,7 @@ TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     TL_END();
 }
 
-TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
+static TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 {
     TL_BEGIN();
 
@@ -86,7 +86,7 @@ TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
     TL_END();
 }
 
-TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
+static TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
 {
     TL_BEGIN();
 
@@ -109,7 +109,7 @@ TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
     TL_END();
 }
 
-TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
+static TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
 {
     TL_BEGIN();
 
@@ -142,7 +142,7 @@ TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
     TL_END();
 }
 
-TL_TEST(simple_test)
+static TL_TEST(simple_test)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
@@ -151,7 +151,7 @@ TL_TEST(simple_test)
     TL_END();
 }
 
-TL_TEST(test_random_string)
+static TL_TEST(test_random_string)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_random_string_p, "naive", cstr_naive_matcher);
@@ -160,7 +160,7 @@ TL_TEST(test_random_string)
     TL_END();
 }
 
-TL_TEST(test_prefix)
+static TL_TEST(test_prefix)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_prefix_p, "naive", cstr_naive_matcher);
@@ -169,7 +169,7 @@ TL_TEST(test_prefix)
     TL_END();
 }
 
-TL_TEST(test_suffix)
+static TL_TEST(test_suffix)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_suffix_p, "naive", cstr_naive_matcher);

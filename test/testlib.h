@@ -8,8 +8,8 @@
 
 struct tl_state
 {
-    int no_tests;
-    int no_errors;
+    int no_tests;  // cppcheck-suppress[unusedStructMember] -- I don't know what it is thinking
+    int no_errors; // cppcheck-suppress[unusedStructMember]
 };
 
 #define TL_PRINT_ERR(FMT, ...)             \

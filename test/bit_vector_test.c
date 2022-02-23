@@ -1,53 +1,61 @@
 #include "testlib.h"
 #include <cstr.h>
 
-TL_TEST(creating_bit_vectors)
+static TL_TEST(creating_bit_vectors)
 {
     TL_BEGIN();
 
-    cstr_bit_vector *bv = cstr_new_bv(64);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_words, 1ul);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_bits, 64ul);
-    for (size_t i = 0; i < bv->no_bits; i++)
+    cstr_bit_vector *bv = cstr_new_bv_init(64);
+    TL_FATAL_IF_NEQ_LL(bv->no_words, 1ll);
+    TL_FATAL_IF_NEQ_LL(bv->no_bits, 64ll);
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         TL_FATAL_IF(cstr_bv_get(bv, i));
     }
     free(bv);
 
-    bv = cstr_new_bv(63);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_words, 1ul);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_bits, 63ul);
-    for (size_t i = 0; i < bv->no_bits; i++)
+    bv = cstr_new_bv_init(63);
+    TL_FATAL_IF_NEQ_LL(bv->no_words, 1ll);
+    TL_FATAL_IF_NEQ_LL(bv->no_bits, 63ll);
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         TL_FATAL_IF(cstr_bv_get(bv, i));
     }
     free(bv);
 
-    bv = cstr_new_bv(65);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_words, 2ul);
-    TL_FATAL_IF_NEQ_SIZE_T(bv->no_bits, 65ul);
-    for (size_t i = 0; i < bv->no_bits; i++)
+    bv = cstr_new_bv_init(65);
+    TL_FATAL_IF_NEQ_LL(bv->no_words, 2ll);
+    TL_FATAL_IF_NEQ_LL(bv->no_bits, 65ll);
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         TL_FATAL_IF(cstr_bv_get(bv, i));
     }
     free(bv);
+    
+    bv = cstr_new_bv_from_string("001001");
+    TL_FATAL_IF_NEQ_INT(0, cstr_bv_get(bv, 0));
+    TL_FATAL_IF_NEQ_INT(0, cstr_bv_get(bv, 1));
+    TL_FATAL_IF_NEQ_INT(1, cstr_bv_get(bv, 2));
+    TL_FATAL_IF_NEQ_INT(0, cstr_bv_get(bv, 3));
+    TL_FATAL_IF_NEQ_INT(0, cstr_bv_get(bv, 4));
+    TL_FATAL_IF_NEQ_INT(1, cstr_bv_get(bv, 5));
 
     TL_END();
 }
 
-TL_TEST(setting_bits)
+static TL_TEST(setting_bits)
 {
     TL_BEGIN();
 
-    cstr_bit_vector *bv = cstr_new_bv(130);
+    cstr_bit_vector *bv = cstr_new_bv_init(130);
 
     // Set even
-    for (size_t i = 0; i < bv->no_bits; i += 2)
+    for (long long i = 0; i < bv->no_bits; i += 2)
     {
         cstr_bv_set(bv, i, true);
     }
     // Check
-    for (size_t i = 0; i < bv->no_bits; i++)
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         if (i & 1)
         {
@@ -63,16 +71,16 @@ TL_TEST(setting_bits)
     cstr_bv_print(bv);
 
     // flip bits
-    for (size_t i = 0; i < bv->no_bits; i++)
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         bool old_bit = cstr_bv_get(bv, i);
         cstr_bv_set(bv, i, !cstr_bv_get(bv, i));
         TL_FATAL_IF_EQ_INT(old_bit, cstr_bv_get(bv, i));
     }
     cstr_bv_print(bv);
-    
+
     // Check
-    for (size_t i = 0; i < bv->no_bits; i++)
+    for (long long i = 0; i < bv->no_bits; i++)
     {
         if (i & 1)
         {

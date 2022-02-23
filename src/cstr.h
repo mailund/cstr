@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -170,10 +171,10 @@ cstr_idx(long long i, long long len)
 
 // Define the slice types we need. Variadic to match with
 // CSTR_MAP_SLICE_TYPES below.
-#define CSTR_DEFINE_SLICE(NAME, TYPE, ...)   \
-  typedef CSTR_SLICE_TYPE(TYPE) cstr_##NAME; \
-  CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)       \
-  CSTR_BUFFER_ALLOC_GENERATOR(NAME)          \
+#define CSTR_DEFINE_SLICE(NAME, QUAL, TYPE)       \
+  typedef CSTR_SLICE_TYPE(QUAL TYPE) cstr_##NAME; \
+  CSTR_SLICE_NEW_GENERATOR(NAME, QUAL TYPE)       \
+  CSTR_BUFFER_ALLOC_GENERATOR(NAME)               \
   CSTR_INDEX_AND_SLICING_GENERATOR(NAME, TYPE)
 
 // Creating the concrete slice types. To add a new slice type
@@ -184,12 +185,12 @@ cstr_idx(long long i, long long len)
 // dispatch tables.
 
 // clang-format off
-CSTR_DEFINE_SLICE(sslice, uint8_t);
-CSTR_DEFINE_SLICE(const_sslice, const uint8_t);
-CSTR_DEFINE_SLICE(islice, int);
-CSTR_DEFINE_SLICE(const_islice, const int);
-CSTR_DEFINE_SLICE(uislice, unsigned int);
-CSTR_DEFINE_SLICE(const_uislice, const unsigned int);
+CSTR_DEFINE_SLICE(sslice,             ,  uint8_t)
+CSTR_DEFINE_SLICE(const_sslice,  const,  uint8_t)
+CSTR_DEFINE_SLICE(islice,             ,  int)
+CSTR_DEFINE_SLICE(const_islice,  const,  int)
+CSTR_DEFINE_SLICE(uislice,            ,  unsigned int)
+CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
 
 #define CSTR_SLICE_DISPATCH(X, FUNC)       \
   _Generic((X),                            \
@@ -221,20 +222,20 @@ CSTR_DEFINE_SLICE(const_uislice, const unsigned int);
            const unsigned int *            \
            : cstr_##FUNC##_const_uislice)
 
-#define CSTR_SLICE_CONST_CAST(S)                               \
-  _Generic((S),                                                \
-           cstr_sslice                                         \
-           : CSTR_SLICE((const uint8_t *)(S).buf, S.len),      \
-           cstr_const_sslice                                   \
-           : CSTR_SLICE((uint8_t *)(S).buf, S.len),            \
-           cstr_islice                                         \
-           : CSTR_SLICE((const int *)(S).buf, S.len),          \
-           cstr_const_islice                                   \
-           : CSTR_SLICE((int *)(S).buf, S.len),                \
-           cstr_uislice                                        \
-           : CSTR_SLICE((const unsigned int *)(S).buf, S.len), \
-           cstr_const_uislice                                  \
-           : CSTR_SLICE((unsigned int *)(S).buf, S.len))
+#define CSTR_SLICE_CONST_CAST(S)                                       \
+  _Generic((S),                                                        \
+           cstr_sslice                                                 \
+           : CSTR_SLICE((const uint8_t *)(void *)(S).buf, S.len),      \
+           cstr_const_sslice                                           \
+           : CSTR_SLICE((uint8_t *)(void *)(S).buf, S.len),            \
+           cstr_islice                                                 \
+           : CSTR_SLICE((const int *)(void *)(S).buf, S.len),          \
+           cstr_const_islice                                           \
+           : CSTR_SLICE((int *)(void *)(S).buf, S.len),                \
+           cstr_uislice                                                \
+           : CSTR_SLICE((const unsigned int *)(void *)(S).buf, S.len), \
+           cstr_const_uislice                                          \
+           : CSTR_SLICE((unsigned int *)(void *)(S).buf, S.len))
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
@@ -260,19 +261,19 @@ CSTR_DEFINE_SLICE(const_uislice, const unsigned int);
 // Special constructor for C-strings to slices.
 // With and without including the sentinel (the -0 version includes the
 // nul-char as a sentinel).
-#define CSTR_SLICE_STRING(STR)                                       \
-  _Generic((STR),                                                    \
-           char *                                                    \
-           : CSTR_SLICE((uint8_t *)STR, cstr_strlen(STR)),           \
-           const char *                                              \
-           : CSTR_SLICE((const uint8_t *)STR, cstr_strlen(STR)))
+#define CSTR_SLICE_STRING(STR)                                               \
+  _Generic((STR),                                                            \
+           char *                                                            \
+           : CSTR_SLICE((uint8_t *)STR, (long long)cstr_strlen(STR)),        \
+           const char *                                                      \
+           : CSTR_SLICE((const uint8_t *)STR, (long long)cstr_strlen(STR)))
 
-#define CSTR_SLICE_STRING0(STR)                                      \
-  _Generic((STR),                                                    \
-           char *                                                    \
-           : CSTR_SLICE((uint8_t *)STR, cstr_strlen(STR) + 1),       \
-             const char *                                            \
-           : CSTR_SLICE((const uint8_t *)STR, cstr_strlen(STR) + 1))
+#define CSTR_SLICE_STRING0(STR)                                                      \
+  _Generic((STR),                                                                    \
+           char *                                                                    \
+           : cstr_new_sslice((uint8_t *)STR, (long long)cstr_strlen(STR) + 1ll),     \
+           const char *                                                              \
+           : cstr_new_const_sslice((const uint8_t *)STR, (long long)cstr_strlen(STR) + 1ll))
 
 // Comparing slices
 bool cstr_eq_sslice(cstr_sslice x, cstr_sslice y);
@@ -304,29 +305,36 @@ void cstr_fprint_const_uislice(FILE *f, cstr_const_uislice x);
 // clang-format on
 
 // == BIT VECTOR ===================================================
-typedef struct cstr_bit_vector
+typedef struct
 {
-  size_t no_bits;
-  size_t no_words; // you can get this from no_bits, but no need for calculations each time
+  long long no_bits;
+  long long no_words; // you can get this from no_bits, but no need for calculations each time
   uint64_t words[];
 } cstr_bit_vector;
 
-#define CSTR_WORD_IDX(BIT_IDX) ((BIT_IDX) >> 6)                 // bit divided by 64
-#define CSTR_BIT_IDX(BIT_IDX) ((uint64_t)(BIT_IDX)&0x3f)        // bit % 64 (0x3f == 63)
-#define CSTR_BV_WORD(BV, BIT) ((BV)->words[CSTR_WORD_IDX(BIT)]) // pick the word in the vector
-#define CSTR_BV_MASK(BIT) (1ull << CSTR_BIT_IDX(BIT))           // mask for the right bit in the word
+#define CSTR_BV_WORD_IDX(BIT_IDX) ((BIT_IDX) >> 6)                 // bit divided by 64
+#define CSTR_BV_BIT_IDX(BIT_IDX) ((uint64_t)(BIT_IDX)&0x3f)        // bit % 64 (0x3f == 63)
+#define CSTR_BV_WORD(BV, BIT) ((BV)->words[CSTR_BV_WORD_IDX(BIT)]) // pick the word in the vector
+#define CSTR_BV_MASK(BIT) (1ull << CSTR_BV_BIT_IDX(BIT))           // mask for the right bit in the word
 
-struct cstr_bit_vector *cstr_new_bv(size_t no_bits);
-INLINE bool cstr_bv_get(cstr_bit_vector *bv, size_t bit)
+cstr_bit_vector *cstr_new_bv(long long no_bits);
+cstr_bit_vector *cstr_new_bv_init(long long no_bits);       // initialise to zero bits
+cstr_bit_vector *cstr_new_bv_from_string(const char *bits); // set the bits where bits[i] == '1'
+
+void cstr_bv_clear(cstr_bit_vector *bv); // Set all bits to 0
+
+INLINE bool cstr_bv_get(cstr_bit_vector *bv, long long bit)
 {
   return CSTR_BV_WORD(bv, bit) & CSTR_BV_MASK(bit);
 }
-INLINE void cstr_bv_set(cstr_bit_vector *bv, size_t bit, bool val)
+INLINE void cstr_bv_set(cstr_bit_vector *bv, long long bit, bool val)
 {
   uint64_t mask = CSTR_BV_MASK(bit);
   uint64_t *word = &CSTR_BV_WORD(bv, bit);
   *word = val ? (*word | mask) : (*word & ~mask);
 }
+
+bool cstr_bv_eq(cstr_bit_vector *a, cstr_bit_vector *b);
 
 void cstr_bv_fprint(FILE *f, cstr_bit_vector *bv);
 #define cstr_bv_print(BV) cstr_bv_fprint(stdout, BV)
@@ -389,10 +397,11 @@ typedef cstr_uislice cstr_suffix_array;
 // must be same length of x. The result will be put
 // into sa.
 void cstr_skew(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
+void cstr_sais(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 
 // ==== Burrows-Wheeler transform =================================
 
-uint8_t *cstr_bwt(int n, uint8_t const *x, unsigned int sa[n]);
+uint8_t *cstr_bwt(long long n, uint8_t const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table
 {
@@ -400,22 +409,22 @@ struct cstr_bwt_c_table
   int cumsum[];
 };
 
-struct cstr_bwt_c_table *cstr_compute_bwt_c_table(int n, uint8_t const *x, int asize);
+struct cstr_bwt_c_table *cstr_compute_bwt_c_table(long long n, uint8_t const *x, int asize);
 void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
-INLINE int cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, uint8_t i)
+INLINE long long cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, uint8_t i)
 {
   return ctab->cumsum[i];
 }
 
 struct cstr_bwt_o_table;
-struct cstr_bwt_o_table *cstr_compute_bwt_o_table(int n,
+struct cstr_bwt_o_table *cstr_compute_bwt_o_table(long long n,
                                                   uint8_t const *bwt,
                                                   struct cstr_bwt_c_table const *ctab);
 void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab);
-int cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, uint8_t a, int i);
+long long cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, uint8_t a, long long i);
 
-void cstr_bwt_search(int *left,
-                     int *right,
+void cstr_bwt_search(long long *left,
+                     long long *right,
                      uint8_t const *x,
                      uint8_t const *p,
                      struct cstr_bwt_c_table const *ctab,

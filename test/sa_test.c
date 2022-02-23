@@ -5,8 +5,8 @@
 #include "testlib.h"
 #include <cstr.h>
 
-TL_PARAM_TEST(check_suffix_ordered,
-              uint8_t const *x, cstr_suffix_array sa)
+static TL_PARAM_TEST(check_suffix_ordered,
+                     uint8_t const *x, cstr_suffix_array sa)
 {
     TL_BEGIN();
     for (int i = 1; i < sa.len; i++)
@@ -19,7 +19,7 @@ TL_PARAM_TEST(check_suffix_ordered,
     TL_END();
 }
 
-TL_TEST(test_mississippi)
+static TL_TEST(test_mississippi)
 {
     TL_BEGIN();
 
@@ -46,7 +46,7 @@ TL_TEST(test_mississippi)
     TL_END();
 }
 
-TL_TEST(test_random)
+static TL_TEST(test_random)
 {
     TL_BEGIN();
 
@@ -67,7 +67,7 @@ TL_TEST(test_random)
     for (int k = 0; k < 10; k++)
     {
         // len-1 since we don't want to sample the sentinel
-        tl_random_string0(x, letters.buf, letters.len - 1);
+        tl_random_string0(x, letters.buf, (int)letters.len - 1);
         bool ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_CONST_CAST(x), &alpha);
         TL_FATAL_IF(!ok);
         cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);

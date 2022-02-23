@@ -23,6 +23,25 @@ file(GLOB test_sources *_test.c)
 foreach(test_c ${test_sources})
     get_filename_component(testname ${test_c} NAME_WE)
     add_executable(${testname} ${test_c})
+    # FIXME: make this portable (but right now, the variable I used to switch on
+    # doesn't seem to be set, so that didn't work).
+    target_compile_options(${testname}
+        PRIVATE
+            -Wcast-align
+            #-Wcast-qual -- I do from time to time have to cast between const
+            -Wconversion
+            -Wexit-time-destructors
+            -Wglobal-constructors
+            -Wmissing-noreturn
+            -Wmissing-prototypes
+            -Wno-missing-braces
+            -Wold-style-cast
+            -Wshadow
+            -Wweak-vtables
+            -Werror
+            -Wall
+            #-O3
+    )
     target_link_libraries(${testname} cstr testlib)
     add_test(
         ${testname} ${testname}

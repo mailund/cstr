@@ -4,12 +4,12 @@
 
 #include <cstr.h>
 
-static void print_rotation(int n, uint8_t const *x, int rot)
+static void print_rotation(long long n, uint8_t const *x, unsigned int rot)
 {
-    for (int i = rot; i < n; i++)
+    for (unsigned int i = rot; i < n; i++)
         putchar(x[i]);
     putchar('$');
-    for (int i = 0; i < rot; i++)
+    for (unsigned int i = 0; i < rot; i++)
         putchar(x[i]);
     putchar('\n');
 }
@@ -44,10 +44,10 @@ int main(void)
 
     struct cstr_bwt_c_table *ctab = cstr_compute_bwt_c_table(x.len, b, 256);
     struct cstr_bwt_o_table *otab = cstr_compute_bwt_o_table(x.len, b, ctab);
-    int left, right;
+    long long left, right;
     cstr_bwt_search(&left, &right, x.buf, (uint8_t *)"is", ctab, otab);
-    printf("[%d,%d]\n", left, right);
-    for (int i = left; i < right; i++)
+    printf("[%lld,%lld]\n", left, right);
+    for (long long i = left; i < right; i++)
     {
         printf("%s\n", x.buf + sa.buf[i]);
     }

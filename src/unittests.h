@@ -9,5 +9,8 @@
 // skew.c
 TL_TEST(skew_test_len_calc);
 
+// sais.c
+TL_TEST(sais_classify_sl);
+
 #endif // GEN_UNIT_TESTS
 #endif // UNITTESTS_H

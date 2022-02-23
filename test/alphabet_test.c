@@ -1,12 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <cstr.h>
-
 #include "testlib.h"
+#include <cstr.h>
+#include <stdlib.h>
 
-TL_TEST(test_create_alphabet)
+static TL_TEST(test_create_alphabet)
 {
     TL_BEGIN();
 
@@ -36,7 +32,7 @@ TL_TEST(test_create_alphabet)
     TL_END();
 }
 
-TL_TEST(test_mapping)
+static TL_TEST(test_mapping)
 {
     TL_BEGIN();
 
@@ -67,7 +63,7 @@ TL_TEST(test_mapping)
     TL_END();
 }
 
-TL_TEST(test_int_mapping)
+static TL_TEST(test_int_mapping)
 {
     TL_BEGIN();
 
@@ -93,7 +89,7 @@ TL_TEST(test_int_mapping)
     TL_END();
 }
 
-TL_TEST(test_revmapping)
+static TL_TEST(test_revmapping)
 {
     TL_BEGIN();
 

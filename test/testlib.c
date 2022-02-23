@@ -34,7 +34,7 @@ void tl_random_string0(cstr_sslice x, const uint8_t *alpha, int alpha_size)
     {
         x.buf[i] = alpha[rand() % alpha_size];
     }
-    x.buf[x.len - 1] = '\0';
+    x.buf[x.len - 1] = '\0'; // cppcheck-suppress[unreadVariable]
 }
 
 cstr_sslice tl_random_prefix(cstr_sslice x)

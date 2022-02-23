@@ -46,7 +46,7 @@ install(TARGETS   ${PROJECT_NAME}
 target_compile_options(${PROJECT_NAME}
     PRIVATE
         -Wcast-align
-        -Wcast-qual
+        #-Wcast-qual  -- I do from time to time have to cast between const
         -Wconversion
         -Wexit-time-destructors
         -Wglobal-constructors
