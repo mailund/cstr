@@ -27,7 +27,7 @@ long long cstr_strlen(const char *x); // returns length of x in bytes
 
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-void *cstr_malloc(size_t size);
+void *cstr_malloc(size_t size) __attribute__((malloc));
 void *cstr_malloc_buffer(size_t obj_size, // size of objects
                          size_t len);     // how many of them
 
@@ -40,7 +40,7 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // offsetof(type,member)). This ensures we get the right
 // type to match the instance. The macro destroys the
 // pointer variable by setting it to NULL, so use with care.
-#define CSTR_OFFSETOF_INST(PTR, MEMBER) (size_t)(&(PTR = 0)->MEMBER)
+#define CSTR_OFFSETOF_INST(PTR, MEMBER) (size_t)(&((PTR) = 0)->MEMBER)
 
 // Macro for allocating a struct with a flexible array
 // element. Gets the offset of the array from a varialble,
@@ -50,14 +50,14 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // is the name of the flexible array member.
 #define CSTR_MALLOC_FLEX_ARRAY(VAR, FLEX_ARRAY, LEN) \
   cstr_malloc_header_array(                          \
-      CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY), sizeof(VAR->FLEX_ARRAY[0]), LEN)
+      CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY), sizeof((VAR)->FLEX_ARRAY[0]), LEN)
 
 // Set a pointer to NULL when we free it
 #define CSTR_FREE_NULL(P) \
   do                      \
   {                       \
     free(P);              \
-    P = 0;                \
+    (P) = 0;              \
   } while (0)
 
 // ==== SLICES =====================================================
@@ -75,11 +75,11 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // That will be at least 64 bits, so even if signed will be enough
 // for any sane amount of data. Lengths should still be non-negative,
 // of course
-#define CSTR_SLICE_TYPE(TYPE) \
-  struct                      \
-  {                           \
-    signed long long len;     \
-    TYPE *buf;                \
+#define CSTR_SLICE_TYPE(TYPE)                           \
+  struct                                                \
+  {                                                     \
+    signed long long len;                               \
+    TYPE *buf; /* NOLINT -- ok not to put TYPE in () */ \
   }
 
 // Creating slice instances
@@ -92,10 +92,10 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // to the slice type for composite expressions, which requires
 // some _Generic hacks. It is easier to generate inline functions
 // and use the dispatch mechanism below.
-#define CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)                   \
-  INLINE cstr_##NAME cstr_new_##NAME(TYPE *buf, long long len) \
-  {                                                            \
-    return (cstr_##NAME)CSTR_SLICE_INIT(buf, len);             \
+#define CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)                                \
+  INLINE cstr_##NAME cstr_new_##NAME(TYPE /* NOLINT */ *buf, long long len) \
+  {                                                                         \
+    return (cstr_##NAME)CSTR_SLICE_INIT(buf, len);                          \
   }
 
 // Memory management
@@ -223,11 +223,11 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
 #define CSTR_SLICE_CONST_CAST(S)                                       \
   _Generic((S),                                                        \
            cstr_sslice                                                 \
-           : CSTR_SLICE((const uint8_t *)(void *)(S).buf, S.len),      \
+           : CSTR_SLICE((const uint8_t *)(void *)(S).buf, (S).len),    \
            cstr_islice                                                 \
-           : CSTR_SLICE((const int *)(void *)(S).buf, S.len),          \
+           : CSTR_SLICE((const int *)(void *)(S).buf, (S).len),        \
            cstr_uislice                                                \
-           : CSTR_SLICE((const unsigned int *)(void *)(S).buf, S.len))
+           : CSTR_SLICE((const unsigned int *)(void *)(S).buf, (S).len))
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
@@ -283,6 +283,22 @@ bool cstr_eq_uislice(cstr_uislice x, cstr_uislice y);
 bool cstr_eq_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
 #define CSTR_SLICE_EQ(A, B) CSTR_SLICE_DISPATCH(A, eq)(A, B)
 
+bool cstr_ge_sslice(cstr_sslice x, cstr_sslice y);
+bool cstr_ge_const_sslice(cstr_const_sslice x, cstr_const_sslice y);
+bool cstr_ge_islice(cstr_islice x, cstr_islice y);
+bool cstr_ge_const_islice(cstr_const_islice x, cstr_const_islice y);
+bool cstr_ge_uislice(cstr_uislice x, cstr_uislice y);
+bool cstr_ge_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
+#define CSTR_SLICE_GE(A, B) CSTR_SLICE_DISPATCH(A, ge)(A, B)
+
+bool cstr_le_sslice(cstr_sslice x, cstr_sslice y);
+bool cstr_le_const_sslice(cstr_const_sslice x, cstr_const_sslice y);
+bool cstr_le_islice(cstr_islice x, cstr_islice y);
+bool cstr_le_const_islice(cstr_const_islice x, cstr_const_islice y);
+bool cstr_le_uislice(cstr_uislice x, cstr_uislice y);
+bool cstr_le_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
+#define CSTR_SLICE_LE(A, B) CSTR_SLICE_DISPATCH(A, le)(A, B)
+
 long long cstr_lcp_sslice(cstr_sslice x, cstr_sslice y);
 long long cstr_lcp_const_sslice(cstr_const_sslice x, cstr_const_sslice y);
 long long cstr_lcp_islice(cstr_islice x, cstr_islice y);
@@ -299,7 +315,7 @@ void cstr_fprint_const_sslice(FILE *f, cstr_const_sslice x);
 void cstr_fprint_const_islice(FILE *f, cstr_const_islice x);
 void cstr_fprint_const_uislice(FILE *f, cstr_const_uislice x);
 #define CSTR_SLICE_FPRINT(F, S) CSTR_SLICE_DISPATCH(S, fprint)(F, S)
-#define CSTR_SLICE_PRINT(F, S) CSTR_SLICE_DISPATCH(S, fprint)(stdout, S)
+#define CSTR_SLICE_PRINT(S) CSTR_SLICE_DISPATCH(S, fprint)(stdout, S)
 
 // clang-format on
 
@@ -316,7 +332,7 @@ typedef struct
 #define CSTR_BV_WORD(BV, BIT) ((BV)->words[CSTR_BV_WORD_IDX(BIT)]) // pick the word in the vector
 #define CSTR_BV_MASK(BIT) (1ull << CSTR_BV_BIT_IDX(BIT))           // mask for the right bit in the word
 
-cstr_bit_vector *cstr_new_bv(long long no_bits);
+cstr_bit_vector *cstr_new_bv(long long no_bits);            // a new, uninitialised, bit vector
 cstr_bit_vector *cstr_new_bv_init(long long no_bits);       // initialise to zero bits
 cstr_bit_vector *cstr_new_bv_from_string(const char *bits); // set the bits where bits[i] == '1'
 
@@ -341,11 +357,12 @@ void cstr_bv_fprint(FILE *f, cstr_bit_vector *bv);
 // == ALPHABET =====================================================
 
 // Alphabets, for when we remap strings to smaller alphabets
+#define CSTR_MAX_ALPHABET_SIZE 256
 typedef struct cstr_alphabet
 {
   unsigned int size;
-  uint16_t map[256];
-  uint16_t revmap[256];
+  uint16_t map[CSTR_MAX_ALPHABET_SIZE];
+  uint16_t revmap[CSTR_MAX_ALPHABET_SIZE];
 } cstr_alphabet;
 
 // Initialise an alphabet form a slice. Since the alphabet is already

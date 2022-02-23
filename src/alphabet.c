@@ -4,17 +4,23 @@
 
 #include "cstr.h"
 
-#define UNDEFINED (1 << 8)
-#define DEFINED 42                  // anything without higher bits would work here
-#define IS_UNDEFINED(b) (b & ~0xff) // are there higher bits set?
-#define IS_DEFINED(b) !IS_UNDEFINED(b)
-#define GET_BYTE(x) ((x)&0xff)
+// clang-format off
+const uint16_t LOW_BIT_MASK = (uint16_t)0xff;
+const uint16_t HIGH_BIT_MASK = (uint16_t)~LOW_BIT_MASK;
+const uint16_t UNDEFINED = HIGH_BIT_MASK;
+const uint16_t DEFINED = LOW_BIT_MASK; // Where we use this one, we just don't want high bits
+static inline bool is_undef(uint16_t b) { return b & HIGH_BIT_MASK; } // undef if high bits
+static inline bool is_def(uint16_t b)   { return !is_undef(b); }      // otherwise defined
+static inline uint8_t byte(uint16_t b)  { return b & LOW_BIT_MASK; }
+
+#define CHECK_VALID(b) if (is_undef(b)) goto error;
+// clang-format on
 
 void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
 {
     // initialise the maps to a non-byte. We can check if a byte is in the
     // map by checking if the higher bits are zero.
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < CSTR_MAX_ALPHABET_SIZE; i++)
     {
         alpha->map[i] = UNDEFINED;
         alpha->revmap[i] = UNDEFINED;
@@ -28,18 +34,18 @@ void cstr_init_alphabet(cstr_alphabet *alpha, cstr_const_sslice slice)
 
     // Assign consequtive numbers to the letters.
     alpha->size = 0;
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < CSTR_MAX_ALPHABET_SIZE; i++)
     {
-        if (IS_DEFINED(alpha->map[i]))
+        if (is_def(alpha->map[i]))
         {
             alpha->map[i] = (uint8_t)alpha->size++;
         }
     }
 
     // Finally, construct the reverse map
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < CSTR_MAX_ALPHABET_SIZE; i++)
     {
-        if (IS_DEFINED(alpha->map[i]))
+        if (is_def(alpha->map[i]))
         {
             alpha->revmap[alpha->map[i]] = (uint8_t)i;
         }
@@ -56,9 +62,8 @@ bool cstr_alphabet_map(
     for (int i = 0; i < src.len; i++)
     {
         uint16_t map = alpha->map[src.buf[i]];
-        if (IS_UNDEFINED(map))
-            goto error;
-        dst.buf[i] = GET_BYTE(map);
+        CHECK_VALID(map);
+        dst.buf[i] = byte(map);
     }
 
     return true;
@@ -79,9 +84,8 @@ bool cstr_alphabet_map_to_uint(
     for (int i = 0; i < src.len; i++)
     {
         uint16_t map = alpha->map[(unsigned char)src.buf[i]];
-        if (IS_UNDEFINED(map))
-            goto error;
-        dst.buf[i] = GET_BYTE(map);
+        CHECK_VALID(map);
+        dst.buf[i] = byte(map);
     }
 
     return true;
@@ -101,9 +105,8 @@ bool cstr_alphabet_revmap(
     for (int i = 0; i < src.len; i++)
     {
         uint16_t map = alpha->revmap[src.buf[i]];
-        if (IS_UNDEFINED(map))
-            goto error;
-        dst.buf[i] = GET_BYTE(map);
+        CHECK_VALID(map);
+        dst.buf[i] = byte(map);
     }
 
     return true;

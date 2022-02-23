@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,9 @@
 
 long long cstr_strlen(const char *x)
 {
-    return (long long)(strlen(x) * sizeof(uint8_t)); // Flawfinder: ignore -- x should be \0 terminated here
+    size_t n = strlen(x) * sizeof(uint8_t); // Flawfinder: ignore -- x should be \0 terminated here
+    assert(n <= LLONG_MAX);
+    return (long long)n;
 }
 
 void *cstr_malloc(size_t size)
@@ -18,7 +21,9 @@ void *cstr_malloc(size_t size)
     if (!buf)
     {
         fprintf(stderr, "Allocation error, terminating\n");
+#ifndef __clang_analyzer__
         exit(2);
+#endif
     }
     return buf;
 }
@@ -30,7 +35,9 @@ void *cstr_malloc_header_array(size_t base_size,
     if ((SIZE_MAX - base_size) / elm_size < len)
     {
         fprintf(stderr, "Trying to allocte a buffer longer than SIZE_MAX\n");
+#ifndef __clang_analyzer__
         exit(2);
+#endif
     }
     return cstr_malloc(base_size + elm_size * len);
 }
@@ -63,6 +70,50 @@ GEN_SLICE_EQ(islice)
 GEN_SLICE_EQ(const_islice)
 GEN_SLICE_EQ(uislice)
 GEN_SLICE_EQ(const_uislice)
+
+#define GEN_SLICE_LE(STYPE)                            \
+    bool cstr_le_##STYPE(cstr_##STYPE x,               \
+                         cstr_##STYPE y)               \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] < y.buf[i])                   \
+                return true;                           \
+            if (x.buf[i] > y.buf[i])                   \
+                return false;                          \
+        }                                              \
+                                                       \
+        return x.len <= y.len;                         \
+    }
+GEN_SLICE_LE(sslice)
+GEN_SLICE_LE(const_sslice)
+GEN_SLICE_LE(islice)
+GEN_SLICE_LE(const_islice)
+GEN_SLICE_LE(uislice)
+GEN_SLICE_LE(const_uislice)
+
+#define GEN_SLICE_GE(STYPE)                            \
+    bool cstr_ge_##STYPE(cstr_##STYPE x,               \
+                         cstr_##STYPE y)               \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] < y.buf[i])                   \
+                return false;                          \
+            if (x.buf[i] > y.buf[i])                   \
+                return true;                           \
+        }                                              \
+                                                       \
+        return x.len >= y.len;                         \
+    }
+GEN_SLICE_GE(sslice)
+GEN_SLICE_GE(const_sslice)
+GEN_SLICE_GE(islice)
+GEN_SLICE_GE(const_islice)
+GEN_SLICE_GE(uislice)
+GEN_SLICE_GE(const_uislice)
 
 #define GEN_SLICE_LCP(STYPE)                           \
     long long cstr_lcp_##STYPE(cstr_##STYPE x,         \

@@ -6,7 +6,8 @@
         "unittests.h": "c",
         "cstr.h": "c",
         "memory": "c",
-        "utility": "c"
+        "utility": "c",
+        "iosfwd": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }

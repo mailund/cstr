@@ -55,7 +55,9 @@ static int naive_next(struct naive_matcher_state *s)
         for (int j = 0; j < m(s); j++)
         {
             if (x(s)[s->i + j] != p(s)[j])
+            {
                 break;
+            }
             if (j == m(s) - 1)
             {
                 // a match
@@ -87,7 +89,9 @@ static void compute_border_array(cstr_sslice p, int *ba)
     {
         int b = ba[i - 1];
         while (b > 0 && p.buf[i] != p.buf[b])
+        {
             b = ba[b - 1];
+        }
         ba[i] = (p.buf[i] == p.buf[b]) ? b + 1 : 0;
     }
 
@@ -95,7 +99,9 @@ static void compute_border_array(cstr_sslice p, int *ba)
     for (uint32_t i = 0; i < p.len - 1; i++)
     {
         if (ba[i] > 0 && p.buf[ba[i]] == p.buf[i + 1])
+        {
             ba[i] = ba[ba[i] - 1];
+        }
     }
 }
 
@@ -155,7 +161,9 @@ static int kmp_next(struct kmp_matcher_state *s)
     {
         // move pattern down...
         while (j > 0 && x(s)[i] != p(s)[j])
+        {
             j = s->ba[j - 1];
+        }
 
         // match...
         if (x(s)[i] == p(s)[j])

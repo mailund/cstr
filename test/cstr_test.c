@@ -11,8 +11,8 @@ static TL_TEST(indexing)
 
     cstr_sslice x = CSTR_SLICE_STRING("foobarbaz");
 
-    char fwrd[] = "foobarbaz";
-    char bwrd[] = "zabraboof";
+    unsigned char fwrd[] = "foobarbaz";
+    unsigned char bwrd[] = "zabraboof";
 
     for (int i = 0; i < x.len; i++)
     {

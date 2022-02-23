@@ -10,7 +10,8 @@
 TL_TEST(skew_test_len_calc);
 
 // sais.c
-TL_TEST(sais_classify_sl);
+TL_TEST(sais_classify_sl_mississippi);
+TL_TEST(sais_classify_sl_random);
 
 #endif // GEN_UNIT_TESTS
-#endif // UNITTESTS_H
+#endif // CSTR_UNITTESTS_H

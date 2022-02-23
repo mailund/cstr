@@ -8,8 +8,8 @@
 
 struct tl_state
 {
-    int no_tests;  // cppcheck-suppress[unusedStructMember] -- I don't know what it is thinking
-    int no_errors; // cppcheck-suppress[unusedStructMember]
+    int no_tests;
+    int no_errors;
 };
 
 #define TL_PRINT_ERR(FMT, ...)                                      \
@@ -70,39 +70,48 @@ struct tl_state
 #define TL_FATAL_IF_NEQ_SIZE_T(A, B) TL_FATAL_IF_NEQ("%zu", A, B)
 
 #define TL_ERROR_IF_EQ_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) == 0, "%s != %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) == 0, "%s != %s\n", A, B)
 #define TL_FATAL_IF_EQ_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) == 0, "%s != %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) == 0, "%s != %s\n", A, B)
 
 #define TL_ERROR_IF_NEQ_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) != 0, "%s != %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) != 0, "%s != %s\n", A, B)
 #define TL_FATAL_IF_NEQ_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) != 0, "%s != %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) != 0, "%s != %s\n", A, B)
 
 #define TL_ERROR_IF_GT_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) > 0, "%s > %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) > 0, "%s > %s\n", A, B)
 #define TL_FATAL_IF_GT_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) > 0, "%s > %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) > 0, "%s > %s\n", A, B)
 
 #define TL_ERROR_IF_GE_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) >= 0, "%s >= %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) >= 0, "%s >= %s\n", A, B)
 #define TL_FATAL_IF_GE_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) >= 0, "%s >= %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) >= 0, "%s >= %s\n", A, B)
 
 #define TL_ERROR_IF_LT_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) < 0, "%s < %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) < 0, "%s < %s\n", A, B)
 #define TL_FATAL_IF_LT_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) < 0, "%s < %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) < 0, "%s < %s\n", A, B)
 
 #define TL_ERROR_IF_LE_STRING(A, B) \
-    TL_ERROR_IF_(strcmp((const char *)A, (const char *)B) <= 0, "%s <= %s\n", A, B)
+    TL_ERROR_IF_(strcmp((const char *)(A), (const char *)(B)) <= 0, "%s <= %s\n", A, B)
 #define TL_FATAL_IF_LE_STRING(A, B) \
-    TL_FATAL_IF_(strcmp((const char *)A, (const char *)B) <= 0, "%s <= %s\n", A, B)
+    TL_FATAL_IF_(strcmp((const char *)(A), (const char *)(B)) <= 0, "%s <= %s\n", A, B)
 
 #define TL_ERROR_IF_NEQ_SLICE(A, B) \
     TL_ERROR_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
 #define TL_FATAL_IF_NEQ_SLICE(A, B) \
     TL_FATAL_IF_(!CSTR_SLICE_EQ(A, B), "%s != %s\n", #A, #B)
+
+#define TL_ERROR_IF_GE_SLICE(A, B) \
+    TL_ERROR_IF_(CSTR_SLICE_GE(A, B), "%s >= %s\n", #A, #B)
+#define TL_FATAL_IF_GE_SLICE(A, B) \
+    TL_FATAL_IF_(CSTR_SLICE_GE(A, B), "%s >= %s\n", #A, #B)
+#define TL_ERROR_IF_LE_SLICE(A, B) \
+    TL_ERROR_IF_(CSTR_SLICE_LE(A, B), "%s <= %s\n", #A, #B)
+#define TL_FATAL_IF_LE_SLICE(A, B) \
+    TL_FATAL_IF_(CSTR_SLICE_LE(A, B), "%s <= %s\n", #A, #B)
 
 // MARK: Testing arrays
 int tl_test_array(void *restrict expected,
@@ -196,12 +205,9 @@ int tl_test_array(void *restrict expected,
                 _tl_state_.no_tests, _tl_test_name);                         \
         return true; /* success */                                           \
     }                                                                        \
-    else                                                                     \
-    {                                                                        \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n",                \
-                _tl_state_.no_errors, _tl_state_.no_tests, _tl_test_name);   \
-        return false;                                                        \
-    }                                                                        \
+    fprintf(stderr, "%d out of %d tests failed in %s.\n",                    \
+            _tl_state_.no_errors, _tl_state_.no_tests, _tl_test_name);       \
+    return false;                                                            \
     _tl_escape_:                                                             \
     fprintf(stderr, "aborting test %s after fatal error.\n", _tl_test_name); \
     return false;
@@ -225,23 +231,20 @@ int tl_test_array(void *restrict expected,
             _tl_state_.no_errors++;                        \
     } while (0)
 
-#define TL_END_SUITE()                                        \
-    if (_tl_state_.no_errors == 0)                            \
-    {                                                         \
-        fprintf(stderr, "%d tests passed in suite %s.\n",     \
-                _tl_state_.no_tests, _tl_suite_name_);        \
-        return 0; /* success */                               \
-    }                                                         \
-    else                                                      \
-    {                                                         \
-        fprintf(stderr, "%d out of %d tests failed in %s.\n", \
-                _tl_state_.no_errors, _tl_state_.no_tests,    \
-                _tl_suite_name_);                             \
-        return 1;                                             \
-    }                                                         \
-    _tl_escape_:                                              \
-    fprintf(stderr, "aborting test %s after fatal error.\n",  \
-            _tl_suite_name_);                                 \
+#define TL_END_SUITE()                                       \
+    if (_tl_state_.no_errors == 0)                           \
+    {                                                        \
+        fprintf(stderr, "%d tests passed in suite %s.\n",    \
+                _tl_state_.no_tests, _tl_suite_name_);       \
+        return 0; /* success */                              \
+    }                                                        \
+    fprintf(stderr, "%d out of %d tests failed in %s.\n",    \
+            _tl_state_.no_errors, _tl_state_.no_tests,       \
+            _tl_suite_name_);                                \
+    return 1;                                                \
+    _tl_escape_:                                             \
+    fprintf(stderr, "aborting test %s after fatal error.\n", \
+            _tl_suite_name_);                                \
     return 1;
 
 // MARK: Generating test strings
