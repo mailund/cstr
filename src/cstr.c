@@ -7,9 +7,9 @@
 #define INLINE extern inline
 #include "cstr.h"
 
-size_t cstr_strlen(const char *x)
+long long cstr_strlen(const char *x)
 {
-    return strlen(x) * sizeof(uint8_t);
+    return (long long)(strlen(x) * sizeof(uint8_t)); // Flawfinder: ignore -- x should be \0 terminated here
 }
 
 void *cstr_malloc(size_t size)
@@ -42,27 +42,27 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
     return cstr_malloc_header_array(0, obj_size, len);
 }
 
-#define GEN_SLICE_EQ(STYPE)                \
-    bool cstr_eq_##STYPE(cstr_##STYPE x,   \
-                         cstr_##STYPE y)   \
-    {                                      \
-        if (x.len != y.len)                \
-            return false;                  \
-                                           \
-        for (size_t i = 0; i < x.len; i++) \
-        {                                  \
-            if (x.buf[i] != y.buf[i])      \
-                return false;              \
-        }                                  \
-                                           \
-        return true;                       \
+#define GEN_SLICE_EQ(STYPE)                   \
+    bool cstr_eq_##STYPE(cstr_##STYPE x,      \
+                         cstr_##STYPE y)      \
+    {                                         \
+        if (x.len != y.len)                   \
+            return false;                     \
+                                              \
+        for (long long i = 0; i < x.len; i++) \
+        {                                     \
+            if (x.buf[i] != y.buf[i])         \
+                return false;                 \
+        }                                     \
+                                              \
+        return true;                          \
     }
-GEN_SLICE_EQ(sslice);
-GEN_SLICE_EQ(const_sslice);
-GEN_SLICE_EQ(islice);
-GEN_SLICE_EQ(const_islice);
-GEN_SLICE_EQ(uislice);
-GEN_SLICE_EQ(const_uislice);
+GEN_SLICE_EQ(sslice)
+GEN_SLICE_EQ(const_sslice)
+GEN_SLICE_EQ(islice)
+GEN_SLICE_EQ(const_islice)
+GEN_SLICE_EQ(uislice)
+GEN_SLICE_EQ(const_uislice)
 
 #define GEN_SLICE_LCP(STYPE)                           \
     long long cstr_lcp_##STYPE(cstr_##STYPE x,         \
@@ -78,24 +78,24 @@ GEN_SLICE_EQ(const_uislice);
                                                        \
         return n;                                      \
     }
-GEN_SLICE_LCP(sslice);
-GEN_SLICE_LCP(const_sslice);
-GEN_SLICE_LCP(islice);
-GEN_SLICE_LCP(const_islice);
-GEN_SLICE_LCP(uislice);
-GEN_SLICE_LCP(const_uislice);
+GEN_SLICE_LCP(sslice)
+GEN_SLICE_LCP(const_sslice)
+GEN_SLICE_LCP(islice)
+GEN_SLICE_LCP(const_islice)
+GEN_SLICE_LCP(uislice)
+GEN_SLICE_LCP(const_uislice)
 
-#define GEN_FPRINT_SLICE(STYPE, FMT)                  \
-    void cstr_fprint_##STYPE(FILE *f, cstr_##STYPE x) \
-    {                                                 \
-        fprintf(f, "[");                              \
-        char *sep = "";                               \
-        for (int i = 0; i < x.len; i++)               \
-        {                                             \
-            fprintf(f, "%s" FMT, sep, x.buf[i]);      \
-            sep = ", ";                               \
-        }                                             \
-        fprintf(f, "]");                              \
+#define GEN_FPRINT_SLICE(STYPE, FMT)                                      \
+    void cstr_fprint_##STYPE(FILE *f, cstr_##STYPE x)                     \
+    {                                                                     \
+        fprintf(f, "[");                                                  \
+        char *sep = "";                                                   \
+        for (int i = 0; i < x.len; i++)                                   \
+        {                                                                 \
+            fprintf(f, "%s" FMT, sep, x.buf[i]); /* Flawfinder: ignore */ \
+            sep = ", ";                                                   \
+        }                                                                 \
+        fprintf(f, "]");                                                  \
     }
 GEN_FPRINT_SLICE(sslice, "%c")
 GEN_FPRINT_SLICE(const_sslice, "%c")

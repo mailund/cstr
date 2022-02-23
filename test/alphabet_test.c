@@ -8,8 +8,8 @@ static TL_TEST(test_create_alphabet)
 
     cstr_alphabet alpha;
     cstr_const_sslice x = CSTR_SLICE_STRING0((const char *)"foobar");
-    TL_FATAL_IF_NEQ_LL(x.len, (long long)strlen("foobar") + 1);
-    TL_FATAL_IF_NEQ_STRING(x.buf, "foobar");
+    TL_FATAL_IF_NEQ_LL(x.len, (long long)strlen("foobar") + 1); // Flawfinder: ignore (strlen is okay here)
+    TL_FATAL_IF_NEQ_STRING(x.buf, (const char *)"foobar");
 
     cstr_init_alphabet(&alpha, x);
 
@@ -106,7 +106,7 @@ static TL_TEST(test_revmapping)
     ok = cstr_alphabet_revmap(rev, CSTR_SLICE_CONST_CAST(mapped), &alpha);
     TL_FATAL_IF(!ok);
 
-    TL_ERROR_IF_NEQ_SLICE(CSTR_SLICE_CONST_CAST(x), rev);
+    TL_ERROR_IF_NEQ_SLICE(x, CSTR_SLICE_CONST_CAST(rev));
 
     CSTR_FREE_SLICE_BUFFER(mapped);
     CSTR_FREE_SLICE_BUFFER(rev);

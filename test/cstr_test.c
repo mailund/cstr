@@ -31,7 +31,7 @@ static TL_TEST(slices)
 {
     TL_BEGIN();
     cstr_sslice x = CSTR_SLICE_STRING("foobarbaz");
-    TL_FATAL_IF(x.len != strlen("foobarbaz"));
+    TL_FATAL_IF(x.len != strlen("foobarbaz")); // Flawfinder: ignore
 
     TL_ERROR_IF(
         !cstr_eq_sslice(CSTR_SLICE_STRING("bar"),

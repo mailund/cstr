@@ -17,12 +17,7 @@
 // lengths in char and not bytes, if the two differs. So we need
 // our own version of that. Be careful, however, if you want to use
 // the nul-char ('\0') as a sentinel. It may not be the null byte!
-size_t cstr_strlen(const char *x); // returns length of x in bytes
-#define CSTR_STR_TO_BYTES(X) ((uint8_t *)(X))
-#define CSTR_CONST_STR_TO_CONST_BYTES(X) ((const uint8_t *)(X))
-// WARNING: only valid if nul-terminated!
-#define CSTR_BYTES_TO_STR(X) ((char *)(X))
-#define CSTR_CONST_BYTES_TO_CONST_STR(X) ((const char *)(X))
+long long cstr_strlen(const char *x); // returns length of x in bytes
 
 // This is to provide inline functions without putting the
 // static code in each output file...
@@ -222,20 +217,17 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
            const unsigned int *            \
            : cstr_##FUNC##_const_uislice)
 
+// The weird (void *) here are to silence the compiler who will warn about
+// casting to incorrectly aligned sizes. It doesn't happen, but the compiler
+// checks all branches in a _Generic
 #define CSTR_SLICE_CONST_CAST(S)                                       \
   _Generic((S),                                                        \
            cstr_sslice                                                 \
            : CSTR_SLICE((const uint8_t *)(void *)(S).buf, S.len),      \
-           cstr_const_sslice                                           \
-           : CSTR_SLICE((uint8_t *)(void *)(S).buf, S.len),            \
            cstr_islice                                                 \
            : CSTR_SLICE((const int *)(void *)(S).buf, S.len),          \
-           cstr_const_islice                                           \
-           : CSTR_SLICE((int *)(void *)(S).buf, S.len),                \
            cstr_uislice                                                \
-           : CSTR_SLICE((const unsigned int *)(void *)(S).buf, S.len), \
-           cstr_const_uislice                                          \
-           : CSTR_SLICE((unsigned int *)(void *)(S).buf, S.len))
+           : CSTR_SLICE((const unsigned int *)(void *)(S).buf, S.len))
 
 // If you have a variable you intend to assign a freshly allocated
 // slice-buffer to, you can use this macro to automatically pick the
@@ -261,19 +253,26 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
 // Special constructor for C-strings to slices.
 // With and without including the sentinel (the -0 version includes the
 // nul-char as a sentinel).
-#define CSTR_SLICE_STRING(STR)                                               \
-  _Generic((STR),                                                            \
-           char *                                                            \
-           : CSTR_SLICE((uint8_t *)STR, (long long)cstr_strlen(STR)),        \
-           const char *                                                      \
-           : CSTR_SLICE((const uint8_t *)STR, (long long)cstr_strlen(STR)))
 
-#define CSTR_SLICE_STRING0(STR)                                                      \
-  _Generic((STR),                                                                    \
-           char *                                                                    \
-           : cstr_new_sslice((uint8_t *)STR, (long long)cstr_strlen(STR) + 1ll),     \
-           const char *                                                              \
-           : cstr_new_const_sslice((const uint8_t *)STR, (long long)cstr_strlen(STR) + 1ll))
+// These inline functions are needed to avoid _Generic type-checking
+// of the non-const part when the input is const.
+INLINE cstr_sslice 
+cstr_new_sslice_from_string(char *x, long long len) {
+  return cstr_new_sslice((uint8_t *)x, len);
+}
+INLINE cstr_const_sslice 
+cstr_new_const_sslice_from_string(char const *x, long long len) {
+  return cstr_new_const_sslice((const uint8_t *)x, len);
+}
+#define CSTR_SLICE_STRING_CONSTRUCTOR(STR)                         \
+  _Generic((STR),                                                  \
+           char *: cstr_new_sslice_from_string,                    \
+           const char *: cstr_new_const_sslice_from_string)        \
+
+#define CSTR_SLICE_STRING(STR)                                     \
+  CSTR_SLICE_STRING_CONSTRUCTOR(STR)(STR, cstr_strlen(STR))
+#define CSTR_SLICE_STRING0(STR)                                    \
+  CSTR_SLICE_STRING_CONSTRUCTOR(STR)(STR, cstr_strlen(STR) + 1ll)
 
 // Comparing slices
 bool cstr_eq_sslice(cstr_sslice x, cstr_sslice y);
@@ -375,12 +374,9 @@ typedef struct cstr_exact_matcher cstr_exact_matcher;
 int cstr_exact_next_match(cstr_exact_matcher *matcher);
 void cstr_free_exact_matcher(cstr_exact_matcher *matcher);
 
-cstr_exact_matcher *
-cstr_naive_matcher(cstr_sslice x, cstr_sslice p);
-cstr_exact_matcher *
-cstr_ba_matcher(cstr_sslice x, cstr_sslice p);
-cstr_exact_matcher *
-cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_naive_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_ba_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
 // Suffix arrays stored in uislice objects can only handle lenghts

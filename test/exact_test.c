@@ -63,10 +63,10 @@ static TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
 
     for (int i = 0; i < 10; i++)
     {
-        tl_random_string(x, CSTR_CONST_STR_TO_CONST_BYTES("abc"), 3);
+        tl_random_string(x, (const uint8_t *)"abc", 3);
         for (int j = 0; j < 10; j++)
         {
-            tl_random_string(p, CSTR_CONST_STR_TO_CONST_BYTES("abc"), 3);
+            tl_random_string(p, (const uint8_t *)"abc", 3);
 
             cstr_exact_matcher *matcher = f(x, p);
             for (int m = cstr_exact_next_match(matcher);
@@ -94,7 +94,7 @@ static TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
 
     for (int i = 0; i < 10; i++)
     {
-        tl_random_string(x, CSTR_CONST_STR_TO_CONST_BYTES("abc"), 3);
+        tl_random_string(x, (uint8_t const *)"abc", 3);
         for (int j = 0; j < 10; j++)
         {
             cstr_sslice p = tl_random_prefix(x);
@@ -117,7 +117,7 @@ static TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
 
     for (int i = 0; i < 10; i++)
     {
-        tl_random_string(x, CSTR_CONST_STR_TO_CONST_BYTES("abc"), 3);
+        tl_random_string(x, (uint8_t const *)"abc", 3);
         for (int j = 0; j < 10; j++)
         {
             cstr_sslice p = tl_random_suffix(x);

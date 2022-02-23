@@ -28,7 +28,7 @@ foreach(test_c ${test_sources})
     target_compile_options(${testname}
         PRIVATE
             -Wcast-align
-            #-Wcast-qual -- I do from time to time have to cast between const
+            -Wcast-qual
             -Wconversion
             -Wexit-time-destructors
             -Wglobal-constructors
