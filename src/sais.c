@@ -5,21 +5,21 @@
 
 // clang-format off
 // We will use the largest unsigned int to mean undefined
-// static const unsigned int UNDEF = UINT_MAX;
-// static inline bool is_undef(unsigned int val) { return val == UNDEF; }
-// static inline bool is_def(unsigned int val)   { return !is_undef(val); }
+static const unsigned int UNDEF = UINT_MAX;
+static inline bool is_undef(unsigned int val) { return val == UNDEF; }
+static inline bool is_def(unsigned int val)   { return !is_undef(val); }
 
 #define IS_S(I)   cstr_bv_get(is_s, I)
 #define IS_LMS(I) is_lms(is_s, I)
-//static inline bool is_lms(cstr_bit_vector *is_s, long long i)
-//{ return (i != 0) && IS_S(i) && !IS_S(i - 1); }
+static inline bool is_lms(cstr_bit_vector *is_s, long long i)
+{ return (i != 0) && IS_S(i) && !IS_S(i - 1); }
 
 // clang-format on
 
 // MARK: Bucket sort stuff
-static inline long long *alloc_buckets(cstr_alphabet *alpha)
+static inline long long *alloc_buckets(long long sigma)
 {
-    long long *buckets = cstr_malloc(alpha->size * sizeof *buckets);
+    long long *buckets = cstr_malloc((size_t)sigma * sizeof *buckets);
     return buckets;
 }
 
@@ -35,7 +35,8 @@ static void count_buckets(cstr_uislice x, long long sigma, long long buckets[sig
     }
 }
 
-static void init_buckets_start(long long sigma, long long start[sigma], long long buckets[sigma])
+static void init_buckets_start(long long sigma, long long start[sigma],
+                               const long long buckets[sigma])
 {
     long long sum = 0;
     for (long long i = 0; i < sigma; i++)
@@ -45,7 +46,8 @@ static void init_buckets_start(long long sigma, long long start[sigma], long lon
     }
 }
 
-static void init_buckets_end(long long sigma, long long end[sigma], long long buckets[sigma])
+static void init_buckets_end(long long sigma, long long end[sigma],
+                             const long long buckets[sigma])
 {
     long long sum = 0;
     for (long long i = 0; i < sigma; i++)
@@ -71,13 +73,23 @@ static void classify_sl(cstr_uislice x, cstr_bit_vector *is_s)
     }
 }
 
-#if 0
 static inline void undefine_sa_slice(cstr_suffix_array sa)
 {
     for (long long i = 0; i < sa.len; i++)
         sa.buf[i] = UNDEF;
 }
-#endif
+
+static void bucket_lms(cstr_uislice x, cstr_suffix_array sa,
+                       cstr_bit_vector *is_s, long long ends[])
+{
+    for (long long i = x.len - 1; i >= 0; i--)
+    {
+        if (IS_LMS(i))
+        {
+            sa.buf[--ends[x.buf[i]]] = (unsigned int)i;
+        }
+    }
+}
 
 static void sais_rec(cstr_suffix_array sa, cstr_const_uislice x,
                      cstr_bit_vector *is_s, unsigned int alph_size)
@@ -117,8 +129,8 @@ TL_TEST(buckets_mississippi)
     TL_FATAL_IF(!ok);
 
     // Tests...
-    long long *buckets = alloc_buckets(&alpha);
-    long long *buck_ptr = alloc_buckets(&alpha);
+    long long *buckets = alloc_buckets(alpha.size);
+    long long *buck_ptr = alloc_buckets(alpha.size);
 
     count_buckets(x, alpha.size, buckets);
     TL_FATAL_IF_NEQ_LL(buckets[0], 1LL); // $
@@ -229,6 +241,63 @@ TL_TEST(sais_classify_sl_random)
     CSTR_FREE_SLICE_BUFFER(x);
     CSTR_FREE_SLICE_BUFFER(u);
     free(is_s);
+
+    TL_END();
+}
+
+TL_TEST(buckets_lms_mississippi)
+{
+    TL_BEGIN();
+
+    cstr_const_sslice u = CSTR_SLICE_STRING0((const char *)"mississippi");
+    cstr_alphabet alpha;
+    cstr_init_alphabet(&alpha, u);
+
+    cstr_uislice x = CSTR_ALLOC_SLICE_BUFFER(x, u.len);
+    cstr_uislice sa = CSTR_ALLOC_SLICE_BUFFER(x, u.len);
+    bool ok = cstr_alphabet_map_to_uint(x, u, &alpha);
+    TL_FATAL_IF(!ok);
+
+    cstr_bit_vector *is_s = cstr_new_bv(x.len);
+
+    // Tests...
+    classify_sl(x, is_s);
+    undefine_sa_slice(sa);
+    for (long long i = 0; i < sa.len; i++)
+    {
+        TL_FATAL_IF(is_def(sa.buf[i]));
+    }
+
+    long long *buckets = alloc_buckets(alpha.size);
+    long long *ends = alloc_buckets(alpha.size);
+    count_buckets(x, alpha.size, buckets);
+    init_buckets_end(alpha.size, ends, buckets);
+    bucket_lms(x, sa, is_s, ends);
+
+    // -S--S--S---S
+    // mississippi$
+    //  1  4  7   11
+    // $-bucket [0,1)
+    // i-bucket [1,5) -- [2,5) for LMS
+    TL_FATAL_IF_NEQ_UINT(sa.buf[0], 11U);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[1], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[2], 1U);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[3], 4U);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[4], 7U);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[5], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[6], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[7], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[8], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[9], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[10], UNDEF);
+    TL_FATAL_IF_NEQ_UINT(sa.buf[11], UNDEF);
+
+    // Cleanup
+    free(buckets);
+    free(ends);
+    free(is_s);
+    CSTR_FREE_SLICE_BUFFER(x);
+    CSTR_FREE_SLICE_BUFFER(sa);
 
     TL_END();
 }

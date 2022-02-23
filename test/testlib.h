@@ -59,6 +59,11 @@ struct tl_state
 #define TL_ERROR_IF_NEQ_INT(A, B) TL_ERROR_IF_NEQ("%d", A, B)
 #define TL_FATAL_IF_NEQ_INT(A, B) TL_FATAL_IF_NEQ("%d", A, B)
 
+#define TL_ERROR_IF_EQ_UINT(A, B) TL_ERROR_IF_EQ("%u", A, B)
+#define TL_FATAL_IF_EQ_UINT(A, B) TL_FATAL_IF_EQ("%u", A, B)
+#define TL_ERROR_IF_NEQ_UINT(A, B) TL_ERROR_IF_NEQ("%u", A, B)
+#define TL_FATAL_IF_NEQ_UINT(A, B) TL_FATAL_IF_NEQ("%u", A, B)
+
 #define TL_ERROR_IF_EQ_LL(A, B) TL_ERROR_IF_EQ("%lld", A, B)
 #define TL_FATAL_IF_EQ_LL(A, B) TL_FATAL_IF_EQ("%lld", A, B)
 #define TL_ERROR_IF_NEQ_LL(A, B) TL_ERROR_IF_NEQ("%lld", A, B)
