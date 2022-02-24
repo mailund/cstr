@@ -70,7 +70,7 @@ static TL_PARAM_TEST(test_random, const_alg alg)
         // len-1 since we don't want to sample the sentinel
         tl_random_string0(x, letters.buf, (int)letters.len - 1);
         bool ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_CONST_CAST(x), &alpha);
-        TL_FATAL_IF(!ok);
+        TL_ERROR_IF(!ok);
         alg(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
         TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);

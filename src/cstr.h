@@ -25,15 +25,21 @@ long long cstr_strlen(const char *x); // returns length of x in bytes
 #define INLINE inline
 #endif
 
+// clang-format off
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-void *cstr_malloc(size_t size) __attribute__((malloc));
+__attribute__((ownership_returns(malloc), returns_nonnull)) 
+void *cstr_malloc(size_t size);
+
+__attribute__((ownership_returns(malloc), returns_nonnull))
 void *cstr_malloc_buffer(size_t obj_size, // size of objects
                          size_t len);     // how many of them
 
+__attribute__((ownership_returns(malloc), returns_nonnull))
 void *cstr_malloc_header_array(size_t base_size, // size of struct before array
                                size_t elm_size,  // size of elements in array
                                size_t len);      // number of elements in array
+// clang-format on
 
 // Macro for getting the offset of a flexible member array
 // from an instance rather than a type (as for
@@ -102,6 +108,13 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // -----------------
 // Using inline functions for allocation so we don't risk
 // evaluating the length expression twice.
+// FIXME: this design confuses the static analyser. Find a better way
+#define CSTR_ALLOC_BUFFER(SLICE, LEN)                                      \
+  do                                                                       \
+  {                                                                        \
+    (SLICE).buf = cstr_malloc_buffer(sizeof(SLICE).buf[0], (size_t)(LEN)); \
+    (SLICE).len = (LEN);                                                   \
+  } while (0)
 #define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                           \
   INLINE cstr_##TYPE cstr_alloc_buffer_##TYPE(long long len)        \
   {                                                                 \
@@ -332,10 +345,6 @@ typedef struct
 #define CSTR_BV_WORD(BV, BIT) ((BV)->words[CSTR_BV_WORD_IDX(BIT)]) // pick the word in the vector
 #define CSTR_BV_MASK(BIT) (1ull << CSTR_BV_BIT_IDX(BIT))           // mask for the right bit in the word
 
-cstr_bit_vector *cstr_new_bv(long long no_bits);            // a new, uninitialised, bit vector
-cstr_bit_vector *cstr_new_bv_init(long long no_bits);       // initialise to zero bits
-cstr_bit_vector *cstr_new_bv_from_string(const char *bits); // set the bits where bits[i] == '1'
-
 void cstr_bv_clear(cstr_bit_vector *bv); // Set all bits to 0
 
 INLINE bool cstr_bv_get(cstr_bit_vector *bv, long long bit)
@@ -347,6 +356,39 @@ INLINE void cstr_bv_set(cstr_bit_vector *bv, long long bit, bool val)
   uint64_t mask = CSTR_BV_MASK(bit);
   uint64_t *word = &CSTR_BV_WORD(bv, bit);
   *word = val ? (*word | mask) : (*word & ~mask);
+}
+
+// Until I figure out how to tell clang that these *both* allocate memory *and* initialise
+// it, they have to sit as inline methods
+INLINE cstr_bit_vector *cstr_new_bv(long long no_bits)
+{
+  const long long bits_per_word = 64;
+  long long no_words = (no_bits + bits_per_word - 1) / bits_per_word; // divide by word size and round up
+  cstr_bit_vector *bv = CSTR_MALLOC_FLEX_ARRAY(bv, words, (size_t)no_words);
+  bv->no_bits = no_bits;
+  bv->no_words = no_words;
+  // Clearing the last word, so we know the left-over bits are zero, makes
+  // it faster to compare whole bit vectors.
+  bv->words[bv->no_words - 1] = (uint64_t)0;
+  return bv;
+}
+
+INLINE cstr_bit_vector *cstr_new_bv_init(long long no_bits)
+{
+  cstr_bit_vector *bv = cstr_new_bv(no_bits);
+  cstr_bv_clear(bv);
+  return bv;
+}
+
+INLINE cstr_bit_vector *cstr_new_bv_from_string(const char *bits)
+{
+  const long long no_bits = cstr_strlen(bits);
+  cstr_bit_vector *bv = cstr_new_bv(no_bits);
+  for (long long i = 0; i < no_bits; i++)
+  {
+    cstr_bv_set(bv, i, bits[i] == '1');
+  }
+  return bv;
 }
 
 bool cstr_bv_eq(cstr_bit_vector *a, cstr_bit_vector *b);

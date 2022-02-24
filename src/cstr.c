@@ -21,9 +21,7 @@ void *cstr_malloc(size_t size)
     if (!buf)
     {
         fprintf(stderr, "Allocation error, terminating\n");
-#ifndef __clang_analyzer__
         exit(2);
-#endif
     }
     return buf;
 }
