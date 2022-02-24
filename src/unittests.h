@@ -14,6 +14,7 @@ TL_TEST(buckets_mississippi);
 TL_TEST(sais_classify_sl_mississippi);
 TL_TEST(sais_classify_sl_random);
 TL_TEST(buckets_lms_mississippi);
+TL_TEST(induce_mississippi);
 
 #endif // GEN_UNIT_TESTS
 #endif // CSTR_UNITTESTS_H

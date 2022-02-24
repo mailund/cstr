@@ -19,7 +19,8 @@ static TL_PARAM_TEST(check_suffix_ordered,
     TL_END();
 }
 
-static TL_TEST(test_mississippi)
+typedef void (*const_alg)(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
+static TL_PARAM_TEST(test_mississippi, const_alg alg)
 {
     TL_BEGIN();
 
@@ -37,7 +38,7 @@ static TL_TEST(test_mississippi)
     cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len);
     assert(sa.buf); // For the static analyser
 
-    cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
+    alg(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
     TL_RUN_PARAM_TEST(check_suffix_ordered, "mississippi", x.buf, sa);
 
@@ -46,7 +47,7 @@ static TL_TEST(test_mississippi)
     TL_END();
 }
 
-static TL_TEST(test_random)
+static TL_PARAM_TEST(test_random, const_alg alg)
 {
     TL_BEGIN();
 
@@ -70,7 +71,7 @@ static TL_TEST(test_random)
         tl_random_string0(x, letters.buf, (int)letters.len - 1);
         bool ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_CONST_CAST(x), &alpha);
         TL_FATAL_IF(!ok);
-        cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
+        alg(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
 
         TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);
     }
@@ -85,7 +86,9 @@ static TL_TEST(test_random)
 int main(void)
 {
     TL_BEGIN_TEST_SUITE("sa_test");
-    TL_RUN_TEST(test_mississippi);
-    TL_RUN_TEST(test_random);
+    TL_RUN_PARAM_TEST(test_mississippi, "skew", cstr_skew);
+    TL_RUN_PARAM_TEST(test_mississippi, "sais", cstr_sais);
+    TL_RUN_PARAM_TEST(test_random, "skew", cstr_skew);
+    TL_RUN_PARAM_TEST(test_random, "sais", cstr_sais);
     TL_END_SUITE();
 }
