@@ -87,6 +87,12 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
     signed long long len;                               \
     TYPE *buf; /* NOLINT -- ok not to put TYPE in () */ \
   }
+#define CSTR_SLICE_BUF_TYPE(STYPE, QUAL, TYPE) \
+  struct                                       \
+  {                                            \
+    cstr_##STYPE /* NOLINT */ slice;           \
+    QUAL TYPE data[];                          \
+  }
 
 // Creating slice instances
 #define CSTR_SLICE_INIT(BUF, LEN) \
@@ -98,38 +104,21 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // to the slice type for composite expressions, which requires
 // some _Generic hacks. It is easier to generate inline functions
 // and use the dispatch mechanism below.
-#define CSTR_SLICE_NEW_GENERATOR(NAME, TYPE)                                \
-  INLINE cstr_##NAME cstr_new_##NAME(TYPE /* NOLINT */ *buf, long long len) \
-  {                                                                         \
-    return (cstr_##NAME)CSTR_SLICE_INIT(buf, len);                          \
+#define CSTR_GEN_SLICE_NEW(NAME, QUAL, TYPE)                                     \
+  INLINE cstr_##NAME cstr_new_##NAME(QUAL TYPE /* NOLINT */ *buf, long long len) \
+  {                                                                              \
+    return (cstr_##NAME)CSTR_SLICE_INIT(buf, len);                               \
   }
 
-// Memory management
-// -----------------
-// Using inline functions for allocation so we don't risk
-// evaluating the length expression twice.
-// FIXME: this design confuses the static analyser. Find a better way
-#define CSTR_ALLOC_BUFFER(SLICE, LEN)                                      \
-  do                                                                       \
-  {                                                                        \
-    (SLICE).buf = cstr_malloc_buffer(sizeof(SLICE).buf[0], (size_t)(LEN)); \
-    (SLICE).len = (LEN);                                                   \
-  } while (0)
-#define CSTR_BUFFER_ALLOC_GENERATOR(TYPE)                           \
-  INLINE cstr_##TYPE cstr_alloc_buffer_##TYPE(long long len)        \
-  {                                                                 \
-    cstr_##TYPE dummy; /* use dummy to get underlying type */       \
-    return (cstr_##TYPE)CSTR_SLICE_INIT(                            \
-        cstr_malloc_buffer(sizeof dummy.buf[0], (size_t)len), len); \
+// Allocating slices containing their own buffers
+#define CSTR_GEN_ALLOC_SLICE_PROTOTYPE(STYPE, QUAL, TYPE)                     \
+  void cstr_init_##STYPE##_buf(cstr_##STYPE##_buf *, long long);              \
+  INLINE cstr_##STYPE *cstr_alloc_##STYPE(long long len)                      \
+  {                                                                           \
+    cstr_##STYPE##_buf *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)len); \
+    cstr_init_##STYPE##_buf(buf, len);                                        \
+    return &buf->slice;                                                       \
   }
-
-#define CSTR_FREE_SLICE_BUFFER(SLICE) \
-  do                                  \
-  {                                   \
-    free((SLICE).buf);                \
-    (SLICE).buf = 0;                  \
-    (SLICE).len = 0;                  \
-  } while (0)
 
 // Getting sub-slices.
 // -------------------
@@ -179,10 +168,11 @@ cstr_idx(long long i, long long len)
 
 // Define the slice types we need. Variadic to match with
 // CSTR_MAP_SLICE_TYPES below.
-#define CSTR_DEFINE_SLICE(NAME, QUAL, TYPE)       \
-  typedef CSTR_SLICE_TYPE(QUAL TYPE) cstr_##NAME; \
-  CSTR_SLICE_NEW_GENERATOR(NAME, QUAL TYPE)       \
-  CSTR_BUFFER_ALLOC_GENERATOR(NAME)               \
+#define CSTR_DEFINE_SLICE(NAME, QUAL, TYPE)                        \
+  typedef CSTR_SLICE_TYPE(QUAL TYPE) cstr_##NAME;                  \
+  typedef CSTR_SLICE_BUF_TYPE(NAME, QUAL, TYPE) cstr_##NAME##_buf; \
+  CSTR_GEN_SLICE_NEW(NAME, QUAL, TYPE)                             \
+  CSTR_GEN_ALLOC_SLICE_PROTOTYPE(NAME, QUAL, TYPE)                 \
   CSTR_INDEX_AND_SLICING_GENERATOR(NAME, TYPE)
 
 // Creating the concrete slice types. To add a new slice type
@@ -199,7 +189,9 @@ CSTR_DEFINE_SLICE(islice,             ,  int)
 CSTR_DEFINE_SLICE(const_islice,  const,  int)
 CSTR_DEFINE_SLICE(uislice,            ,  unsigned int)
 CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
+// clang-format on
 
+// clang-format off
 #define CSTR_SLICE_DISPATCH(X, FUNC)       \
   _Generic((X),                            \
            cstr_sslice                     \
@@ -242,11 +234,6 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
            cstr_uislice                                                \
            : CSTR_SLICE((const unsigned int *)(void *)(S).buf, (S).len))
 
-// If you have a variable you intend to assign a freshly allocated
-// slice-buffer to, you can use this macro to automatically pick the
-// right function from the type
-#define CSTR_ALLOC_SLICE_BUFFER(S, LEN) CSTR_SLICE_DISPATCH(S, alloc_buffer)(LEN)
-
 // x[i] handling both positive and negative indices. Usually,
 // x.buf[i] is more natural, if you only need to use positive
 // indices.
@@ -271,11 +258,11 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
 // of the non-const part when the input is const.
 INLINE cstr_sslice 
 cstr_new_sslice_from_string(char *x, long long len) {
-  return cstr_new_sslice((uint8_t *)x, len);
+  return (cstr_sslice)CSTR_SLICE_INIT((uint8_t *)x, len);
 }
 INLINE cstr_const_sslice 
 cstr_new_const_sslice_from_string(char const *x, long long len) {
-  return cstr_new_const_sslice((const uint8_t *)x, len);
+    return (cstr_const_sslice)CSTR_SLICE_INIT((const uint8_t *)x, len);
 }
 #define CSTR_SLICE_STRING_CONSTRUCTOR(STR)                         \
   _Generic((STR),                                                  \

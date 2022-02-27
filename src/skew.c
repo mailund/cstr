@@ -252,45 +252,45 @@ static void build_u(cstr_uislice u, unsigned int const encoding[])
 
 static void skew_rec(cstr_suffix_array sa, cstr_const_uislice x, unsigned int asize)
 {
-    cstr_suffix_array sa12 = CSTR_ALLOC_SLICE_BUFFER(sa12, sa12len(x.len));
-    get_sa12(sa12, x);
-    radix3(x, sa12, asize);
+    cstr_suffix_array *sa12 = cstr_alloc_uislice(x.len);
+    get_sa12(*sa12, x);
+    radix3(x, *sa12, asize);
 
-    unsigned int *encoding = cstr_malloc((size_t)sa12.len * sizeof *encoding);
-    unsigned int new_asize = build_alphabet(encoding, x, sa12);
+    unsigned int *encoding = cstr_malloc((size_t)sa12->len * sizeof *encoding);
+    unsigned int new_asize = build_alphabet(encoding, x, *sa12);
 
     // if the alphabet minus the sentinel matches the length of sa12, then
     // all symbols in sa12 are unique and we do not need to process further.
-    if (new_asize - 1 < sa12.len)
+    if (new_asize - 1 < sa12->len)
     {
         // We need to sort recursively
-        cstr_uislice u = CSTR_ALLOC_SLICE_BUFFER(u, sa12.len);
-        build_u(u, encoding);
+        cstr_uislice *u = cstr_alloc_uislice(sa12->len);
+        build_u(*u, encoding);
         CSTR_FREE_NULL(encoding);
 
-        cstr_suffix_array u_sa = CSTR_ALLOC_SLICE_BUFFER(u_sa, u.len);
+        cstr_suffix_array *u_sa = cstr_alloc_uislice(u->len);
 
-        skew_rec(u_sa, CSTR_SLICE_CONST_CAST(u), new_asize);
+        skew_rec(*u_sa, CSTR_SLICE_CONST_CAST(*u), new_asize);
 
-        unsigned int m = (unsigned int)(u_sa.len + 1) / 2;
-        for (unsigned int i = 0; i < u_sa.len; i++)
+        unsigned int m = (unsigned int)(u_sa->len + 1) / 2;
+        for (unsigned int i = 0; i < u_sa->len; i++)
         {
-            sa12.buf[i] = map_u_x(u_sa.buf[i], m);
+            sa12->buf[i] = map_u_x(u_sa->buf[i], m);
         }
 
-        CSTR_FREE_SLICE_BUFFER(u);
-        CSTR_FREE_SLICE_BUFFER(u_sa);
+        free(u);
+        free(u_sa);
     }
 
-    cstr_suffix_array sa3 = CSTR_ALLOC_SLICE_BUFFER(sa3, sa3len(x.len));
-    get_sa3(sa3, sa12, x);
+    cstr_suffix_array *sa3 = cstr_alloc_uislice(sa3len(x.len));
+    get_sa3(*sa3, *sa12, x);
 
-    bucket_sort(x, sa3, /* offset */ 0, asize);
+    bucket_sort(x, *sa3, /* offset */ 0, asize);
 
-    merge(sa, x, sa12, sa3);
+    merge(sa, x, *sa12, *sa3);
 
-    CSTR_FREE_SLICE_BUFFER(sa12);
-    CSTR_FREE_SLICE_BUFFER(sa3);
+    free(sa12);
+    free(sa3);
     free(encoding);
 }
 

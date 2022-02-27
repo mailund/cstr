@@ -21,22 +21,22 @@ int main(void)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
-    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len);
-    assert(mapped.buf && sa.buf); // For the static analyser
+    cstr_uislice *mapped = cstr_alloc_uislice(x.len);
+    cstr_suffix_array *sa = cstr_alloc_uislice(x.len);
+    assert(mapped->buf && sa->buf); // For the static analyser
+    
+    cstr_alphabet_map_to_uint(*mapped, x, &alpha);
 
-    cstr_alphabet_map_to_uint(mapped, x, &alpha);
+    cstr_skew(*sa, CSTR_SLICE_CONST_CAST(*mapped), &alpha);
 
-    cstr_skew(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
-
-    for (int i = 0; i < sa.len; i++)
+    for (int i = 0; i < sa->len; i++)
     {
-        print_rotation(sa.len, x.buf, sa.buf[i]);
+        print_rotation(sa->len, x.buf, sa->buf[i]);
     }
     printf("\n");
 
-    uint8_t *b = cstr_bwt(x.len, x.buf, sa.buf);
-    for (int i = 0; i < sa.len; i++)
+    uint8_t *b = cstr_bwt(x.len, x.buf, sa->buf);
+    for (int i = 0; i < sa->len; i++)
     {
         putchar(b[i] ? b[i] : '$');
     }
@@ -49,14 +49,14 @@ int main(void)
     printf("[%lld,%lld]\n", left, right);
     for (long long i = left; i < right; i++)
     {
-        printf("%s\n", x.buf + sa.buf[i]);
+        printf("%s\n", x.buf + sa->buf[i]);
     }
 
     free(otab);
     free(ctab);
     free(b);
-    CSTR_FREE_SLICE_BUFFER(sa);
-    CSTR_FREE_SLICE_BUFFER(mapped);
+    free(sa);
+    free(mapped);
 
     return 0;
 }

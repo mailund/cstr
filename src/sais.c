@@ -328,9 +328,8 @@ static void sais_rec(cstr_suffix_array sa, cstr_const_uislice x,
     init_buckets_end(sigma, buck_ptr, buckets);
     induce_s(x, sa, is_s, buck_ptr);
 
-    // CHECKING STATIC ANALYZER
-    //CSTR_FREE_NULL(buckets);
-    //CSTR_FREE_NULL(buck_ptr);
+    CSTR_FREE_NULL(buckets);
+    CSTR_FREE_NULL(buck_ptr);
 }
 
 void cstr_sais(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha)
@@ -351,10 +350,10 @@ TL_TEST(buckets_mississippi)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, u);
 
-    cstr_uislice x_ = CSTR_ALLOC_SLICE_BUFFER(x_, u.len);
-    bool ok = cstr_alphabet_map_to_uint(x_, u, &alpha);
+    cstr_uislice *x_buf = cstr_alloc_uislice(u.len);
+    bool ok = cstr_alphabet_map_to_uint(*x_buf, u, &alpha);
     TL_FATAL_IF(!ok);
-    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(x_);
+    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(*x_buf);
 
     // Tests...
     long long *buckets = alloc_buckets(alpha.size);
@@ -385,7 +384,7 @@ TL_TEST(buckets_mississippi)
     // Cleanup
     free(buckets);
     free(buck_ptr);
-    CSTR_FREE_SLICE_BUFFER(x_);
+    free(x_buf);
 
     TL_END();
 }
@@ -399,10 +398,10 @@ TL_TEST(sais_classify_sl_mississippi)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, u);
 
-    cstr_uislice x_ = CSTR_ALLOC_SLICE_BUFFER(x_, u.len);
-    bool ok = cstr_alphabet_map_to_uint(x_, u, &alpha);
+    cstr_uislice *x_buf = cstr_alloc_uislice(u.len);
+    bool ok = cstr_alphabet_map_to_uint(*x_buf, u, &alpha);
     TL_FATAL_IF(!ok);
-    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(x_);
+    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(*x_buf);
 
     cstr_bit_vector *is_s = cstr_new_bv(x.len);
 
@@ -418,7 +417,7 @@ TL_TEST(sais_classify_sl_mississippi)
     free(expected);
 
     free(is_s);
-    CSTR_FREE_SLICE_BUFFER(x_);
+    free(x_buf);
 
     TL_END();
 }
@@ -434,22 +433,22 @@ TL_TEST(sais_classify_sl_random)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, letters);
 
-    cstr_sslice x = CSTR_ALLOC_SLICE_BUFFER(x, n);
-    cstr_uislice u_ = CSTR_ALLOC_SLICE_BUFFER(u_, n);
+    cstr_sslice *x = cstr_alloc_sslice(n);
+    cstr_uislice *u_buf = cstr_alloc_uislice(n);
 
-    assert(x.buf);  // For the static analyser
-    assert(u_.buf); // For the static analyser
+    assert(x->buf);     // For the static analyser
+    assert(u_buf->buf); // For the static analyser
 
-    cstr_bit_vector *is_s = cstr_new_bv(u_.len);
+    cstr_bit_vector *is_s = cstr_new_bv(u_buf->len);
 
     // Tests...
     for (int k = 0; k < 10; k++)
     {
         // len-1 since we don't want to sample the sentinel
-        tl_random_string0(x, letters.buf, (int)letters.len - 1);
-        bool ok = cstr_alphabet_map_to_uint(u_, CSTR_SLICE_CONST_CAST(x), &alpha);
+        tl_random_string0(*x, letters.buf, (int)letters.len - 1);
+        bool ok = cstr_alphabet_map_to_uint(*u_buf, CSTR_SLICE_CONST_CAST(*x), &alpha);
         TL_ERROR_IF(!ok);
-        cstr_const_uislice u = CSTR_SLICE_CONST_CAST(u_);
+        cstr_const_uislice u = CSTR_SLICE_CONST_CAST(*u_buf);
 
         classify_sl(u, is_s);
         for (long long i = 0; i < is_s->no_bits - 1; i++)
@@ -466,8 +465,8 @@ TL_TEST(sais_classify_sl_random)
         TL_ERROR_IF_NEQ_INT(IS_S(n - 1), 1);
     }
 
-    CSTR_FREE_SLICE_BUFFER(x);
-    CSTR_FREE_SLICE_BUFFER(u_);
+    free(x);
+    free(u_buf);
     free(is_s);
 
     TL_END();
@@ -481,53 +480,53 @@ TL_TEST(induce_mississippi)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, u);
 
-    cstr_uislice x_ = CSTR_ALLOC_SLICE_BUFFER(x_, u.len);
-    cstr_uislice sa = CSTR_ALLOC_SLICE_BUFFER(sa, u.len);
-    bool ok = cstr_alphabet_map_to_uint(x_, u, &alpha);
+    cstr_uislice *x_buf = cstr_alloc_uislice(u.len);
+    cstr_uislice *sa = cstr_alloc_uislice(u.len);
+    bool ok = cstr_alphabet_map_to_uint(*x_buf, u, &alpha);
     TL_ERROR_IF(!ok);
-    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(x_);
+    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(*x_buf);
 
     cstr_bit_vector *is_s = cstr_new_bv(x.len);
 
     // Tests...
     classify_sl(x, is_s);
-    undefine_sa_slice(sa);
-    for (long long i = 0; i < sa.len; i++)
+    undefine_sa_slice(*sa);
+    for (long long i = 0; i < sa->len; i++)
     {
-        TL_ERROR_IF(is_def(sa.buf[i]));
+        TL_ERROR_IF(is_def(sa->buf[i]));
     }
 
     long long *buckets = alloc_buckets(alpha.size);
     long long *buck_ptr = alloc_buckets(alpha.size);
     count_buckets(x, alpha.size, buckets);
     init_buckets_end(alpha.size, buck_ptr, buckets);
-    bucket_lms(x, sa, is_s, buck_ptr);
+    bucket_lms(x, *sa, is_s, buck_ptr);
 
     // -S--S--S---S
     // mississippi$
     //  1  4  7   11
     // $-bucket [0,1)
     // i-bucket [1,5) -- [2,5) for LMS
-    assert(sa.len > 11); // For the static analysis
-    TL_ERROR_IF_NEQ_UINT(sa.buf[0], 11U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[1], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[2], 1U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[3], 4U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[4], 7U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[5], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[6], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[7], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[8], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[9], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[10], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[11], UNDEF);
+    assert(sa->len > 11); // For the static analysis
+    TL_ERROR_IF_NEQ_UINT(sa->buf[0], 11U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[1], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[2], 1U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[3], 4U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[4], 7U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[5], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[6], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[7], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[8], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[9], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[10], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[11], UNDEF);
 
     // Cleanup
     free(buckets);
     free(buck_ptr);
     free(is_s);
-    CSTR_FREE_SLICE_BUFFER(x_);
-    CSTR_FREE_SLICE_BUFFER(sa);
+    free(x_buf);
+    free(sa);
 
     TL_END();
 }
@@ -540,80 +539,73 @@ TL_TEST(buckets_lms_mississippi)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, u);
 
-    cstr_uislice x_;// = CSTR_ALLOC_SLICE_BUFFER(x_, u.len);
-    CSTR_ALLOC_BUFFER(x_, u.len);
-    //x_.buf = cstr_malloc_buffer(sizeof x_.buf[0], (size_t)u.len);
-    //x_.len = u.len;
-    
-    cstr_uislice sa = CSTR_ALLOC_SLICE_BUFFER(sa, u.len);
-    bool ok = cstr_alphabet_map_to_uint(x_, u, &alpha);
+    cstr_uislice *x_buf = cstr_alloc_uislice(u.len);
+    cstr_uislice *sa = cstr_alloc_uislice(u.len);
+    bool ok = cstr_alphabet_map_to_uint(*x_buf, u, &alpha);
     TL_ERROR_IF(!ok);
 
-    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(x_);
-    
+    cstr_const_uislice x = CSTR_SLICE_CONST_CAST(*x_buf);
+
     cstr_bit_vector *is_s = cstr_new_bv(x.len);
 
     // Tests...
     classify_sl(x, is_s);
-    undefine_sa_slice(sa);
-    for (long long i = 0; i < sa.len; i++)
+    undefine_sa_slice(*sa);
+    for (long long i = 0; i < sa->len; i++)
     {
-        TL_ERROR_IF(is_def(sa.buf[i]));
+        TL_ERROR_IF(is_def(sa->buf[i]));
     }
-
 
     long long *buckets = alloc_buckets(alpha.size);
     long long *buck_ptr = alloc_buckets(alpha.size);
     count_buckets(x, alpha.size, buckets);
 
-
     init_buckets_end(alpha.size, buck_ptr, buckets);
-    bucket_lms(x, sa, is_s, buck_ptr);
-    
-    CSTR_SLICE_PRINT(sa);
+    bucket_lms(x, *sa, is_s, buck_ptr);
+
+    CSTR_SLICE_PRINT(*sa);
     printf("\n");
     // -S--S--S---S
     // mississippi$
     //  1  4  7   11
     // $-bucket [0,1)
     // i-bucket [1,5) -- [2,5) for LMS
-    TL_ERROR_IF_NEQ_UINT(sa.buf[0], 11U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[1], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[2], 1U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[3], 4U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[4], 7U);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[5], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[6], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[7], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[8], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[9], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[10], UNDEF);
-    TL_ERROR_IF_NEQ_UINT(sa.buf[11], UNDEF);
-
+    TL_ERROR_IF_NEQ_UINT(sa->buf[0], 11U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[1], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[2], 1U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[3], 4U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[4], 7U);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[5], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[6], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[7], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[8], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[9], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[10], UNDEF);
+    TL_ERROR_IF_NEQ_UINT(sa->buf[11], UNDEF);
 
     init_buckets_start(alpha.size, buck_ptr, buckets);
-    induce_l(x, sa, is_s, buck_ptr);
-    CSTR_SLICE_PRINT(sa);
+    induce_l(x, *sa, is_s, buck_ptr);
+    CSTR_SLICE_PRINT(*sa);
     printf("\n");
     // -S--S--S---S
     // mississippi$
     //  1  4  7   11
-    TL_ERROR_IF_NEQ_UINT(sa.buf[0], 11U); // $
-    TL_ERROR_IF_NEQ_UINT(sa.buf[1], 10U); // i$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[2], 1U);  // ississippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[3], 4U);  // issippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[4], 7U);  // ippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[5], 0U);  // mississippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[6], 9U);  // pi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[7], 8U);  // ppi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[8], 3);   // sissippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[9], 6);   // sippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[10], 2);  // ssissippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[11], 5);  // ssippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[0], 11U); // $
+    TL_ERROR_IF_NEQ_UINT(sa->buf[1], 10U); // i$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[2], 1U);  // ississippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[3], 4U);  // issippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[4], 7U);  // ippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[5], 0U);  // mississippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[6], 9U);  // pi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[7], 8U);  // ppi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[8], 3);   // sissippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[9], 6);   // sippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[10], 2);  // ssissippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[11], 5);  // ssippi$
 
     init_buckets_end(alpha.size, buck_ptr, buckets);
-    induce_s(x, sa, is_s, buck_ptr);
-    CSTR_SLICE_PRINT(sa);
+    induce_s(x, *sa, is_s, buck_ptr);
+    CSTR_SLICE_PRINT(*sa);
     printf("\n");
 
     // -S--S--S---S
@@ -621,29 +613,26 @@ TL_TEST(buckets_lms_mississippi)
     //  1  4  7   11
     // $-bucket [0,1)
     // i-bucket [1,5) -- [2,5) for LMS
-    TL_ERROR_IF_NEQ_UINT(sa.buf[0], 11U); // $
-    TL_ERROR_IF_NEQ_UINT(sa.buf[1], 10U); // i$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[2], 7U);  // ippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[3], 1U);  // ississippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[4], 4U);  // issippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[5], 0U);  // mississippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[6], 9U);  // pi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[7], 8U);  // ppi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[8], 3);   // sissippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[9], 6);   // sippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[10], 2);  // ssissippi$
-    TL_ERROR_IF_NEQ_UINT(sa.buf[11], 5);  // ssippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[0], 11U); // $
+    TL_ERROR_IF_NEQ_UINT(sa->buf[1], 10U); // i$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[2], 7U);  // ippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[3], 1U);  // ississippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[4], 4U);  // issippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[5], 0U);  // mississippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[6], 9U);  // pi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[7], 8U);  // ppi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[8], 3);   // sissippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[9], 6);   // sippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[10], 2);  // ssissippi$
+    TL_ERROR_IF_NEQ_UINT(sa->buf[11], 5);  // ssippi$
 
-
-    
     // Cleanup
     free(buckets);
     free(buck_ptr);
     free(is_s);
 
-    // FIXME: broken static analysis
-    CSTR_FREE_SLICE_BUFFER(x_);
-    CSTR_FREE_SLICE_BUFFER(sa);
+    free(x_buf);
+    free(sa);
 
     TL_END();
 }

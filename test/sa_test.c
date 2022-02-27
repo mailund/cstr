@@ -29,20 +29,21 @@ static TL_PARAM_TEST(test_mississippi, const_alg alg)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, x);
 
-    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, x.len);
+    cstr_uislice *mapped = cstr_alloc_uislice(x.len);
     // since alpha was created from x we cannot get mapping errors
     // here
-    cstr_alphabet_map_to_uint(mapped, x, &alpha);
-    assert(mapped.buf); // for static analyser
+    cstr_alphabet_map_to_uint(*mapped, x, &alpha);
+    assert(mapped->buf); // for static analyser
 
-    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, x.len);
-    assert(sa.buf); // For the static analyser
+    cstr_suffix_array *sa = cstr_alloc_uislice(x.len);
+    assert(sa->buf); // For the static analyser
 
-    alg(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
+    alg(*sa, CSTR_SLICE_CONST_CAST(*mapped), &alpha);
 
-    TL_RUN_PARAM_TEST(check_suffix_ordered, "mississippi", x.buf, sa);
+    TL_RUN_PARAM_TEST(check_suffix_ordered, "mississippi", x.buf, *sa);
 
-    CSTR_FREE_SLICE_BUFFER(sa);
+    free(mapped);
+    free(sa);
 
     TL_END();
 }
@@ -57,28 +58,28 @@ static TL_PARAM_TEST(test_random, const_alg alg)
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, letters);
 
-    cstr_sslice x = CSTR_ALLOC_SLICE_BUFFER(x, n);
-    cstr_uislice mapped = CSTR_ALLOC_SLICE_BUFFER(mapped, n);
-    cstr_suffix_array sa = CSTR_ALLOC_SLICE_BUFFER(sa, n);
+    cstr_sslice *x = cstr_alloc_sslice(n);
+    cstr_uislice *mapped = cstr_alloc_uislice(n);
+    cstr_suffix_array *sa = cstr_alloc_uislice(n);
 
-    assert(x.buf);      // For the static analyser
-    assert(mapped.buf); // For the static analyser
-    assert(sa.buf);     // For the static analyser
+    assert(x->buf);      // For the static analyser
+    assert(mapped->buf); // For the static analyser
+    assert(sa->buf);     // For the static analyser
 
     for (int k = 0; k < 10; k++)
     {
         // len-1 since we don't want to sample the sentinel
-        tl_random_string0(x, letters.buf, (int)letters.len - 1);
-        bool ok = cstr_alphabet_map_to_uint(mapped, CSTR_SLICE_CONST_CAST(x), &alpha);
+        tl_random_string0(*x, letters.buf, (int)letters.len - 1);
+        bool ok = cstr_alphabet_map_to_uint(*mapped, CSTR_SLICE_CONST_CAST(*x), &alpha);
         TL_ERROR_IF(!ok);
-        alg(sa, CSTR_SLICE_CONST_CAST(mapped), &alpha);
+        alg(*sa, CSTR_SLICE_CONST_CAST(*mapped), &alpha);
 
-        TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x.buf, sa);
+        TL_RUN_PARAM_TEST(check_suffix_ordered, "random", x->buf, *sa);
     }
 
-    CSTR_FREE_SLICE_BUFFER(sa);
-    CSTR_FREE_SLICE_BUFFER(mapped);
-    CSTR_FREE_SLICE_BUFFER(x);
+    free(sa);
+    free(mapped);
+    free(x);
 
     TL_END();
 }
