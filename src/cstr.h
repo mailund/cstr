@@ -25,21 +25,16 @@ long long cstr_strlen(const char *x); // returns length of x in bytes
 #define INLINE inline
 #endif
 
-// clang-format off
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
-__attribute__((ownership_returns(malloc), returns_nonnull)) 
 void *cstr_malloc(size_t size);
 
-__attribute__((ownership_returns(malloc), returns_nonnull))
 void *cstr_malloc_buffer(size_t obj_size, // size of objects
                          size_t len);     // how many of them
 
-__attribute__((ownership_returns(malloc), returns_nonnull))
 void *cstr_malloc_header_array(size_t base_size, // size of struct before array
                                size_t elm_size,  // size of elements in array
                                size_t len);      // number of elements in array
-// clang-format on
 
 // Macro for getting the offset of a flexible member array
 // from an instance rather than a type (as for
@@ -87,12 +82,6 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
     signed long long len;                               \
     TYPE *buf; /* NOLINT -- ok not to put TYPE in () */ \
   }
-#define CSTR_SLICE_BUF_TYPE(STYPE, QUAL, TYPE) \
-  struct                                       \
-  {                                            \
-    cstr_##STYPE /* NOLINT */ slice;           \
-    QUAL TYPE data[];                          \
-  }
 
 // Creating slice instances
 #define CSTR_SLICE_INIT(BUF, LEN) \
@@ -111,14 +100,8 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
   }
 
 // Allocating slices containing their own buffers
-#define CSTR_GEN_ALLOC_SLICE_PROTOTYPE(STYPE, QUAL, TYPE)                     \
-  void cstr_init_##STYPE##_buf(cstr_##STYPE##_buf *, long long);              \
-  INLINE cstr_##STYPE *cstr_alloc_##STYPE(long long len)                      \
-  {                                                                           \
-    cstr_##STYPE##_buf *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)len); \
-    cstr_init_##STYPE##_buf(buf, len);                                        \
-    return &buf->slice;                                                       \
-  }
+#define CSTR_GEN_ALLOC_SLICE_PROTOTYPE(STYPE, QUAL, TYPE) \
+  cstr_##STYPE *cstr_alloc_##STYPE(long long len);
 
 // Getting sub-slices.
 // -------------------
@@ -168,11 +151,10 @@ cstr_idx(long long i, long long len)
 
 // Define the slice types we need. Variadic to match with
 // CSTR_MAP_SLICE_TYPES below.
-#define CSTR_DEFINE_SLICE(NAME, QUAL, TYPE)                        \
-  typedef CSTR_SLICE_TYPE(QUAL TYPE) cstr_##NAME;                  \
-  typedef CSTR_SLICE_BUF_TYPE(NAME, QUAL, TYPE) cstr_##NAME##_buf; \
-  CSTR_GEN_SLICE_NEW(NAME, QUAL, TYPE)                             \
-  CSTR_GEN_ALLOC_SLICE_PROTOTYPE(NAME, QUAL, TYPE)                 \
+#define CSTR_DEFINE_SLICE(NAME, QUAL, TYPE)        \
+  typedef CSTR_SLICE_TYPE(QUAL TYPE) cstr_##NAME;  \
+  CSTR_GEN_SLICE_NEW(NAME, QUAL, TYPE)             \
+  CSTR_GEN_ALLOC_SLICE_PROTOTYPE(NAME, QUAL, TYPE) \
   CSTR_INDEX_AND_SLICING_GENERATOR(NAME, TYPE)
 
 // Creating the concrete slice types. To add a new slice type
@@ -345,38 +327,9 @@ INLINE void cstr_bv_set(cstr_bit_vector *bv, long long bit, bool val)
   *word = val ? (*word | mask) : (*word & ~mask);
 }
 
-// Until I figure out how to tell clang that these *both* allocate memory *and* initialise
-// it, they have to sit as inline methods
-INLINE cstr_bit_vector *cstr_new_bv(long long no_bits)
-{
-  const long long bits_per_word = 64;
-  long long no_words = (no_bits + bits_per_word - 1) / bits_per_word; // divide by word size and round up
-  cstr_bit_vector *bv = CSTR_MALLOC_FLEX_ARRAY(bv, words, (size_t)no_words);
-  bv->no_bits = no_bits;
-  bv->no_words = no_words;
-  // Clearing the last word, so we know the left-over bits are zero, makes
-  // it faster to compare whole bit vectors.
-  bv->words[bv->no_words - 1] = (uint64_t)0;
-  return bv;
-}
-
-INLINE cstr_bit_vector *cstr_new_bv_init(long long no_bits)
-{
-  cstr_bit_vector *bv = cstr_new_bv(no_bits);
-  cstr_bv_clear(bv);
-  return bv;
-}
-
-INLINE cstr_bit_vector *cstr_new_bv_from_string(const char *bits)
-{
-  const long long no_bits = cstr_strlen(bits);
-  cstr_bit_vector *bv = cstr_new_bv(no_bits);
-  for (long long i = 0; i < no_bits; i++)
-  {
-    cstr_bv_set(bv, i, bits[i] == '1');
-  }
-  return bv;
-}
+cstr_bit_vector *cstr_new_bv(long long no_bits);
+cstr_bit_vector *cstr_new_bv_init(long long no_bits);
+cstr_bit_vector *cstr_new_bv_from_string(const char *bits);
 
 bool cstr_bv_eq(cstr_bit_vector *a, cstr_bit_vector *b);
 

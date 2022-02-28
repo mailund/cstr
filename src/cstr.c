@@ -47,13 +47,17 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
     return cstr_malloc_header_array(0, obj_size, len);
 }
 
-#define GEN_ALLOC_SLICE(STYPE, QUAL, TYPE)                        \
-    void cstr_init_##STYPE##_buf(cstr_##STYPE##_buf *buf,         \
-                           long long len)                         \
-    {                                                             \
-        cstr_##STYPE *slice = (cstr_##STYPE *)buf; /* NOLINT */   \
-        slice->buf = buf->data;                                   \
-        slice->len = len;                                         \
+#define GEN_ALLOC_SLICE(STYPE, QUAL, TYPE)                       \
+    cstr_##STYPE *cstr_alloc_##STYPE(long long len)              \
+    {                                                            \
+        struct                                                   \
+        {                                                        \
+            cstr_##STYPE slice;                                  \
+            QUAL TYPE data[];                                    \
+        } *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)len); \
+        buf->slice.len = len;                                    \
+        buf->slice.buf = buf->data;                              \
+        return (cstr_##STYPE *)buf;                              \
     }
 GEN_ALLOC_SLICE(sslice, , uint8_t)
 GEN_ALLOC_SLICE(const_sslice, const, uint8_t)
