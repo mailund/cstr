@@ -398,6 +398,8 @@ void cstr_sais(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha)
 
 typedef struct cstr_suffix_tree cstr_suffix_tree;
 
+cstr_suffix_tree *cstr_naive_suffix_tree(cstr_alphabet const *alpha,
+                                         cstr_const_sslice x);
 void cstr_free_suffix_tree(cstr_suffix_tree *st);
 
 // ==== Burrows-Wheeler transform =================================
