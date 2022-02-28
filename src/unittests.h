@@ -16,5 +16,10 @@ TL_TEST(sais_classify_sl_random);
 TL_TEST(buckets_lms_mississippi);
 TL_TEST(induce_mississippi);
 
+// suffix_tree.c
+TL_TEST(st_constructing_leaves);
+TL_TEST(st_constructing_inner_nodes);
+TL_TEST(st_attempted_scans);
+
 #endif // GEN_UNIT_TESTS
 #endif // CSTR_UNITTESTS_H

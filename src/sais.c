@@ -18,7 +18,7 @@ static inline bool is_lms(cstr_bit_vector *is_s, long long i)
 // clang-format on
 
 // MARK: Bucket sort stuff
-__attribute__((malloc)) static inline long long *alloc_buckets(long long sigma)
+static inline long long *alloc_buckets(long long sigma)
 {
     long long *buckets = cstr_malloc((size_t)sigma * sizeof *buckets);
     return buckets;

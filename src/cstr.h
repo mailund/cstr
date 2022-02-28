@@ -394,6 +394,12 @@ typedef cstr_uislice cstr_suffix_array;
 void cstr_skew(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 void cstr_sais(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 
+// ==== Suffix trees ==============================================
+
+typedef struct cstr_suffix_tree cstr_suffix_tree;
+
+void cstr_free_suffix_tree(cstr_suffix_tree *st);
+
 // ==== Burrows-Wheeler transform =================================
 
 uint8_t *cstr_bwt(long long n, uint8_t const *x, unsigned int sa[n]);
