@@ -5,57 +5,106 @@
 #include <stdlib.h>
 #include <testlib.h>
 
-// Positive nodes are inner nodes, negative nodes are
-// leaves, and zero is NULL
-typedef long long node_id;
-
+// We could put slices on the edges, but if we use ranges instead, we can encode
+// a leaf tag in the encoding of the range. Proper ranges will always have beg < end,
+// since we don't have empty edge labels outside of the root, and leaves will always
+// have edges that end at the end of the underlying string, so we can put the leaf label
+// in 'end' and recognise that we have a leaf if end >= beg, and in that case, the real
+// `end` should be st->x.len
 // clang-format off
-static inline bool is_leaf(node_id n)  { return n < 0;  }
-static inline bool is_null(node_id n)  { return n == 0; }
-static inline bool is_inner(node_id n) { return n > 0;  }
+typedef struct
+{
+    // Always the beginning of the range
+    long long beg;
+    // But the end for internal nodes or the suffix index for leaves
+    union { long long end, leaf; };
+} range;
+
+static inline bool is_leaf_range(range r) { return r.end <= r.beg; }
 // clang-format on
 
-// Mapping from a suffix to the corresponding leaf id.
-static inline node_id leaf_id(long long suffix) { return -suffix - 1; }
+// Putting SHARED at the top of both 'node' and 'inner_node' makes the
+// memory layout the same, so we can use them interchangable, except that
+// only inner_node will have the flexible array of children.
+#define SHARED   \
+    range range; \
+    struct inner_node *parent; // the parent must be an inner node
 
-typedef struct node_shared
-{
-    node_id parent;
-} node_shared;
+// clang-format off
+typedef struct node       { SHARED } node;
+typedef struct inner_node { SHARED
+    struct node *children[];
+} inner_node;
 
-typedef struct leaf
-{
-    node_shared node;      // Embedding shared
-    long long suffix;      // The suffix this leaf represents
-    long long slice_start; // The end point of a leaf is always the end of x
-} leaf;
+static inline bool is_leaf(node *node) { return is_leaf_range(node->range); }
+// clang-format on
 
-typedef struct inner
+struct cstr_suffix_tree
 {
-    node_shared node; // Embedding shared
-    cstr_const_sslice edge;
-    node_id children[];
-} inner;
+    cstr_alphabet const *alpha;
+    cstr_const_sslice x;
+    inner_node *root;
+
+    struct inner_node_pool *pool; // inner nodes are allocated from a pool
+    node leaves[];                // leaves are allocated together with the tree
+};
+
+// Translating between ranges and slices
+static inline cstr_const_sslice range_to_slice(cstr_suffix_tree *st, range r)
+{
+    return (r.end <= r.beg) ? CSTR_SUFFIX(st->x, r.beg)           // A leaf
+                            : CSTR_SUBSLICE(st->x, r.beg, r.end); // an inner node
+}
+static inline range slice_to_range(cstr_suffix_tree *st, cstr_const_sslice s)
+{
+    // We cannot recover the leaf information from a slice (even though we can)
+    // see if it ends at the end of st->x. That is because the leaf could be an
+    // index much earlier in the search. Therefore, we always return the range
+    // we would get if we had an internal node.
+    long long offset = s.buf - st->x.buf;
+    return (range){.beg = offset, .end = offset + s.len};
+}
+
+static inline cstr_const_sslice get_edge(cstr_suffix_tree *st, node *n)
+{
+    assert(n != NULL);
+    return range_to_slice(st, n->range);
+}
+
+static void set_edge(cstr_suffix_tree *st, node *n, cstr_const_sslice edge)
+{
+    range r = slice_to_range(st, edge);
+    if (is_leaf(n))
+    {
+        // edge must be a suffix of st->x
+        assert(st->x.buf <= edge.buf && edge.buf + edge.len == st->x.buf + st->x.len);
+        // Changing the edge to a leaf is only changing the beginning of the range
+        n->range.beg = r.beg;
+    }
+    else
+    {
+        // For inner nodes, we update the entire range.
+        n->range = r;
+    }
+}
 
 // FIXME: Right now, my allocation pool for inner nodes always allocate the maximum
 // number of nodes I could possibly need, n - 1, but this is wasteful and I should
-// adjust it to grow, without growing too fast. Once I start growing the pool, however,
-// pointers to inner nodes are never valid after an allocation, only their IDs are!
-// It is better if the interface to the tree is always through IDs, then, even if there
-// is a slight overhead because of it.
+// adjust it to grow, without growing too fast. Using sub-pools I can grow without relocating
+// memory already assigned, so I can still work with pointers to the existing nodes.
 struct inner_node_pool
 {
     size_t block_size;
-    node_id next;
-    alignas(struct inner) char *node_blocks[]; // type struct inner for align; use char * for addresses
+    inner_node *next;
+    alignas(struct inner_node) char *node_blocks[]; // type inner for align; use char * for addresses
 };
 
 static struct inner_node_pool *new_pool(long long sigma, long long n)
 {
-    // A node will take up the space for the edge and sigma children
-    size_t node_size = offsetof(struct inner, children) + ((size_t)sigma * sizeof(node_id));
+    // A node will take up the space for the shared struct and sigma children
+    size_t node_size = offsetof(struct inner_node, children) + ((size_t)sigma * sizeof(node *));
     // And a node block must have a size such that consequtive blocks are correctly aligned
-    size_t align_constraint = alignof(struct inner);
+    size_t align_constraint = alignof(struct inner_node);
     size_t block_size = align_constraint * (node_size + align_constraint - 1) / align_constraint;
 
     // Now, allocate a pool of n - 1 of those blocks. FIXME: change the pre-allocated size
@@ -63,107 +112,44 @@ static struct inner_node_pool *new_pool(long long sigma, long long n)
         cstr_malloc_header_array(offsetof(struct inner_node_pool, node_blocks), block_size, (size_t)(n - 1));
 
     pool->block_size = block_size;
-    pool->next = 0; // start at 0 but inc *before* returning new
+    pool->next = (inner_node *)pool->node_blocks;
 
     return pool;
 }
 
-static inner *pool_get(struct inner_node_pool *pool, node_id n)
+static inner_node *pool_get_next(struct inner_node_pool *pool)
 {
-    size_t offset = (size_t)(n - 1) * pool->block_size;
-    void *block = pool->node_blocks + offset;
-    return (struct inner *)block;
+    inner_node *next = pool->next;
+    pool->next += pool->block_size;
+    return next;
 }
 
-static node_id pool_get_next(struct inner_node_pool *pool)
+static inline node *get_suffix_leaf(cstr_suffix_tree *st, long long suffix)
 {
-    return ++(pool->next);
+    return &st->leaves[suffix]; // The leaves are allocated in an array, so its just the offset
 }
 
-struct cstr_suffix_tree
+static inner_node *new_inner(cstr_suffix_tree *st,
+                             cstr_const_sslice edge)
 {
-    cstr_alphabet const *alpha;
-    cstr_const_sslice x;
-    node_id root;
-    struct inner_node_pool *pool;
-    struct leaf leaves[];
-};
-
-static inline leaf *get_leaf(cstr_suffix_tree *st, node_id n)
-{
-    assert(is_leaf(n));
-    return &st->leaves[-n - 1]; // change sign and adjust for NULL
-}
-
-static node_id new_inner(cstr_suffix_tree *st,
-                         cstr_const_sslice edge)
-{
-    node_id node = pool_get_next(st->pool);
-    inner *inner = pool_get(st->pool, node);
-
-    inner->edge = edge;
+    inner_node *n = pool_get_next(st->pool);
+    n->range = slice_to_range(st, edge);
     for (long long i = 0; i < st->alpha->size; i++)
     {
-        inner->children[i] = 0; // NULL child
+        n->children[i] = 0;
     }
 
-    return node;
+    return n;
 }
 
-static inline inner *get_inner(cstr_suffix_tree *st, node_id n)
+static void set_child(cstr_suffix_tree *st, inner_node *parent, node *child)
 {
-    assert(is_inner(n));
-    return pool_get(st->pool, n);
+    cstr_const_sslice child_edge = get_edge(st, child);
+    parent->children[child_edge.buf[0]] = child;
+    child->parent = parent;
 }
 
-// clang-format off
-static inline node_shared *get_node(cstr_suffix_tree *st, node_id n)
-{
-    return (n < 0) ? (node_shared *)get_leaf(st, n) :
-           (n > 0) ? (node_shared *)get_inner(st, n) : 
-           0;
-}
-// clang-format on
-
-static cstr_const_sslice get_edge(cstr_suffix_tree *st, node_id n)
-{
-    assert(!is_null(n));
-    if (is_leaf(n))
-    {
-        return CSTR_SUFFIX(st->x, get_leaf(st, n)->slice_start);
-    }
-    else
-    {
-        return get_inner(st, n)->edge;
-    }
-}
-
-static void set_edge(cstr_suffix_tree *st, node_id n, cstr_const_sslice edge)
-{
-    assert(!is_null(n));
-    if (is_leaf(n))
-    {
-        // edge must be a suffix of st->x
-        assert(st->x.buf <= edge.buf && edge.buf + edge.len == st->x.buf + st->x.len);
-        get_leaf(st, n)->slice_start = (edge.buf - st->x.buf);
-    }
-    else
-    {
-        get_inner(st, n)->edge = edge;
-    }
-}
-
-static void set_child(cstr_suffix_tree *st, node_id parent_id, node_id child_id)
-{
-    assert(is_inner(parent_id));
-    inner *parent = get_inner(st, parent_id);
-    node_shared *child = get_node(st, child_id);
-    cstr_const_sslice child_edge = get_edge(st, child_id);
-    parent->children[child_edge.buf[0]] = child_id;
-    child->parent = parent_id;
-}
-
-static node_id break_edge(cstr_suffix_tree *st, node_id to, long long len)
+static inner_node *break_edge(cstr_suffix_tree *st, node *to, long long len)
 {
     // Split the edge into two slices at offset len
     cstr_const_sslice edge = get_edge(st, to);
@@ -172,42 +158,40 @@ static node_id break_edge(cstr_suffix_tree *st, node_id to, long long len)
 
     // Create a new node and get the parent of 'to'.
     // The edge to the new node is the prefix of the current edge.
-    node_id new_node = new_inner(st, prefix);
-    node_id parent_id = get_node(st, to)->parent;
+    inner_node *new_node = new_inner(st, prefix);
+    inner_node *parent = to->parent;
 
     // Change the edge to `to` so it is the suffix of the current
     // edge, then connect the parent to the new node and the new node to to
     set_edge(st, to, suffix);
-    set_child(st, parent_id, new_node);
+    set_child(st, parent, (node *)new_node);
     set_child(st, new_node, to);
 
     return new_node;
 }
 
-static void get_children(cstr_suffix_tree *st, node_id n,
-                         node_id **beg, node_id **end)
+static void get_children(cstr_suffix_tree *st, node *n,
+                         node ***beg, node ***end)
 {
-    if (n <= 0)
+    if (n == 0 || is_leaf(n))
     {
         *beg = *end = 0; // Empty interval
     }
     else
     {
-        inner *node = get_inner(st, n);
-        *beg = node->children;
-        *end = node->children + st->alpha->size;
+        inner_node *inner = (inner_node *)n;
+        *beg = &inner->children[0];
+        *end = &inner->children[st->alpha->size];
     }
 }
 
-static node_id get_child(cstr_suffix_tree *st, node_id n, uint8_t a)
+static inline node *get_child(inner_node *n, uint8_t a)
 {
-    assert(is_inner(n));
-    inner *node = get_inner(st, n);
-    return node->children[a];
+    return n->children[a];
 }
 
 static long long shared_prefix(cstr_suffix_tree *st,
-                               node_id node, cstr_const_sslice p)
+                               node *node, cstr_const_sslice p)
 {
     return CSTR_SLICE_LCP(get_edge(st, node), p);
 }
@@ -222,11 +206,11 @@ typedef struct
     } result;
     union
     {
-        struct { node_id n; }                                 node_match;
-        struct { node_id n; cstr_const_sslice final_string; } node_mismatch;
-        struct { node_id n; long long shared; }               edge_match;
+        struct { node *n; }                                 node_match;
+        struct { node *n; cstr_const_sslice final_string; } node_mismatch;
+        struct { node *n; long long shared; }               edge_match;
         struct { 
-            node_id n; 
+            node *n; 
             cstr_const_sslice final_string; 
             long long shared;
         } edge_mismatch;
@@ -234,26 +218,26 @@ typedef struct
 } scan_res;
 // clang-format on
 
-static inline scan_res node_match(node_id n)
+static inline scan_res node_match(node *n)
 {
     return (scan_res){.result = NODE_MATCH, .node_match = {.n = n}};
 }
 
-static inline scan_res node_mismatch(node_id n, cstr_const_sslice final_string)
+static inline scan_res node_mismatch(node *n, cstr_const_sslice final_string)
 {
     return (scan_res){
         .result = NODE_MISMATCH,
         .node_mismatch = {.n = n, .final_string = final_string}};
 }
 
-static inline scan_res edge_match(node_id n, long long shared)
+static inline scan_res edge_match(node *n, long long shared)
 {
     return (scan_res){
         .result = EDGE_MATCH,
         .edge_match = {.n = n, .shared = shared}};
 }
 
-static inline scan_res edge_mismatch(node_id n,
+static inline scan_res edge_mismatch(node *n,
                                      cstr_const_sslice final_string,
                                      long long shared)
 {
@@ -266,23 +250,22 @@ static inline scan_res edge_mismatch(node_id n,
 }
 
 static scan_res
-slow_scan(cstr_suffix_tree *st,
-          node_id from, cstr_const_sslice p)
+slow_scan(cstr_suffix_tree *st, inner_node *from, cstr_const_sslice p)
 {
     for (;;)
     {
         if (p.len == 0)
         {
             // A complete match (just because p is empty)
-            return node_match(from);
+            return node_match((node *)from);
         }
 
-        node_id to = get_child(st, from, p.buf[0]);
-        if (is_null(to))
+        node *to = get_child(from, p.buf[0]);
+        if (to == NULL)
         {
             // We cannot continue, because there is no where to continue to
             // A complete match
-            return node_mismatch(from, p);
+            return node_mismatch((node *)from, p);
         }
 
         long long shared = shared_prefix(st, to, p);
@@ -305,7 +288,7 @@ slow_scan(cstr_suffix_tree *st,
         // Continue recursion, chop off what we already matched
         // and continue from the node we reached
         p = CSTR_SUFFIX(p, shared);
-        from = to;
+        from = (inner_node *)to;
     }
 }
 
@@ -317,12 +300,20 @@ new_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
 
     st->alpha = alpha;
     st->x = x;
-    st->root = new_inner(st, CSTR_SUBSLICE(x, 0, 0));
+    
+    // It doesn't matter what edge we put on the root, we are never going to
+    // look at it, but we want beg < end on the range so we don't confuse
+    // it with a leaf. Here, we just use the entire string.
+    st->root = new_inner(st, x);
+    
+    // Initialising the leaves (initially, they all just hook up
+    // to the root, but this is somewhat arbitrary).
     for (long long i = 0; i < x.len; i++)
     {
         // The slice_start is wrong here, but will be updated in
         // the construction algorithms.
-        st->leaves[i] = (leaf){.suffix = i, .slice_start = i};
+        st->leaves[i] = (node){
+            .range = {.beg = i, .leaf = i}, .parent = st->root};
     }
 
     return st;
@@ -335,15 +326,21 @@ static void naive_insert(cstr_suffix_tree *st, long long i)
     switch (res.result)
     {
     case NODE_MISMATCH:
-        set_edge(st, leaf_id(i), res.node_mismatch.final_string);
-        set_child(st, res.node_mismatch.n, leaf_id(i));
-        break;
+    {
+        node *leaf = get_suffix_leaf(st, i);
+        inner_node *v = (inner_node *)res.node_mismatch.n; // must be inner node; we don't mismatch on leaves
+        set_edge(st, leaf, res.node_mismatch.final_string);
+        set_child(st, v, leaf);
+    }
+    break;
 
     case EDGE_MISMATCH:
     {
-        node_id breakpoint = break_edge(st, res.edge_mismatch.n, res.edge_mismatch.shared);
-        set_edge(st, leaf_id(i), CSTR_SUFFIX(res.edge_mismatch.final_string, res.edge_mismatch.shared));
-        set_child(st, breakpoint, leaf_id(i));
+        inner_node *breakpoint = break_edge(st, res.edge_mismatch.n, res.edge_mismatch.shared);
+        node *leaf = get_suffix_leaf(st, i);
+        set_edge(st, leaf,
+                 CSTR_SUFFIX(res.edge_mismatch.final_string, res.edge_mismatch.shared));
+        set_child(st, breakpoint, leaf);
     }
     break;
 
@@ -388,12 +385,10 @@ TL_TEST(st_constructing_leaves)
 
     for (long long i = 0; i < x.len; i++)
     {
-        node_id n = -(i + 1); // Turning the index into a leaf id
-        TL_FATAL_IF_NEQ_LL(leaf_id(i), n);
-        leaf *l = get_leaf(st, n);
-        TL_FATAL_IF_NEQ_LL(l->suffix, i);
-        TL_FATAL_IF_NEQ_LL(l->slice_start, i);
-        TL_FATAL_IF_NEQ_SLICE(CSTR_SUFFIX(x, i), get_edge(st, n));
+        node *leaf = get_suffix_leaf(st, i);
+        TL_FATAL_IF_NEQ_LL(leaf->range.leaf, i);
+        TL_FATAL_IF_NEQ_LL(leaf->range.beg, i);
+        TL_FATAL_IF_NEQ_SLICE(CSTR_SUFFIX(x, i), get_edge(st, leaf));
     }
 
     cstr_free_suffix_tree(st);
@@ -417,20 +412,18 @@ TL_TEST(st_constructing_inner_nodes)
 
     cstr_suffix_tree *st = new_suffix_tree(&alpha, x);
 
-    TL_FATAL_IF_NEQ_LL(st->root, 1LL); // We expect the root to be the first inner node and have id 1
-
     // Let's try adding the first leaf as a child to the root
-    set_child(st, st->root, leaf_id(0));
+    set_child(st, st->root, get_suffix_leaf(st, 0));
 
     // The root should have sigma children
-    node_id *beg, *end;
-    get_children(st, st->root, &beg, &end);
+    node **beg, **end;
+    get_children(st, (node *)st->root, &beg, &end);
     assert(end - beg == st->alpha->size);
 
     int no_children = 0;
-    for (node_id *n = beg; n != end; n++)
+    for (node **n = beg; n != end; n++)
     {
-        if (!is_null(*n))
+        if (*n)
         {
             no_children++;
         }
@@ -439,24 +432,24 @@ TL_TEST(st_constructing_inner_nodes)
     TL_FATAL_IF_NEQ_INT(no_children, 1);
 
     // The child we inserted should be the one we got if we asked for that out edge
-    node_id child = get_child(st, st->root, st->x.buf[0]);
-    TL_FATAL_IF_NEQ_LL(child, leaf_id(0));
+    node *child = get_child(st->root, st->x.buf[0]);
+    assert(child == get_suffix_leaf(st, 0));
 
     // A leaf should have zero children
-    get_children(st, leaf_id(0), &beg, &end);
+    get_children(st, get_suffix_leaf(st, 0), &beg, &end);
     assert(end == beg);
 
     // Try adding "ississippi"
-    set_child(st, st->root, leaf_id(1));
+    set_child(st, st->root, get_suffix_leaf(st, 1));
     // and "ssissippi"
-    set_child(st, st->root, leaf_id(2));
+    set_child(st, st->root, get_suffix_leaf(st, 2));
     // but not more for now, we don't want to hit used slots...
 
-    get_children(st, st->root, &beg, &end);
+    get_children(st, (node *)st->root, &beg, &end);
     no_children = 0;
-    for (node_id *n = beg; n != end; n++)
+    for (node **n = beg; n != end; n++)
     {
-        if (!is_null(*n))
+        if (*n)
         {
             no_children++;
         }
@@ -485,29 +478,27 @@ TL_TEST(st_attempted_scans)
 
     cstr_suffix_tree *st = new_suffix_tree(&alpha, x);
 
-    TL_FATAL_IF_NEQ_LL(st->root, 1LL); // We expect the root to be the first inner node and have id 1
-
     // Adding "mississippi"
-    set_child(st, st->root, leaf_id(0));
+    set_child(st, st->root, get_suffix_leaf(st, 0));
     // "ississippi"
-    set_child(st, st->root, leaf_id(1));
+    set_child(st, st->root, get_suffix_leaf(st, 1));
     // and "ssissippi"
-    set_child(st, st->root, leaf_id(2));
+    set_child(st, st->root, get_suffix_leaf(st, 2));
 
     cstr_const_sslice p = CSTR_SUFFIX(x, 0);
     scan_res res = slow_scan(st, st->root, p);
     assert(res.result == NODE_MATCH);
-    assert(res.node_match.n == leaf_id(0));
+    assert(res.node_match.n == get_suffix_leaf(st, 0));
 
     p = CSTR_SUFFIX(x, 1);
     res = slow_scan(st, st->root, p);
     assert(res.result == NODE_MATCH);
-    assert(res.node_match.n == leaf_id(1));
+    assert(res.node_match.n == get_suffix_leaf(st, 1));
 
     p = CSTR_SUFFIX(x, 2);
     res = slow_scan(st, st->root, p);
     assert(res.result == NODE_MATCH);
-    assert(res.node_match.n == leaf_id(2));
+    assert(res.node_match.n == get_suffix_leaf(st, 2));
 
     /*
      x = [2, 1, 4, 4, 1, 4, 4, 2, 2, 0]
@@ -515,24 +506,24 @@ TL_TEST(st_attempted_scans)
     cstr_const_sslice w = CSTR_SLICE_STRING((const char *)"\2\1\4\1"); // should mismatch on 3
     res = slow_scan(st, st->root, w);
     assert(res.result == EDGE_MISMATCH);
-    assert(res.edge_mismatch.n == leaf_id(0));
+    assert(res.edge_mismatch.n == get_suffix_leaf(st, 0));
     assert(res.edge_mismatch.shared == 3);
 
     w = CSTR_SLICE_STRING((const char *)"\2\1\4"); // should match on 3
     res = slow_scan(st, st->root, w);
     assert(res.result == EDGE_MATCH);
-    assert(res.edge_match.n == leaf_id(0));
+    assert(res.edge_match.n == get_suffix_leaf(st, 0));
     assert(res.edge_match.shared == 3);
 
     // Try breaking the edge at this location. It won't be a suffix tree now,
     // it has a node with only one child, but its something we need later
-    node_id new_node = break_edge(st, leaf_id(0), 3LL);
-    cstr_const_sslice new_edge = get_edge(st, new_node);
+    inner_node *new_node = break_edge(st, get_suffix_leaf(st, 0), 3LL);
+    cstr_const_sslice new_edge = get_edge(st, (node *)new_node);
     assert(new_edge.len = 3LL);
     // leaf_id(0) should now have the new node as its parent
     // and a shorter edge.
-    assert(get_node(st, leaf_id(0))->parent == new_node);
-    TL_FATAL_IF_NEQ_LL(get_edge(st, leaf_id(0)).len, x.len - 3LL);
+    assert(get_suffix_leaf(st, 0)->parent == new_node);
+    TL_FATAL_IF_NEQ_LL(get_edge(st, get_suffix_leaf(st, 0)).len, x.len - 3LL);
 
     cstr_free_suffix_tree(st);
     free(x_buf);
