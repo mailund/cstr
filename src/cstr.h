@@ -28,13 +28,21 @@ long long cstr_strlen(const char *x); // returns length of x in bytes
 // Allocation that cannot fail (except by terminating the program).
 // With this, we don't need to test for allocation errors.
 void *cstr_malloc(size_t size);
+void *cstr_realloc(void *p, size_t size);
 
-void *cstr_malloc_buffer(size_t obj_size, // size of objects
-                         size_t len);     // how many of them
+void *cstr_malloc_buffer(size_t obj_size,  // size of objects
+                         size_t len);      // how many of them
+void *cstr_realloc_buffer(void *p,         // existing memory
+                          size_t obj_size, // size of objects
+                          size_t len);     // how many of them
 
-void *cstr_malloc_header_array(size_t base_size, // size of struct before array
-                               size_t elm_size,  // size of elements in array
-                               size_t len);      // number of elements in array
+void *cstr_malloc_header_array(size_t base_size,  // size of struct before array
+                               size_t elm_size,   // size of elements in array
+                               size_t len);       // number of elements in array
+void *cstr_realloc_header_array(void *p,          // existing memory,
+                                size_t base_size, // size of struct before array
+                                size_t elm_size,  // size of elements in array
+                                size_t len);      // number of elements in array
 
 // Macro for getting the offset of a flexible member array
 // from an instance rather than a type (as for
@@ -51,7 +59,9 @@ void *cstr_malloc_header_array(size_t base_size, // size of struct before array
 // is the name of the flexible array member.
 #define CSTR_MALLOC_FLEX_ARRAY(VAR, FLEX_ARRAY, LEN) \
   cstr_malloc_header_array(                          \
-      CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY), sizeof((VAR)->FLEX_ARRAY[0]), LEN)
+      CSTR_OFFSETOF_INST(VAR, FLEX_ARRAY),           \
+      sizeof((VAR)->FLEX_ARRAY[0]),                  \
+      LEN)
 
 // Set a pointer to NULL when we free it
 #define CSTR_FREE_NULL(P) \
@@ -402,9 +412,17 @@ cstr_suffix_tree *cstr_naive_suffix_tree(cstr_alphabet const *alpha,
                                          cstr_const_sslice x);
 void cstr_free_suffix_tree(cstr_suffix_tree *st);
 
+typedef struct cstr_st_leaf_iter cstr_st_leaf_iter;
+long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter);
+void cstr_free_st_leaf_iter(cstr_st_leaf_iter *iter);
+
+// Iterate through all leaves (in lexicographical order)
+cstr_st_leaf_iter *cstr_st_all_leaves(cstr_suffix_tree *st);
+
 // ==== Burrows-Wheeler transform =================================
 
-uint8_t *cstr_bwt(long long n, uint8_t const *x, unsigned int sa[n]);
+uint8_t *
+cstr_bwt(long long n, uint8_t const *x, unsigned int sa[n]);
 
 struct cstr_bwt_c_table
 {

@@ -20,6 +20,7 @@ TL_TEST(induce_mississippi);
 TL_TEST(st_constructing_leaves);
 TL_TEST(st_constructing_inner_nodes);
 TL_TEST(st_attempted_scans);
+TL_TEST(st_dft);
 
 #endif // GEN_UNIT_TESTS
 #endif // CSTR_UNITTESTS_H

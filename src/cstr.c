@@ -15,9 +15,9 @@ long long cstr_strlen(const char *x)
     return (long long)n;
 }
 
-void *cstr_malloc(size_t size)
+void *cstr_realloc(void *p, size_t size)
 {
-    void *buf = malloc(size);
+    void *buf = realloc(p, size);
     if (!buf)
     {
         fprintf(stderr, "Allocation error, terminating\n");
@@ -26,18 +26,36 @@ void *cstr_malloc(size_t size)
     return buf;
 }
 
-void *cstr_malloc_header_array(size_t base_size,
-                               size_t elm_size,
-                               size_t len)
+void *cstr_malloc(size_t size)
+{
+    return cstr_realloc(0, size);
+}
+
+void *cstr_realloc_header_array(void *p,
+                                size_t base_size,
+                                size_t elm_size,
+                                size_t len)
 {
     if ((SIZE_MAX - base_size) / elm_size < len)
     {
         fprintf(stderr, "Trying to allocte a buffer longer than SIZE_MAX\n");
-#ifndef __clang_analyzer__
         exit(2);
-#endif
     }
-    return cstr_malloc(base_size + elm_size * len);
+    return cstr_realloc(p, base_size + elm_size * len);
+}
+
+void *cstr_malloc_header_array(size_t base_size,
+                               size_t elm_size,
+                               size_t len)
+{
+    return cstr_realloc_header_array(0, base_size, elm_size, len);
+}
+
+void *cstr_realloc_buffer(void *p, size_t obj_size, size_t len)
+{
+    // a buffer is just a flexible array in a struct that
+    // has zero header...
+    return cstr_realloc_header_array(p, 0, obj_size, len);
 }
 
 void *cstr_malloc_buffer(size_t obj_size, size_t len)

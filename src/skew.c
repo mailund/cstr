@@ -25,8 +25,8 @@ static inline unsigned int safe_idx(cstr_const_uislice x, unsigned int i)
 static void get_sa12(cstr_suffix_array sa12, cstr_const_uislice x)
 {
     // For the static analyser...
-    assert(sa12.buf && sa12.len > 0 &&
-           sa12.len == sa12len(x.len));
+    assert(sa12.buf && sa12.len > 0);
+    assert(sa12.len == sa12len(x.len));
 
     unsigned int j = 0;
     for (unsigned int i = 0; i < x.len; i++)
@@ -252,7 +252,7 @@ static void build_u(cstr_uislice u, unsigned int const encoding[])
 
 static void skew_rec(cstr_suffix_array sa, cstr_const_uislice x, unsigned int asize)
 {
-    cstr_suffix_array *sa12 = cstr_alloc_uislice(x.len);
+    cstr_suffix_array *sa12 = cstr_alloc_uislice(sa12len(x.len));
     get_sa12(*sa12, x);
     radix3(x, *sa12, asize);
 
