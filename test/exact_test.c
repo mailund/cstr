@@ -6,49 +6,49 @@
 
 #include "testlib.h"
 
-typedef struct cstr_exact_matcher *(*algorithm_fn)(cstr_sslice, cstr_sslice);
+typedef cstr_exact_matcher *(*algorithm_fn)(cstr_const_sslice, cstr_const_sslice);
 
 static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 {
     TL_BEGIN();
     {
-        char *x = "aaba";
-        char *p = "a";
+        const char *x = "aaba";
+        const char *p = "a";
         cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        int i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 0);
+        long long i = cstr_exact_next_match(m);
+        TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 1);
+        TL_ERROR_IF_NEQ_LL(i, 1LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 3);
+        TL_ERROR_IF_NEQ_LL(i, 3LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, -1);
+        TL_ERROR_IF_NEQ_LL(i, -1LL);
         cstr_free_exact_matcher(m);
     }
     {
-        char *x = "abab";
-        char *p = "ab";
+        const char *x = "abab";
+        const char *p = "ab";
         cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        int i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 0);
+        long long i = cstr_exact_next_match(m);
+        TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 2);
+        TL_ERROR_IF_NEQ_LL(i, 2LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, -1);
+        TL_ERROR_IF_NEQ_LL(i, -1LL);
         cstr_free_exact_matcher(m);
     }
     {
-        char *x = "aaaa";
-        char *p = "aa";
+        const char *x = "aaaa";
+        const char *p = "aa";
         cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        int i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 0);
+        long long i = cstr_exact_next_match(m);
+        TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 1);
+        TL_ERROR_IF_NEQ_LL(i, 1LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, 2);
+        TL_ERROR_IF_NEQ_LL(i, 2LL);
         i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_INT(i, -1);
+        TL_ERROR_IF_NEQ_LL(i, -1LL);
         cstr_free_exact_matcher(m);
     }
     TL_END();
@@ -68,8 +68,8 @@ static TL_PARAM_TEST(test_random_string_p, algorithm_fn f)
         {
             tl_random_string(*p, (const uint8_t *)"abc", 3);
 
-            cstr_exact_matcher *matcher = f(*x, *p);
-            for (int m = cstr_exact_next_match(matcher);
+            cstr_exact_matcher *matcher = f(CSTR_SLICE_CONST_CAST(*x), CSTR_SLICE_CONST_CAST(*p));
+            for (long long m = cstr_exact_next_match(matcher);
                  m != -1;
                  m = cstr_exact_next_match(matcher))
             {
@@ -98,8 +98,8 @@ static TL_PARAM_TEST(test_prefix_p, algorithm_fn f)
         for (int j = 0; j < 10; j++)
         {
             cstr_sslice p = tl_random_prefix(*x);
-            cstr_exact_matcher *matcher = f(*x, p);
-            TL_ERROR_IF_NEQ_INT(0, cstr_exact_next_match(matcher));
+            cstr_exact_matcher *matcher = f(CSTR_SLICE_CONST_CAST(*x), CSTR_SLICE_CONST_CAST(p));
+            TL_ERROR_IF_NEQ_LL(0LL, cstr_exact_next_match(matcher));
             cstr_free_exact_matcher(matcher);
         }
     }
@@ -121,11 +121,11 @@ static TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
         for (int j = 0; j < 10; j++)
         {
             cstr_sslice p = tl_random_suffix(*x);
-            cstr_exact_matcher *matcher = f(*x, p);
+            cstr_exact_matcher *matcher = f(CSTR_SLICE_CONST_CAST(*x), CSTR_SLICE_CONST_CAST(p));
 
-            int res = cstr_exact_next_match(matcher);
-            int last = res;
-            while (res != -1)
+            long long res = cstr_exact_next_match(matcher);
+            long long last = res;
+            while (res != -1LL)
             {
                 last = res;
                 res = cstr_exact_next_match(matcher);

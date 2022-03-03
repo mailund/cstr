@@ -376,16 +376,31 @@ bool cstr_alphabet_revmap(cstr_sslice dst,
                           cstr_alphabet const *alpha);
 
 // == EXACT MATCHERS =============================
-// Opaque polymorphic type
-typedef struct cstr_exact_matcher cstr_exact_matcher;
+// Polymorphic structure for exact matching
+typedef struct
+{ // Embed this in matchers (with the right v-table)
+  struct cstr_exact_matcher_vtab *vtab;
+} cstr_exact_matcher;
 
+typedef struct cstr_exact_matcher_vtab
+{ // Virtual table for dynamic dispatching
+  // Implements iteration
+  long long (*next)(cstr_exact_matcher *);
+  // Implements destruction
+  void (*free)(cstr_exact_matcher *);
+} cstr_exact_matcher_vtab;
+
+// clang-format off
 // returns -1 when there are no more matches, otherwise an index of a match
-int cstr_exact_next_match(cstr_exact_matcher *matcher);
-void cstr_free_exact_matcher(cstr_exact_matcher *matcher);
+INLINE long long cstr_exact_next_match(cstr_exact_matcher *self) 
+{ return self->vtab->next(self); }
+INLINE void cstr_free_exact_matcher(cstr_exact_matcher *self)    
+{ self->vtab->free(self); }
+// clang-format on
 
-cstr_exact_matcher *cstr_naive_matcher(cstr_sslice x, cstr_sslice p);
-cstr_exact_matcher *cstr_ba_matcher(cstr_sslice x, cstr_sslice p);
-cstr_exact_matcher *cstr_kmp_matcher(cstr_sslice x, cstr_sslice p);
+cstr_exact_matcher *cstr_naive_matcher(cstr_const_sslice x, cstr_const_sslice p);
+cstr_exact_matcher *cstr_ba_matcher(cstr_const_sslice x, cstr_const_sslice p);
+cstr_exact_matcher *cstr_kmp_matcher(cstr_const_sslice x, cstr_const_sslice p);
 
 // == SUFFIX ARRAYS =====================================================
 // Suffix arrays stored in uislice objects can only handle lenghts
