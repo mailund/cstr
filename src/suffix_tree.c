@@ -26,9 +26,16 @@ static inline bool is_leaf_range(range r) { return r.end <= r.beg; }
 // Putting SHARED at the top of both 'node' and 'inner_node' makes the
 // memory layout the same, so we can use them interchangable, except that
 // only inner_node will have the flexible array of children.
-#define SHARED   \
-    range range; \
-    struct inner_node *parent; // the parent must be an inner node
+// The parent/next union is used such that we have a parent when constructing
+// the tree (needed for McCreight) and a threaded tree when we want to
+// traverse the tree
+#define SHARED                     \
+    range range;                   \
+    union                          \
+    {                              \
+        struct inner_node *parent; \
+        struct node *next;         \
+    };
 
 // clang-format off
 typedef struct node       { SHARED } node;
@@ -36,7 +43,8 @@ typedef struct inner_node { SHARED
     struct node *children[];
 } inner_node;
 
-static inline bool is_leaf(node *node) { return is_leaf_range(node->range); }
+static inline bool is_leaf(node const *node)  { return is_leaf_range(node->range); }
+static inline bool is_inner(node const *node) { return !is_leaf(node); }
 // clang-format on
 
 // A suffix tree contains the alphabet and string x, the root
@@ -189,25 +197,129 @@ static inner_node *break_edge(cstr_suffix_tree *st, node *to, long long len)
     return new_node;
 }
 
+static inline node **get_children_begin(cstr_suffix_tree *st, node *n)
+{
+    return (n == 0 || is_leaf(n))
+               // Leaves and NULL do not have any children
+               ? 0
+               // Inner nodes have the first here
+               : &((inner_node *)n)->children[0];
+}
+static inline node **get_children_end(cstr_suffix_tree *st, node *n)
+{
+    return (n == 0 || is_leaf(n))
+               // Leaves and NULL do not have any children
+               ? 0
+               // Inner nodes have (one past the last) here
+               : &((inner_node *)n)->children[st->alpha->size];
+}
+
 static void get_children(cstr_suffix_tree *st, node *n,
                          node ***beg, node ***end)
 {
-    if (n == 0 || is_leaf(n))
-    {
-        *beg = *end = 0; // Empty interval
-    }
-    else
-    {
-        inner_node *inner = (inner_node *)n;
-        *beg = &inner->children[0];
-        *end = &inner->children[st->alpha->size];
-    }
+    *beg = get_children_begin(st, n);
+    *end = get_children_end(st, n);
 }
 
 static inline node *get_child(inner_node *n, uint8_t a)
 {
     return n->children[a];
 }
+
+
+static node *first_child(cstr_suffix_tree *st, node *n)
+{
+    assert(is_inner(n));
+    node **beg, **end, **child;
+    get_children(st, n, &beg, &end);
+    for (child = beg; child != end; child++)
+    {
+        if (*child)
+        {
+            return *child;
+        }
+    }
+    assert(false); // Inner nodes must have a first child
+}
+
+// Get the address where a node sits in its parent
+static node **node_addr(cstr_suffix_tree *st, node *n)
+{
+    // The root is a special case, since it sits in the tree and not
+    // in another inner node.
+    if (n == (node *)st->root)
+    {
+        return (node **)&st->root;
+    }
+    uint8_t a = get_edge(st, n).buf[0]; // Out edge to node
+    return &n->parent->children[a];
+}
+
+static node *next_node(cstr_suffix_tree *st, node *n)
+{
+    if (is_inner(n))
+    {
+        // inner node, so move to first child for the recursion...
+        return first_child(st, n);
+    }
+
+    // Leaf -- we must search for the next node
+    for (;;)
+    {
+        node *p = (node *)n->parent;
+        node **sib = node_addr(st, n) + 1; // Start searching one past current
+        node **end = get_children_end(st, p);
+
+        // We don't need n's parent any more, so we can change it to its
+        // next pointer. We know what next will be, if v is an inner node.
+        // If it is a leaf, we have to find the next node first, so we handle
+        // that in the node iterator.
+        if (is_inner(n))
+        {
+            n->next = first_child(st, n);
+        }
+
+        // Search for the next sibling of n
+        for (; sib < end; sib++)
+        {
+            if (*sib)
+            {
+                return *sib;
+            }
+        }
+
+        // If there are no siblings and we are at the root,
+        // we can find no more nodes at all.
+        if (p == (node *)st->root)
+        {
+            return 0;
+        }
+
+        // Otherwise, we move to our parent's sibling.
+        // This is a tail-recursive call.
+        n = p;
+    }
+}
+
+// Connects the `next` pointers in the nodes, destroying `parent` in the
+// process (of course, since they share the same memory).
+static void thread_nodes(cstr_suffix_tree *st)
+{
+    node *prev = (node *)st->root;
+    do {
+        node *n = next_node(st, prev);
+        if (is_leaf(prev))
+        {
+            // Connect the leaves here, when we know what the next node
+            // will be. The inner nodes (where next has to be the first child)
+            // are connected in `next_node`.
+            prev->next = n;
+        }
+        prev = n;
+    } while(prev);
+    st->root->next = first_child(st, (node *)st->root);
+}
+
 
 static inline long long lcp(cstr_suffix_tree *st,
                             node *node, cstr_const_sslice p)
@@ -377,6 +489,7 @@ cstr_naive_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
     {
         naive_insert(st, i);
     }
+    thread_nodes(st); // Need this to get an efficient traversal
     return st;
 }
 
@@ -386,52 +499,9 @@ void cstr_free_suffix_tree(cstr_suffix_tree *st)
     free(st);
 }
 
-// clang-format off
-typedef struct { node **next, **end; }                    dft_frame;
-typedef struct { size_t used, size; dft_frame frames[]; } dft_stack;
-// clang-format on
-
-static const size_t INIT_STACK_SIZE = 1; // Do NOT put this to zero! Anything else is fine
-inline static dft_stack *new_dft_stack(void)
-{
-    dft_stack *stack = CSTR_MALLOC_FLEX_ARRAY(stack, frames, INIT_STACK_SIZE);
-    stack->used = 0;
-    stack->size = INIT_STACK_SIZE;
-    return stack;
-}
-
-inline static bool stack_empty(dft_stack *stack)
-{
-    return stack->used == 0;
-}
-
-inline static dft_stack *push_frame(dft_stack *stack, node **next, node **end)
-{
-    if (stack->used == stack->size)
-    {
-        stack->size *= 2;
-        stack = cstr_realloc_header_array(
-            stack,                                                 // stack we modify
-            offsetof(dft_stack, frames), sizeof(stack->frames[0]), // header and object size
-            stack->size                                            // new length
-        );
-    }
-    stack->frames[stack->used++] = (dft_frame){.next = next, .end = end};
-    return stack;
-}
-
-inline static void pop_frame(dft_stack *stack, node ***next, node ***end)
-{
-    assert(!stack_empty(stack));
-    stack->used--;
-    *next = stack->frames[stack->used].next;
-    *end = stack->frames[stack->used].end;
-}
-
 struct cstr_st_leaf_iter
 {
-    cstr_suffix_tree *st;
-    dft_stack *stack;
+    node *n;
 };
 
 // We need a node **n rather than node *n here, because we need to store the
@@ -441,49 +511,25 @@ struct cstr_st_leaf_iter
 // As it is now, the caller is responsible for giving us a valid n that we
 // can use during an iteration (and any node we get from the suffix tree
 // will do, as long as it is an address from in there).
-static cstr_st_leaf_iter *new_st_leaf_iter(cstr_suffix_tree *st, node **n)
+static cstr_st_leaf_iter *new_st_leaf_iter(cstr_suffix_tree *st, node *n)
 {
     cstr_st_leaf_iter *iter = cstr_malloc(sizeof *iter);
-
-    iter->st = st;
-    iter->stack = new_dft_stack();
-
-    // Push a node interval that only contains n
-    push_frame(iter->stack, n, n + 1);
-
+    iter->n = n;
     return iter;
 }
 
 cstr_st_leaf_iter *cstr_st_all_leaves(cstr_suffix_tree *st)
 {
-    return new_st_leaf_iter(st, (node **)&st->root);
+    return new_st_leaf_iter(st, (node *)st->root);
 }
 
 long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter)
 {
-    while (!stack_empty(iter->stack))
+    node **it = &iter->n;
+    for ((*it) = (*it)->next; *it; *it = (*it)->next)
     {
-        node **next, **end;
-        pop_frame(iter->stack, &next, &end);
-
-        while (next != end)
-        {
-            if (*next == NULL)
-            {
-                next++;
-                continue;
-            }
-
-            if (is_leaf(*next))
-            {
-                iter->stack = push_frame(iter->stack, next + 1, end);
-                return (*next)->range.leaf;
-            }
-            else
-            {
-                iter->stack = push_frame(iter->stack, next + 1, end);
-                get_children(iter->st, *next, &next, &end);
-            }
+        if (is_leaf(*it)) {
+            return (*it)->range.leaf;
         }
     }
 
@@ -492,7 +538,6 @@ long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter)
 
 void cstr_free_st_leaf_iter(cstr_st_leaf_iter *iter)
 {
-    free(iter->stack);
     free(iter);
 }
 
@@ -661,114 +706,19 @@ TL_TEST(st_attempted_scans)
     TL_END();
 }
 
-static void dft(cstr_suffix_tree *st, node *n)
+
+static void thread_traverse(cstr_suffix_tree *st)
 {
-    dft_stack *stack = new_dft_stack();
-
-    // Push a node interval that only contains n
-    stack = push_frame(stack, &n, &n + 1);
-
-    // Now let's get going
-    while (!stack_empty(stack))
-    {
-        node **next, **end;
-        pop_frame(stack, &next, &end);
-
-        while (next != end)
-        {
-            if (*next == NULL)
-            {
-                next++;
-                continue;
-            }
-
-            if (is_leaf(*next))
-            {
-                printf("%lld\n", (*next)->range.leaf);
-                next++;
-            }
-            else
-            {
-                stack = push_frame(stack, next + 1, end);
-                get_children(st, *next, &next, &end);
-            }
-        }
-    }
-
-    free(stack);
-}
-
-static node **first_child(cstr_suffix_tree *st, node **n)
-{
-    node **beg, **end, **child;
-    get_children(st, *n, &beg, &end);
-    for (child = beg; child != end; child++)
-    {
-        if (*child)
-            return child;
-    }
-    assert(false); // Inner nodes must have a first child
-}
-
-static node **parent_addr(cstr_suffix_tree *st, node **n)
-{
-    // We need parent's next sibling, but we can only do that by
-    // searching for parent in the grandparent.
-    inner_node *parent = (*n)->parent;
-    if (!parent)
-    { // If we don't have a parent, we have the root
-        return (node **)&st->root;
-    }
-    // Otherwise, get the offset where parent sits in grand_parents children
-    inner_node *grand_parent = parent->parent;
-    uint8_t a = get_edge(st, (node *)parent).buf[0]; // Out edge to parent
-    return &grand_parent->children[a];
-}
-
-static node **next_node(cstr_suffix_tree *st, node **n)
-{
-    for (;;)
-    {
-        node *p = (node *)(*n)->parent;
-
-        // Search for the next sibling of n
-        node **sib, **beg, **end;
-        get_children(st, p, &beg, &end);
-        for (sib = n + 1; sib < end; sib++)
-        {
-            if (*sib)
-                return sib;
-        }
-
-        // If there are no siblings and we are at the root,
-        // we can find no more nodes at all.
-        if ((*n)->parent == st->root)
-        {
-            return 0;
-        }
-
-        // Otherwise, we move to our parent's sibling.
-        // This is a tail-recursive call.
-        n = parent_addr(st, n);
-    }
-}
-
-static void dft2(cstr_suffix_tree *st)
-{
-    node **r = (node **)&st->root;
-    node **n = first_child(st, r);
+    node *r = (node *)st->root;
+    printf("r is %p\n", (void *)r);
+    node *n = r->next;
     while (n)
     {
-        if (is_leaf(*n))
+        if (is_leaf(n))
         {
-            printf("%lld\n", (*n)->range.leaf);
-            n = next_node(st, n);
+            printf("%lld\n", n->range.leaf);
         }
-        else
-        {
-            // inner node, so move to first child...
-            n = first_child(st, n);
-        }
+        n = n->next;
     }
 }
 
@@ -803,16 +753,12 @@ TL_TEST(st_dft)
     node *s_node = get_child(st->root, 4);
     assert(!is_leaf(s_node));
 
-    printf("Recursive depth-first traversal\n");
-    dft(st, (node *)st->root);
-    printf("Done\n\n");
-
     printf("Threaded depth-first traversal\n");
-    dft2(st);
+    thread_traverse(st);
     printf("Done\n\n");
 
     printf("Iterator traversal\n");
-    cstr_st_leaf_iter *iter = new_st_leaf_iter(st, (node **)&st->root);
+    cstr_st_leaf_iter *iter = new_st_leaf_iter(st, (node *)st->root);
 #define next cstr_st_leaf_iter_next
     for (long long suf = next(iter); suf != -1; suf = next(iter))
     {

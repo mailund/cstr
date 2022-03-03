@@ -13,13 +13,16 @@ static TL_PARAM_TEST(check_suffix_ordered_for_construction,
     TL_BEGIN();
     cstr_st_leaf_iter *iter = cstr_st_all_leaves(st);
 
+    long long count = 1;
     cstr_const_sslice prev = CSTR_SUFFIX(x, next(iter));
     for (long long suf_idx = next(iter); suf_idx != -1; suf_idx = next(iter))
     {
+        count++;
         cstr_const_sslice suf = CSTR_SUFFIX(x, suf_idx);
         TL_ERROR_IF_GE_SLICE(prev, suf);
         prev = suf;
     }
+    TL_FATAL_IF_NEQ_LL(count, x.len); // We should see all suffixes
 
     cstr_free_st_leaf_iter(iter);
     TL_END();
