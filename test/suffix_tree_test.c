@@ -52,7 +52,11 @@ static TL_TEST(check_suffix_ordered)
         cstr_suffix_tree *st = cstr_naive_suffix_tree(&alpha, CSTR_SLICE_CONST_CAST(*x));
         TL_RUN_PARAM_TEST(check_suffix_ordered_for_construction, "naive", CSTR_SLICE_CONST_CAST(*x), st);
         cstr_free_suffix_tree(st);
-    }       
+
+        st = cstr_mccreight_suffix_tree(&alpha, CSTR_SLICE_CONST_CAST(*x));
+        TL_RUN_PARAM_TEST(check_suffix_ordered_for_construction, "mccreight", CSTR_SLICE_CONST_CAST(*x), st);
+        cstr_free_suffix_tree(st);
+    }
 
     free(x);
     free(orig);

@@ -410,6 +410,9 @@ typedef struct cstr_suffix_tree cstr_suffix_tree;
 
 cstr_suffix_tree *cstr_naive_suffix_tree(cstr_alphabet const *alpha,
                                          cstr_const_sslice x);
+cstr_suffix_tree *cstr_mccreight_suffix_tree(cstr_alphabet const *alpha,
+                                             cstr_const_sslice x);
+
 void cstr_free_suffix_tree(cstr_suffix_tree *st);
 
 typedef struct cstr_st_leaf_iter cstr_st_leaf_iter;

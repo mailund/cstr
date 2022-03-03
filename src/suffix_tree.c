@@ -28,7 +28,7 @@ static inline bool is_leaf_range(range r) { return r.end <= r.beg; }
 // only inner_node will have the flexible array of children.
 // The parent/next union is used such that we have a parent when constructing
 // the tree (needed for McCreight) and a threaded tree when we want to
-// traverse the tree
+// traverse the tree.
 #define SHARED                     \
     range range;                   \
     union                          \
@@ -39,8 +39,9 @@ static inline bool is_leaf_range(range r) { return r.end <= r.beg; }
 
 // clang-format off
 typedef struct node       { SHARED } node;
-typedef struct inner_node { SHARED
-    struct node *children[];
+typedef struct inner_node { SHARED 
+    struct inner_node *slink; // suffix link (needed by McCreight) FIXME: union with the other pointers?
+    struct node *children[]; // children will be in a block of memory following the struct.
 } inner_node;
 
 static inline bool is_leaf(node const *node)  { return is_leaf_range(node->range); }
@@ -161,7 +162,7 @@ static inner_node *new_inner(cstr_suffix_tree *st,
 {
     inner_node *n = pool_get_next(st->pool);
     n->range = slice_to_range(st, edge);
-    n->parent = 0;
+    n->slink = n->parent = 0;
     for (long long i = 0; i < st->alpha->size; i++)
     {
         n->children[i] = 0;
@@ -225,7 +226,6 @@ static inline node *get_child(inner_node *n, uint8_t a)
 {
     return n->children[a];
 }
-
 
 static node *first_child(cstr_suffix_tree *st, node *n)
 {
@@ -306,7 +306,8 @@ static node *next_node(cstr_suffix_tree *st, node *n)
 static void thread_nodes(cstr_suffix_tree *st)
 {
     node *prev = (node *)st->root;
-    do {
+    do
+    {
         node *n = next_node(st, prev);
         if (is_leaf(prev))
         {
@@ -316,10 +317,9 @@ static void thread_nodes(cstr_suffix_tree *st)
             prev->next = n;
         }
         prev = n;
-    } while(prev);
+    } while (prev);
     st->root->next = first_child(st, (node *)st->root);
 }
-
 
 static inline long long lcp(cstr_suffix_tree *st,
                             node *node, cstr_const_sslice p)
@@ -423,6 +423,37 @@ slow_scan(cstr_suffix_tree *st, inner_node *from, cstr_const_sslice p)
     }
 }
 
+static scan_res
+fast_scan(cstr_suffix_tree *st, inner_node *from, cstr_const_sslice p)
+{
+    for (;;)
+    {
+        if (p.len == 0)
+        {
+            // A complete match (just because p is empty)
+            return node_match((node *)from);
+        }
+
+        node *to = get_child(from, p.buf[0]);
+        assert(to); // If we search on a node in fast_scan, the child is there
+
+        long long edge_len = get_edge(st, to).len;
+        if (p.len == edge_len)
+        {
+            return node_match(to);
+        }
+        if (p.len < edge_len)
+        {
+            return edge_match(to, p.len);
+        }
+
+        // Continue recursion, chop off what we already matched
+        // and continue from the node we reached
+        p = CSTR_SUFFIX(p, edge_len);
+        from = (inner_node *)to;
+    }
+}
+
 static cstr_suffix_tree *
 new_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
 {
@@ -493,6 +524,120 @@ cstr_naive_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
     return st;
 }
 
+// Get the suffix of a path, which is either the last edge in the path
+// or the last edge minus the first character if the last edge starts
+// in the root.
+// It boils down to this: chop off the first character from the edge
+//  if the parent is the root, and otherwise, just give us the edge.
+static inline cstr_const_sslice suffix(cstr_suffix_tree *st, node *n)
+{
+    cstr_const_sslice y = get_edge(st, n);
+    if (n->parent == st->root)
+    {
+        y.buf++;
+        y.len--;
+    }
+    return y;
+}
+
+cstr_suffix_tree *
+cstr_mccreight_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
+{
+    cstr_suffix_tree *st = new_suffix_tree(alpha, x);
+
+    // The previous suffix we inserted had the form "a|y|z|w" where
+    // a is a character, ayz is head(i) and ay is parent(head(i)).
+    // We can use the suffix links to get to either ayz (when head(i)
+    // has a suffix link) or ay, and if we only get to ay we can fast-scan
+    // through z to get to ayz. From there, we find head(i+1) by scanning
+    // through w as far as we can.
+
+    cstr_const_sslice z, w;
+    inner_node *y_node;  // node where string y ends == s(ay)
+    inner_node *yz_node; // node where string yz ends == s(ayz)
+
+    node *leaf = get_suffix_leaf(st, 0);
+    set_edge(st, leaf, x);
+    set_child(st, st->root, leaf);
+    
+    // Avoid some special cases by making the root its own parent and suffix
+    st->root->parent = st->root;
+    st->root->slink = st->root;
+
+    for (long long i = 1; i < x.len; i++)
+    {
+        w = suffix(st, leaf);                // leaf is ayzw, we get the last bit, w
+        inner_node *ayz_node = leaf->parent; // and the parent of leaf is ayz
+
+        if (ayz_node->slink)
+        {
+            // We have the link, so we jump directly from ayz to yz
+            yz_node = ayz_node->slink;
+        }
+        else
+        {
+            inner_node *ay_node = ayz_node->parent;
+            assert(ay_node);
+            y_node = ay_node->slink;
+            assert(y_node);
+            
+            z = suffix(st, (node *)ayz_node); // get z as the last edge on ayz
+            scan_res res = fast_scan(st, y_node, z);
+            switch (res.result)
+            {
+            case NODE_MATCH:
+            {
+                ayz_node->slink = yz_node = (inner_node *)res.node_match.n;
+                break;
+            }
+
+            case EDGE_MATCH:
+            {
+                ayz_node->slink = break_edge(st, res.edge_match.n, res.edge_match.shared);
+                leaf = get_suffix_leaf(st, i);
+                set_edge(st, leaf, w);
+                set_child(st, ayz_node->slink, leaf);
+                continue; // We don't need the rest of the loop, we can short circuit here
+            }
+
+            default:
+                assert(false); // We must have a match on fast-scan.
+            }
+        }
+
+        // We have yz_node now, and to find head(i+1) we need to search for yzw, i.e. to search
+        // for w from yz_node until we get a mismatch.
+        scan_res res = slow_scan(st, yz_node, w);
+        switch (res.result)
+        {
+        case NODE_MISMATCH:
+        {
+            leaf = get_suffix_leaf(st, i);
+            set_edge(st, leaf, res.node_mismatch.final_string);
+            set_child(st, (inner_node *)res.node_mismatch.n, leaf);
+            break;
+        }
+
+        case EDGE_MISMATCH:
+        {
+            inner_node *head = break_edge(st, res.edge_mismatch.n, res.edge_mismatch.shared);
+            cstr_const_sslice tail = CSTR_SUFFIX(res.edge_mismatch.final_string, res.edge_mismatch.shared);
+            leaf = get_suffix_leaf(st, i);
+            set_edge(st, leaf, tail);
+            set_child(st, head, leaf);
+            break;
+        }
+
+        default:
+            assert(false); // We must have a mismatch on slow-scan.
+        }
+    }
+
+    thread_nodes(st); // Need this to get an efficient traversal
+
+    return st;
+}
+
 void cstr_free_suffix_tree(cstr_suffix_tree *st)
 {
     free(st->pool);
@@ -528,7 +673,8 @@ long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter)
     node **it = &iter->n;
     for ((*it) = (*it)->next; *it; *it = (*it)->next)
     {
-        if (is_leaf(*it)) {
+        if (is_leaf(*it))
+        {
             return (*it)->range.leaf;
         }
     }
@@ -665,13 +811,25 @@ TL_TEST(st_attempted_scans)
     assert(res.result == NODE_MATCH);
     assert(res.node_match.n == get_suffix_leaf(st, 0));
 
+    res = fast_scan(st, st->root, p);
+    assert(res.result == NODE_MATCH);
+    assert(res.node_match.n == get_suffix_leaf(st, 0));
+
     p = CSTR_SUFFIX(x, 1);
     res = slow_scan(st, st->root, p);
     assert(res.result == NODE_MATCH);
     assert(res.node_match.n == get_suffix_leaf(st, 1));
 
+    res = fast_scan(st, st->root, p);
+    assert(res.result == NODE_MATCH);
+    assert(res.node_match.n == get_suffix_leaf(st, 1));
+
     p = CSTR_SUFFIX(x, 2);
     res = slow_scan(st, st->root, p);
+    assert(res.result == NODE_MATCH);
+    assert(res.node_match.n == get_suffix_leaf(st, 2));
+
+    res = fast_scan(st, st->root, p);
     assert(res.result == NODE_MATCH);
     assert(res.node_match.n == get_suffix_leaf(st, 2));
 
@@ -705,7 +863,6 @@ TL_TEST(st_attempted_scans)
 
     TL_END();
 }
-
 
 static void thread_traverse(cstr_suffix_tree *st)
 {
