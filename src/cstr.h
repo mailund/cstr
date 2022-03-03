@@ -434,8 +434,10 @@ typedef struct cstr_st_leaf_iter cstr_st_leaf_iter;
 long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter);
 void cstr_free_st_leaf_iter(cstr_st_leaf_iter *iter);
 
-// Iterate through all leaves (in lexicographical order)
-cstr_st_leaf_iter *cstr_st_all_leaves(cstr_suffix_tree *st);
+// The first assumes that p is already mapped to the alphabet, the second will
+// do the mapping itself.
+cstr_exact_matcher *cstr_st_exact_search(cstr_suffix_tree *st, cstr_const_sslice p);
+cstr_exact_matcher *cstr_st_exact_search_map(cstr_suffix_tree *st, cstr_const_sslice p);
 
 // ==== Burrows-Wheeler transform =================================
 

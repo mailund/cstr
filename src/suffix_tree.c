@@ -559,7 +559,7 @@ cstr_mccreight_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
     node *leaf = get_suffix_leaf(st, 0);
     set_edge(st, leaf, x);
     set_child(st, st->root, leaf);
-    
+
     // Avoid some special cases by making the root its own parent and suffix
     st->root->parent = st->root;
     st->root->slink = st->root;
@@ -580,7 +580,7 @@ cstr_mccreight_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
             assert(ay_node);
             y_node = ay_node->slink;
             assert(y_node);
-            
+
             z = suffix(st, (node *)ayz_node); // get z as the last edge on ayz
             scan_res res = fast_scan(st, y_node, z);
             switch (res.result)
@@ -644,47 +644,102 @@ void cstr_free_suffix_tree(cstr_suffix_tree *st)
     free(st);
 }
 
-struct cstr_st_leaf_iter
+struct st_matcher
 {
-    node *n;
+    cstr_exact_matcher matcher;
+    node *n, *sentinel;
 };
 
-// We need a node **n rather than node *n here, because we need to store the
-// address of a pointer to the node pointer... it's tricky, but we work with
-// ranges of node * pointers, so node **, and if we store &n it would be
-// a local variable and invalid after we return from the function.
-// As it is now, the caller is responsible for giving us a valid n that we
-// can use during an iteration (and any node we get from the suffix tree
-// will do, as long as it is an address from in there).
-static cstr_st_leaf_iter *new_st_leaf_iter(cstr_suffix_tree *st, node *n)
+static inline void inc(struct st_matcher *iter)
 {
-    cstr_st_leaf_iter *iter = cstr_malloc(sizeof *iter);
-    iter->n = n;
-    return iter;
+    // If we are at the sentinel, the next is null, otherwise
+    // we take whatever next is
+    iter->n = (iter->n == iter->sentinel) ? 0 : iter->n->next;
 }
-
-cstr_st_leaf_iter *cstr_st_all_leaves(cstr_suffix_tree *st)
+static long long next_match(struct st_matcher *iter)
 {
-    return new_st_leaf_iter(st, (node *)st->root);
-}
-
-long long cstr_st_leaf_iter_next(cstr_st_leaf_iter *iter)
-{
-    node **it = &iter->n;
-    for ((*it) = (*it)->next; *it; *it = (*it)->next)
+    for (; iter->n; inc(iter))
     {
-        if (is_leaf(*it))
+        if (is_leaf(iter->n))
         {
-            return (*it)->range.leaf;
+            long long suf = iter->n->range.leaf;
+            inc(iter);
+            return suf;
         }
     }
 
     return -1; // Done
 }
 
-void cstr_free_st_leaf_iter(cstr_st_leaf_iter *iter)
+typedef long long (*next_f)(cstr_exact_matcher *);
+typedef void (*free_f)(cstr_exact_matcher *);
+static cstr_exact_matcher_vtab st_matcher_vtab = {.next = (next_f)next_match, .free = (free_f)free};
+
+// Get the rightmost leaf in a sub-tree. We use it as a sentinel in a threaded
+// traversal.
+static node *rightmost_leaf(cstr_suffix_tree *st, node *n)
 {
-    free(iter);
+    for (;;)
+    {
+        if (is_leaf(n))
+        {
+            return n;
+        }
+        node **v = get_children_end(st, n);
+        for (v--; *v == 0; v--)
+            ;
+        n = *v;
+    }
+}
+
+static inline cstr_exact_matcher *matcher_from_node(cstr_suffix_tree *st, node *n)
+{
+    struct st_matcher *m = cstr_malloc(sizeof *m);
+    m->matcher.vtab = &st_matcher_vtab;
+    m->n = n;
+    m->sentinel = rightmost_leaf(st, n);
+    return (cstr_exact_matcher *)m;
+}
+
+cstr_exact_matcher *cstr_st_exact_search(cstr_suffix_tree *st, cstr_const_sslice p)
+{
+    node *n = 0;
+    scan_res res = slow_scan(st, st->root, p);
+    switch (res.result)
+    {
+    case NODE_MATCH:
+        n = res.node_match.n;
+        break;
+
+    case EDGE_MATCH:
+        n = res.edge_match.n;
+        break;
+
+    case NODE_MISMATCH:
+        [[fallthrough]];
+    case EDGE_MISMATCH:
+        n = 0;
+        break;
+    }
+
+    return matcher_from_node(st, n);
+}
+
+cstr_exact_matcher *cstr_st_exact_search_map(cstr_suffix_tree *st, cstr_const_sslice p)
+{
+    cstr_exact_matcher *m = 0;
+    cstr_sslice *p_buf = cstr_alloc_sslice(p.len);
+    bool ok = cstr_alphabet_map(*p_buf, p, st->alpha);
+    if (ok)
+    {
+        m = cstr_st_exact_search(st, CSTR_SLICE_CONST_CAST(*p_buf));
+    }
+    else
+    {
+        m = matcher_from_node(st, 0); // no map means no match
+    }
+    free(p_buf);
+    return m;
 }
 
 #ifdef GEN_UNIT_TESTS // unit testing of static functions...
@@ -915,26 +970,71 @@ TL_TEST(st_dft)
     printf("Done\n\n");
 
     printf("Iterator traversal\n");
-    cstr_st_leaf_iter *iter = new_st_leaf_iter(st, (node *)st->root);
-#define next cstr_st_leaf_iter_next
-    for (long long suf = next(iter); suf != -1; suf = next(iter))
+    cstr_exact_matcher *iter = cstr_st_exact_search(st, CSTR_SLICE_STRING((const char *)""));
+    for (long long suf = cstr_exact_next_match(iter);
+         suf != -1;
+         suf = cstr_exact_next_match(iter))
     {
         printf("%lld\n", suf);
     }
-#undef next
-    cstr_free_st_leaf_iter(iter);
+    cstr_free_exact_matcher(iter);
     printf("Done\n\n");
 
-    printf("Iterator traversal using public interface\n");
-    iter = cstr_st_all_leaves(st);
-#define next cstr_st_leaf_iter_next
-    for (long long suf = next(iter); suf != -1; suf = next(iter))
+    cstr_free_suffix_tree(st);
+    free(x_buf);
+
+    TL_END();
+}
+
+TL_TEST(st_search)
+{
+    TL_BEGIN();
+
+    cstr_const_sslice u = CSTR_SLICE_STRING0((const char *)"mississippi");
+    cstr_alphabet alpha;
+    cstr_init_alphabet(&alpha, u);
+
+    cstr_sslice *x_buf = cstr_alloc_sslice(u.len);
+    bool ok = cstr_alphabet_map(*x_buf, u, &alpha);
+    TL_FATAL_IF(!ok);
+    cstr_const_sslice x = CSTR_SLICE_CONST_CAST(*x_buf);
+
+    cstr_suffix_tree *st = cstr_naive_suffix_tree(&alpha, x);
+
+    printf("Search for empty string -- should match entire tree.\n");
+    cstr_exact_matcher *m = cstr_st_exact_search_map(st, CSTR_SLICE_STRING((const char *)""));
+    for (long long i = cstr_exact_next_match(m); i != -1; i = cstr_exact_next_match(m))
     {
-        printf("%lld\n", suf);
+        printf("%lld\n", i);
     }
-#undef next
-    cstr_free_st_leaf_iter(iter);
-    printf("Done\n\n");
+    cstr_free_exact_matcher(m);
+
+    printf("Search for `missi` -- should suffix 0 only.\n");
+    m = cstr_st_exact_search_map(st, CSTR_SLICE_STRING((const char *)"missi"));
+    for (long long i = cstr_exact_next_match(m); i != -1; i = cstr_exact_next_match(m))
+    {
+        printf("%lld\n", i);
+    }
+    cstr_free_exact_matcher(m);
+    m = cstr_st_exact_search_map(st, CSTR_SLICE_STRING((const char *)"missi"));
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), 0LL);
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), -1LL);
+    cstr_free_exact_matcher(m);
+
+    printf("Search for `i` -- should get 10, 7, 4, and 1.\n");
+    m = cstr_st_exact_search_map(st, CSTR_SLICE_STRING((const char *)"i"));
+    for (long long i = cstr_exact_next_match(m); i != -1; i = cstr_exact_next_match(m))
+    {
+        printf("%lld\n", i);
+    }
+    cstr_free_exact_matcher(m);
+    m = cstr_st_exact_search_map(st, CSTR_SLICE_STRING((const char *)"i"));
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), 10LL);
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), 7LL);
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), 4LL);
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), 1LL);
+    TL_FATAL_IF_NEQ_LL(cstr_exact_next_match(m), -1LL);
+    cstr_free_exact_matcher(m);
 
     cstr_free_suffix_tree(st);
     free(x_buf);
