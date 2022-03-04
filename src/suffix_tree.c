@@ -697,7 +697,7 @@ static inline cstr_exact_matcher *matcher_from_node(cstr_suffix_tree *st, node *
     struct st_matcher *m = cstr_malloc(sizeof *m);
     m->matcher.vtab = &st_matcher_vtab;
     m->n = n;
-    m->sentinel = rightmost_leaf(st, n);
+    m->sentinel = n ? rightmost_leaf(st, n) : 0;
     return (cstr_exact_matcher *)m;
 }
 
