@@ -14,7 +14,7 @@ static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         const char *x = "aaba";
         const char *p = "a";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING0(x), CSTR_SLICE_STRING(p));
         long long i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
@@ -28,7 +28,7 @@ static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         const char *x = "abab";
         const char *p = "ab";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING0(x), CSTR_SLICE_STRING(p));
         long long i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
@@ -40,7 +40,7 @@ static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
     {
         const char *x = "aaaa";
         const char *p = "aa";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
+        cstr_exact_matcher *m = f(CSTR_SLICE_STRING0(x), CSTR_SLICE_STRING(p));
         long long i = cstr_exact_next_match(m);
         TL_ERROR_IF_NEQ_LL(i, 0LL);
         i = cstr_exact_next_match(m);
@@ -142,15 +142,92 @@ static TL_PARAM_TEST(test_suffix_p, algorithm_fn f)
     TL_END();
 }
 
+// There is a lot of stuff we need to wrap up so we can free it again
+// when we are done searching...
+struct st_matcher
+{
+    cstr_exact_matcher matcher; // For the vtable
+    cstr_alphabet *alpha;       // these are
+    cstr_sslice *x_buf;         // all just here
+    cstr_suffix_tree *st;       // so we can free them
+    cstr_exact_matcher *m;      // the actual search
+};
+
+static long long st_next(struct st_matcher *m)
+{
+    return cstr_exact_next_match(m->m);
+}
+static void st_free(struct st_matcher *m)
+{
+    free(m->alpha);
+    free(m->x_buf);
+    cstr_free_suffix_tree(m->st);
+    cstr_free_exact_matcher(m->m);
+    free(m);
+}
+typedef long long (*next_f)(cstr_exact_matcher *);
+typedef void (*free_f)(cstr_exact_matcher *);
+static cstr_exact_matcher_vtab st_matcher_vtab = {.next = (next_f)st_next, .free = (free_f)st_free};
+
+static cstr_exact_matcher *naive_st_matcher(cstr_const_sslice x, cstr_const_sslice p)
+{
+    struct st_matcher *matcher = cstr_malloc(sizeof *matcher);
+    matcher->matcher = (cstr_exact_matcher){ .vtab = &st_matcher_vtab };
+    
+    // Construct the alphabet
+    matcher->alpha = cstr_malloc(sizeof *matcher->alpha);
+    cstr_init_alphabet(matcher->alpha, x);
+
+    // Remap the string
+    matcher->x_buf = cstr_alloc_sslice(x.len);
+    cstr_alphabet_map(*matcher->x_buf, x, matcher->alpha);
+    
+    // Build the tree
+    matcher->st = cstr_naive_suffix_tree(matcher->alpha, CSTR_SLICE_CONST_CAST(*matcher->x_buf));
+    
+    // and finally, construct the real matcher
+    matcher->m = cstr_st_exact_search_map(matcher->st, p);
+    
+    return (cstr_exact_matcher *)matcher;
+}
+
+static cstr_exact_matcher *mcc_st_matcher(cstr_const_sslice x, cstr_const_sslice p)
+{
+    struct st_matcher *matcher = cstr_malloc(sizeof *matcher);
+    matcher->matcher = (cstr_exact_matcher){ .vtab = &st_matcher_vtab };
+    
+    // Construct the alphabet
+    matcher->alpha = cstr_malloc(sizeof *matcher->alpha);
+    cstr_init_alphabet(matcher->alpha, x);
+
+    // Remap the string
+    matcher->x_buf = cstr_alloc_sslice(x.len);
+    cstr_alphabet_map(*matcher->x_buf, x, matcher->alpha);
+    
+    // Build the tree
+    matcher->st = cstr_mccreight_suffix_tree(matcher->alpha, CSTR_SLICE_CONST_CAST(*matcher->x_buf));
+    
+    // and finally, construct the real matcher
+    matcher->m = cstr_st_exact_search_map(matcher->st, p);
+    
+    return (cstr_exact_matcher *)matcher;
+}
+
 static TL_TEST(simple_test)
 {
     TL_BEGIN();
     TL_RUN_PARAM_TEST(test_simple_cases_p, "naive", cstr_naive_matcher);
     TL_RUN_PARAM_TEST(test_simple_cases_p, "ba", cstr_ba_matcher);
     TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
+    // FIXME: Can't do this yet; the order of output is different since the first
+    // output ordered indices and the second lexicographically sorted...
+    //TL_RUN_PARAM_TEST(test_simple_cases_p, "naive-st", naive_st_matcher);
+    //TL_RUN_PARAM_TEST(test_simple_cases_p, "mcc-st", mcc_st_matcher);
     TL_END();
 }
 
+// FIXME: need to add the sentinel to x for the random strings if I am to test
+// suffix trees and suffix arrays.
 static TL_TEST(test_random_string)
 {
     TL_BEGIN();
