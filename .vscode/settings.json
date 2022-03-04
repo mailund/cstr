@@ -4,7 +4,11 @@
         "__locale": "c",
         "cstr_internal.h": "c",
         "unittests.h": "c",
-        "cstr.h": "c"
+        "cstr.h": "c",
+        "memory": "c",
+        "utility": "c",
+        "iosfwd": "c",
+        "testlib.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }

@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,10 +8,16 @@
 #define INLINE extern inline
 #include "cstr.h"
 
-
-void *cstr_malloc(size_t size)
+long long cstr_strlen(const char *x)
 {
-    void *buf = malloc(size);
+    size_t n = strlen(x) * sizeof(uint8_t); // Flawfinder: ignore -- x should be \0 terminated here
+    assert(n <= LLONG_MAX);
+    return (long long)n;
+}
+
+void *cstr_realloc(void *p, size_t size)
+{
+    void *buf = realloc(p, size);
     if (!buf)
     {
         fprintf(stderr, "Allocation error, terminating\n");
@@ -19,15 +26,36 @@ void *cstr_malloc(size_t size)
     return buf;
 }
 
-void *cstr_malloc_header_array(size_t base_size,
+void *cstr_malloc(size_t size)
+{
+    return cstr_realloc(0, size);
+}
+
+void *cstr_realloc_header_array(void *p,
+                                size_t base_size,
                                 size_t elm_size,
                                 size_t len)
 {
-    if ((SIZE_MAX - base_size) / elm_size < len) {
+    if ((SIZE_MAX - base_size) / elm_size < len)
+    {
         fprintf(stderr, "Trying to allocte a buffer longer than SIZE_MAX\n");
         exit(2);
     }
-    return cstr_malloc(base_size + elm_size * len);
+    return cstr_realloc(p, base_size + elm_size * len);
+}
+
+void *cstr_malloc_header_array(size_t base_size,
+                               size_t elm_size,
+                               size_t len)
+{
+    return cstr_realloc_header_array(0, base_size, elm_size, len);
+}
+
+void *cstr_realloc_buffer(void *p, size_t obj_size, size_t len)
+{
+    // a buffer is just a flexible array in a struct that
+    // has zero header...
+    return cstr_realloc_header_array(p, 0, obj_size, len);
 }
 
 void *cstr_malloc_buffer(size_t obj_size, size_t len)
@@ -37,29 +65,127 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
     return cstr_malloc_header_array(0, obj_size, len);
 }
 
-
-bool cstr_sslice_eq(cstr_sslice x,
-                    cstr_sslice y)
-{
-    if (x.len != y.len)
-        return false;
-
-    for (size_t i = 0; i < x.len; i++)
-    {
-        if (x.buf[i] != y.buf[i])
-            return false;
+#define GEN_ALLOC_SLICE(STYPE, QUAL, TYPE)                       \
+    cstr_##STYPE *cstr_alloc_##STYPE(long long len)              \
+    {                                                            \
+        struct                                                   \
+        {                                                        \
+            cstr_##STYPE slice;                                  \
+            QUAL TYPE data[];                                    \
+        } *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)len); \
+        buf->slice.len = len;                                    \
+        buf->slice.buf = buf->data;                              \
+        return (cstr_##STYPE *)buf;                              \
     }
+GEN_ALLOC_SLICE(sslice, , uint8_t)
+GEN_ALLOC_SLICE(const_sslice, const, uint8_t)
+GEN_ALLOC_SLICE(islice, , int)
+GEN_ALLOC_SLICE(const_islice, const, int)
+GEN_ALLOC_SLICE(uislice, , unsigned int)
+GEN_ALLOC_SLICE(const_uislice, const, unsigned int)
 
-    return true;
-}
-
-void cstr_fprint_sslice(FILE *f, cstr_sslice x)
-{
-    fprintf(f, "[");
-    char *sep = "";
-    for (int i = 0; i < x.len; i++) {
-        fprintf(f, "%s%c", sep, x.buf[i]);
-        sep = ", ";
+#define GEN_SLICE_EQ(STYPE)                   \
+    bool cstr_eq_##STYPE(cstr_##STYPE x,      \
+                         cstr_##STYPE y)      \
+    {                                         \
+        if (x.len != y.len)                   \
+            return false;                     \
+                                              \
+        for (long long i = 0; i < x.len; i++) \
+        {                                     \
+            if (x.buf[i] != y.buf[i])         \
+                return false;                 \
+        }                                     \
+                                              \
+        return true;                          \
     }
-    fprintf(f, "]");
-}
+GEN_SLICE_EQ(sslice)
+GEN_SLICE_EQ(const_sslice)
+GEN_SLICE_EQ(islice)
+GEN_SLICE_EQ(const_islice)
+GEN_SLICE_EQ(uislice)
+GEN_SLICE_EQ(const_uislice)
+
+#define GEN_SLICE_LE(STYPE)                            \
+    bool cstr_le_##STYPE(cstr_##STYPE x,               \
+                         cstr_##STYPE y)               \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] < y.buf[i])                   \
+                return true;                           \
+            if (x.buf[i] > y.buf[i])                   \
+                return false;                          \
+        }                                              \
+                                                       \
+        return x.len <= y.len;                         \
+    }
+GEN_SLICE_LE(sslice)
+GEN_SLICE_LE(const_sslice)
+GEN_SLICE_LE(islice)
+GEN_SLICE_LE(const_islice)
+GEN_SLICE_LE(uislice)
+GEN_SLICE_LE(const_uislice)
+
+#define GEN_SLICE_GE(STYPE)                            \
+    bool cstr_ge_##STYPE(cstr_##STYPE x,               \
+                         cstr_##STYPE y)               \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] < y.buf[i])                   \
+                return false;                          \
+            if (x.buf[i] > y.buf[i])                   \
+                return true;                           \
+        }                                              \
+                                                       \
+        return x.len >= y.len;                         \
+    }
+GEN_SLICE_GE(sslice)
+GEN_SLICE_GE(const_sslice)
+GEN_SLICE_GE(islice)
+GEN_SLICE_GE(const_islice)
+GEN_SLICE_GE(uislice)
+GEN_SLICE_GE(const_uislice)
+
+#define GEN_SLICE_LCP(STYPE)                           \
+    long long cstr_lcp_##STYPE(cstr_##STYPE x,         \
+                               cstr_##STYPE y)         \
+    {                                                  \
+        long long n = (x.len < y.len) ? x.len : y.len; \
+                                                       \
+        for (long long i = 0; i < n; i++)              \
+        {                                              \
+            if (x.buf[i] != y.buf[i])                  \
+                return i;                              \
+        }                                              \
+                                                       \
+        return n;                                      \
+    }
+GEN_SLICE_LCP(sslice)
+GEN_SLICE_LCP(const_sslice)
+GEN_SLICE_LCP(islice)
+GEN_SLICE_LCP(const_islice)
+GEN_SLICE_LCP(uislice)
+GEN_SLICE_LCP(const_uislice)
+
+#define GEN_FPRINT_SLICE(STYPE, FMT)                                      \
+    void cstr_fprint_##STYPE(FILE *f, cstr_##STYPE x)                     \
+    {                                                                     \
+        fprintf(f, "[");                                                  \
+        char *sep = "";                                                   \
+        for (int i = 0; i < x.len; i++)                                   \
+        {                                                                 \
+            fprintf(f, "%s" FMT, sep, x.buf[i]); /* Flawfinder: ignore */ \
+            sep = ", ";                                                   \
+        }                                                                 \
+        fprintf(f, "]");                                                  \
+    }
+GEN_FPRINT_SLICE(sslice, "%c")
+GEN_FPRINT_SLICE(const_sslice, "%c")
+GEN_FPRINT_SLICE(islice, "%d")
+GEN_FPRINT_SLICE(const_islice, "%d")
+GEN_FPRINT_SLICE(uislice, "%u")
+GEN_FPRINT_SLICE(const_uislice, "%u")

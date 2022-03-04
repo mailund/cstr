@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(cstr)
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 23)
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
     ${CMAKE_SOURCE_DIR}/Modules/
@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH
 include(GroupFiles)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

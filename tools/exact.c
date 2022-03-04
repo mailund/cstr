@@ -8,7 +8,7 @@
 #include "fastq.h"
 #include "sam.h"
 
-typedef struct cstr_exact_matcher *(*algorithm_fn)(cstr_sslice, cstr_sslice);
+typedef cstr_exact_matcher *(*algorithm_fn)(cstr_const_sslice, cstr_const_sslice);
 
 struct alg_choice {
     const char *name;
@@ -45,7 +45,7 @@ int main(int argc, const char *argv[]) {
     struct fasta_record farec;
     struct fastq_iter fqiter;
     struct fastq_record fqrec;
-    struct cstr_exact_matcher *matcher = 0;
+    cstr_exact_matcher *matcher = 0;
     char cigarbuf[2048];
 
     FILE *fq = fopen(argv[3], "r");
@@ -56,13 +56,13 @@ int main(int argc, const char *argv[]) {
         init_fasta_iter(&faiter, chromosomes);
         while (next_fasta_record(&faiter, &farec)) {
             matcher =
-                algo(CSTR_SLICE((char *)farec.seq, farec.seq_len),
-                     CSTR_SLICE_STRING(fqrec.sequence));
+                algo(CSTR_SLICE((const uint8_t *)farec.seq, farec.seq_len),
+                     CSTR_SLICE_STRING((const char *)fqrec.sequence));
             
-            for (int pos = cstr_exact_next_match(matcher); pos != -1;
+            for (long long pos = cstr_exact_next_match(matcher); pos != -1;
                  pos = cstr_exact_next_match(matcher)) {
                 print_sam_line(stdout, fqrec.name, farec.name, pos + 1,
-                               cigarbuf, (const char *)fqrec.sequence, fqrec.quality);
+                               cigarbuf, fqrec.sequence, fqrec.quality);
             }
             cstr_free_exact_matcher(matcher);
         }

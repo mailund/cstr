@@ -26,7 +26,7 @@ set(${PROJECT_NAME}_PUBLIC_HEADERS
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES 
-        C_STANDARD          11
+        C_STANDARD          23
         C_STANDARD_REQUIRED ON
         C_EXTENSIONS        OFF
         PUBLIC_HEADER       "${${PROJECT_NAME}_PUBLIC_HEADERS}"

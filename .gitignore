@@ -5,3 +5,10 @@ a.out
 build
 xcodebuild
 makebuild
+CMakeFiles
+CMakeCache.txt
+Makefile
+tools/exact
+src/config.h
+DartConfiguration.tcl
+Testing/

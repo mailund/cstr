@@ -17,16 +17,16 @@
 static inline long long sa3len(long long n) { return (n - 1) / 3 + 1; }
 static inline long long sa12len(long long n) { return n - sa3len(n); }
 
-static inline unsigned int safe_idx(cstr_uislice x, unsigned int i)
+static inline unsigned int safe_idx(cstr_const_uislice x, unsigned int i)
 {
     return (i >= x.len) ? 0 : x.buf[i];
 }
 
-static void get_sa12(cstr_suffix_array sa12, cstr_uislice x)
+static void get_sa12(cstr_suffix_array sa12, cstr_const_uislice x)
 {
     // For the static analyser...
-    assert(sa12.buf && sa12.len > 0 &&
-           sa12.len == sa12len(x.len));
+    assert(sa12.buf && sa12.len > 0);
+    assert(sa12.len == sa12len(x.len));
 
     unsigned int j = 0;
     for (unsigned int i = 0; i < x.len; i++)
@@ -42,8 +42,9 @@ static void get_sa12(cstr_suffix_array sa12, cstr_uislice x)
 
 static void get_sa3(cstr_suffix_array sa3,
                     cstr_suffix_array sa12,
-                    cstr_uislice x)
+                    cstr_const_uislice x)
 {
+    // The static analyser is crazy about assertions like this...
     assert(sa3.buf && sa12.buf && sa3.len > 0 && sa3.len == sa3len(x.len));
 
     int k = 0;
@@ -62,14 +63,15 @@ static void get_sa3(cstr_suffix_array sa3,
     assert(k == sa3.len); // for the static analyser
 }
 
-static void bucket_sort_with_buffers(cstr_uislice x, cstr_uislice idx,
+static void bucket_sort_with_buffers(cstr_const_uislice x,
+                                     cstr_uislice idx,
                                      unsigned int offset,
                                      unsigned int asize,
                                      unsigned int *restrict buckets,
                                      unsigned int *restrict buffer)
 {
-    assert(x.len > 0 && idx.len > 0 &&
-           asize > 0); // helping the static analyser.
+    // helping the static analyser.
+    assert(x.len > 0 && idx.len > 0 && asize > 0);
 
     // Compute buckets
     for (unsigned int i = 0; i < asize; i++)
@@ -98,7 +100,7 @@ static void bucket_sort_with_buffers(cstr_uislice x, cstr_uislice idx,
     memcpy(idx.buf, buffer, (size_t)idx.len * sizeof(*buffer));
 }
 
-static void bucket_sort(cstr_uislice x,
+static void bucket_sort(cstr_const_uislice x,
                         cstr_uislice idx,
                         unsigned int offset,
                         unsigned int asize)
@@ -111,7 +113,7 @@ static void bucket_sort(cstr_uislice x,
     free(buffer);
 }
 
-static void radix3(cstr_uislice x, cstr_uislice idx, unsigned int asize)
+static void radix3(cstr_const_uislice x, cstr_uislice idx, unsigned int asize)
 {
     unsigned int *buckets = cstr_malloc((size_t)asize * sizeof *buckets);
     unsigned int *buffer = cstr_malloc((size_t)idx.len * sizeof *buffer);
@@ -124,7 +126,7 @@ static void radix3(cstr_uislice x, cstr_uislice idx, unsigned int asize)
     free(buffer);
 }
 
-static bool less(cstr_uislice x,
+static bool less(cstr_const_uislice x,
                  unsigned int i, unsigned int j,
                  unsigned int isa[])
 {
@@ -142,7 +144,7 @@ static bool less(cstr_uislice x,
 }
 
 static void merge(cstr_suffix_array sa,
-                  cstr_uislice x,
+                  cstr_const_uislice x,
                   cstr_suffix_array sa12,
                   cstr_suffix_array sa3)
 {
@@ -185,7 +187,7 @@ static void merge(cstr_suffix_array sa,
     free(isa);
 }
 
-static inline bool equal3(cstr_uislice x,
+static inline bool equal3(cstr_const_uislice x,
                           unsigned int i, unsigned int j)
 {
     return safe_idx(x, i + 0) == safe_idx(x, j + 0) &&
@@ -205,8 +207,8 @@ static inline unsigned int map_u_x(unsigned int i, unsigned int m)
 }
 
 static unsigned int build_alphabet(unsigned int encoding[],
-                                    cstr_uislice x,
-                                    cstr_suffix_array sa12)
+                                   cstr_const_uislice x,
+                                   cstr_suffix_array sa12)
 {
     // Build the alphabet for u. We build the mapping/encoding
     // of the indices to new letters at the same time.
@@ -232,7 +234,7 @@ static unsigned int build_alphabet(unsigned int encoding[],
 
 // this u is based on the terminal sentinel always being part of the input, so
 // we don't need a central sentinel.
-static void build_u(cstr_uislice u, unsigned int encoding[])
+static void build_u(cstr_uislice u, unsigned int const encoding[])
 {
     assert(u.buf);
 
@@ -248,51 +250,51 @@ static void build_u(cstr_uislice u, unsigned int encoding[])
     assert(k == u.len); // for the static analyser
 }
 
-static void skew_rec(cstr_suffix_array sa, cstr_uislice x, unsigned int asize)
+static void skew_rec(cstr_suffix_array sa, cstr_const_uislice x, unsigned int asize)
 {
-    cstr_suffix_array sa12 = CSTR_ALLOC_SLICE_BUFFER(sa12, sa12len(x.len));
-    get_sa12(sa12, x);
-    radix3(x, sa12, asize);
+    cstr_suffix_array *sa12 = cstr_alloc_uislice(sa12len(x.len));
+    get_sa12(*sa12, x);
+    radix3(x, *sa12, asize);
 
-    unsigned int *encoding = cstr_malloc((size_t)sa12.len * sizeof *encoding);
-    unsigned int new_asize = build_alphabet(encoding, x, sa12);
+    unsigned int *encoding = cstr_malloc((size_t)sa12->len * sizeof *encoding);
+    unsigned int new_asize = build_alphabet(encoding, x, *sa12);
 
     // if the alphabet minus the sentinel matches the length of sa12, then
     // all symbols in sa12 are unique and we do not need to process further.
-    if (new_asize - 1 < sa12.len)
+    if (new_asize - 1 < sa12->len)
     {
         // We need to sort recursively
-        cstr_uislice u = CSTR_ALLOC_SLICE_BUFFER(u, sa12.len);
-        build_u(u, encoding);
+        cstr_uislice *u = cstr_alloc_uislice(sa12->len);
+        build_u(*u, encoding);
         CSTR_FREE_NULL(encoding);
 
-        cstr_suffix_array u_sa = CSTR_ALLOC_SLICE_BUFFER(u_sa, u.len);
+        cstr_suffix_array *u_sa = cstr_alloc_uislice(u->len);
 
-        skew_rec(u_sa, u, new_asize);
+        skew_rec(*u_sa, CSTR_SLICE_CONST_CAST(*u), new_asize);
 
-        unsigned int m = (unsigned int)(u_sa.len + 1) / 2;
-        for (unsigned int i = 0; i < u_sa.len; i++)
+        unsigned int m = (unsigned int)(u_sa->len + 1) / 2;
+        for (unsigned int i = 0; i < u_sa->len; i++)
         {
-            sa12.buf[i] = map_u_x(u_sa.buf[i], m);
+            sa12->buf[i] = map_u_x(u_sa->buf[i], m);
         }
 
-        CSTR_FREE_SLICE_BUFFER(u);
-        CSTR_FREE_SLICE_BUFFER(u_sa);
+        free(u);
+        free(u_sa);
     }
 
-    cstr_suffix_array sa3 = CSTR_ALLOC_SLICE_BUFFER(sa3, sa3len(x.len));
-    get_sa3(sa3, sa12, x);
+    cstr_suffix_array *sa3 = cstr_alloc_uislice(sa3len(x.len));
+    get_sa3(*sa3, *sa12, x);
 
-    bucket_sort(x, sa3, /* offset */ 0, asize);
+    bucket_sort(x, *sa3, /* offset */ 0, asize);
 
-    merge(sa, x, sa12, sa3);
+    merge(sa, x, *sa12, *sa3);
 
-    CSTR_FREE_SLICE_BUFFER(sa12);
-    CSTR_FREE_SLICE_BUFFER(sa3);
+    free(sa12);
+    free(sa3);
     free(encoding);
 }
 
-void cstr_skew(cstr_suffix_array sa, cstr_uislice x, cstr_alphabet *alpha)
+void cstr_skew(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha)
 {
     // we need to store indices in int, so there is a limit to the
     // length.
