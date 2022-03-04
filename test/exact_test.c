@@ -7,49 +7,62 @@
 #include "testlib.h"
 
 typedef cstr_exact_matcher *(*algorithm_fn)(cstr_const_sslice, cstr_const_sslice);
+#define NEXT cstr_exact_next_match
+#define END -1
 
 static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
 {
     TL_BEGIN();
     {
-        const char *x = "aaba";
-        const char *p = "a";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        long long i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 0LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 1LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 3LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, -1LL);
+        cstr_const_sslice x = CSTR_SLICE_STRING((const char *)"aaba");
+        cstr_const_sslice p = CSTR_SLICE_STRING((const char *)"a");
+        cstr_bit_vector *expected = cstr_new_bv_from_string("1101");
+        cstr_bit_vector *observed = cstr_new_bv_init(x.len);
+        
+        cstr_exact_matcher *m = f(x, p);
+        for (long long i = NEXT(m); i != END; i = NEXT(m))
+        {
+            cstr_bv_set(observed, i, true);
+        }
         cstr_free_exact_matcher(m);
+        
+        assert(cstr_bv_eq(expected, observed));
+        free(expected);
+        free(observed);
     }
     {
-        const char *x = "abab";
-        const char *p = "ab";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        long long i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 0LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 2LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, -1LL);
+        cstr_const_sslice x = CSTR_SLICE_STRING((const char *)"abab");
+        cstr_const_sslice p = CSTR_SLICE_STRING((const char *)"ab");
+        cstr_bit_vector *expected = cstr_new_bv_from_string("1010");
+        cstr_bit_vector *observed = cstr_new_bv_init(x.len);
+
+        cstr_exact_matcher *m = f(x, p);
+        for (long long i = NEXT(m); i != END; i = NEXT(m))
+        {
+            cstr_bv_set(observed, i, true);
+        }
         cstr_free_exact_matcher(m);
+        
+        assert(cstr_bv_eq(expected, observed));
+        free(expected);
+        free(observed);
     }
     {
-        const char *x = "aaaa";
-        const char *p = "aa";
-        cstr_exact_matcher *m = f(CSTR_SLICE_STRING(x), CSTR_SLICE_STRING(p));
-        long long i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 0LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 1LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, 2LL);
-        i = cstr_exact_next_match(m);
-        TL_ERROR_IF_NEQ_LL(i, -1LL);
+        cstr_const_sslice x = CSTR_SLICE_STRING((const char *)"aaaa");
+        cstr_const_sslice p = CSTR_SLICE_STRING((const char *)"aa");
+        cstr_bit_vector *expected = cstr_new_bv_from_string("1110");
+        cstr_bit_vector *observed = cstr_new_bv_init(x.len);
+
+        cstr_exact_matcher *m = f(x, p);
+        for (long long i = NEXT(m); i != END; i = NEXT(m))
+        {
+            cstr_bv_set(observed, i, true);
+        }
         cstr_free_exact_matcher(m);
+        
+        assert(cstr_bv_eq(expected, observed));
+        free(expected);
+        free(observed);
     }
     TL_END();
 }
