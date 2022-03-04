@@ -48,6 +48,58 @@ static inline bool is_leaf(node const *node)  { return is_leaf_range(node->range
 static inline bool is_inner(node const *node) { return !is_leaf(node); }
 // clang-format on
 
+// We use a pool (of sub-pools) to allocate inner nodes. We use sub-pools so we can grow
+// the pool without reallocating (and then moving) inner nodes. That way, we can have stable
+// pointers to our nodes. The sub-pools are a linked lists of blocks of nodes, where each
+// block is a contiguous chunk of memory storing the nodes.
+
+static const size_t sub_pool_size = 256; // Number of nodes in a sub-pool
+struct sub_pool
+{
+    // Link to next sub pool in the list.
+    struct sub_pool *next;
+    
+    // The block of raw memory where we store the nodes.
+    // Alignned as an inner_node but of type char * so we can manipulate
+    // it as raw memory. We know how many there are (sub_pool_size), but
+    // their size depends on the alphabet, so we cannot allocate them
+    // statically.
+    alignas(struct inner_node) char node_blocks[];
+};
+
+struct inner_node_pool
+{
+    struct sub_pool *sub_pool; // Linked list of sub-pools
+    size_t block_size;         // The run-time size of an inner node
+    char *next;                // Pointer to the next free node
+    char *end;                 // End of allocated memory
+};
+
+static void new_sub_pool(struct inner_node_pool *pool)
+{
+    struct sub_pool *sub_pool =
+        cstr_malloc_header_array(offsetof(struct sub_pool, node_blocks),
+                                 pool->block_size, sub_pool_size);
+    sub_pool->next = pool->sub_pool;
+    pool->sub_pool = sub_pool;
+    pool->next = &sub_pool->node_blocks[0];
+    pool->end = pool->next + pool->block_size * sub_pool_size;
+}
+
+static void init_pool(struct inner_node_pool *pool, long long sigma, long long n)
+{
+    // First, figure out the size of memory blocks we need to store inner nodes.
+    // A node will take up the space for the shared struct and sigma children
+    size_t node_size = offsetof(struct inner_node, children) + ((size_t)sigma * sizeof(node *));
+    // And a node block must have a size such that consequtive blocks are correctly aligned,
+    // so the block size is the node size rounded up to a full number of alignment blocks.
+    size_t align_constraint = alignof(struct inner_node);
+
+    pool->block_size = align_constraint * ((node_size + align_constraint - 1) / align_constraint);
+    pool->sub_pool = 0;
+    new_sub_pool(pool);
+}
+
 // A suffix tree contains the alphabet and string x, the root
 // of the tree, then a pointer to a pool of inner nodes and embedded
 // in the same memory block, as a flexible array, the leaves. We
@@ -61,8 +113,8 @@ struct cstr_suffix_tree
 
     inner_node *root;
 
-    struct inner_node_pool *pool; // inner nodes are allocated from a pool
-    node leaves[];                // leaves are allocated together with the tree
+    struct inner_node_pool pool; // inner nodes are allocated from a pool
+    node leaves[];               // leaves are allocated together with the tree
 };
 
 // Translating between ranges and slices
@@ -107,46 +159,12 @@ static void set_edge(cstr_suffix_tree *st, node *n, cstr_const_sslice edge)
     }
 }
 
-// FIXME: Right now, my allocation pool for inner nodes always allocate the maximum
-// number of nodes I could possibly need, n - 1, but this is wasteful and I should
-// adjust it to grow, without growing too fast. Using sub-pools I can grow without relocating
-// memory already assigned, so I can still work with pointers to the existing nodes.
-struct inner_node_pool
-{
-    size_t block_size; // The run-time size of an inner node
-    char *next;        // Pointer to the next free node
-    char *end;         // End of allocated memory
-
-    // The block of raw memory where we store the nodes.
-    // Alignned as an inner_node but of type char * so we can manipulate
-    // it as raw memory.
-    alignas(struct inner_node) char node_blocks[];
-};
-
-static struct inner_node_pool *new_pool(long long sigma, long long n)
-{
-    // First, figure out the size of memory blocks we need to store inner nodes.
-    // A node will take up the space for the shared struct and sigma children
-    size_t node_size = offsetof(struct inner_node, children) + ((size_t)sigma * sizeof(node *));
-    // And a node block must have a size such that consequtive blocks are correctly aligned,
-    // so the block size is the node size rounded up to a full number of alignment blocks.
-    size_t align_constraint = alignof(struct inner_node);
-    size_t block_size = align_constraint * ((node_size + align_constraint - 1) / align_constraint);
-
-    // Now, allocate a pool of n - 1 of those blocks. FIXME: change the pre-allocated size
-    struct inner_node_pool *pool =
-        cstr_malloc_header_array(offsetof(struct inner_node_pool, node_blocks), block_size, (size_t)(n - 1));
-
-    pool->block_size = block_size;
-    pool->next = &pool->node_blocks[0];
-    pool->end = pool->next + block_size * (size_t)(n - 1);
-
-    return pool;
-}
-
 static inner_node *pool_get_next(struct inner_node_pool *pool)
 {
-    assert(pool->next < pool->end);
+    if (pool->next == pool->end)
+    {
+        new_sub_pool(pool);
+    }
     inner_node *next = (inner_node *)(void *)pool->next;
     pool->next += pool->block_size;
     return next;
@@ -160,7 +178,7 @@ static inline node *get_suffix_leaf(cstr_suffix_tree *st, long long suffix)
 static inner_node *new_inner(cstr_suffix_tree *st,
                              cstr_const_sslice edge)
 {
-    inner_node *n = pool_get_next(st->pool);
+    inner_node *n = pool_get_next(&st->pool);
     n->range = slice_to_range(st, edge);
     n->slink = n->parent = 0;
     for (long long i = 0; i < st->alpha->size; i++)
@@ -458,10 +476,11 @@ static cstr_suffix_tree *
 new_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
 {
     cstr_suffix_tree *st = CSTR_MALLOC_FLEX_ARRAY(st, leaves, (size_t)x.len);
-    st->pool = new_pool(alpha->size, x.len);
 
     st->alpha = alpha;
     st->x = x;
+
+    init_pool(&st->pool, alpha->size, x.len);
 
     // It doesn't matter what edge we put on the root, we are never going to
     // look at it, but we want beg < end on the range so we don't confuse
@@ -640,7 +659,12 @@ cstr_mccreight_suffix_tree(cstr_alphabet const *alpha, cstr_const_sslice x)
 
 void cstr_free_suffix_tree(cstr_suffix_tree *st)
 {
-    free(st->pool);
+    struct sub_pool *spool = st->pool.sub_pool, *next;
+    for (; spool; spool = next)
+    {
+        next = spool->next;
+        free(spool);
+    }
     free(st);
 }
 
