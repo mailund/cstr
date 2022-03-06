@@ -392,10 +392,8 @@ typedef struct cstr_exact_matcher_vtab
 
 // clang-format off
 // returns -1 when there are no more matches, otherwise an index of a match
-INLINE long long cstr_exact_next_match(cstr_exact_matcher *self) 
-{ return self->vtab->next(self); }
-INLINE void cstr_free_exact_matcher(cstr_exact_matcher *self)    
-{ self->vtab->free(self); }
+INLINE long long cstr_exact_next_match(cstr_exact_matcher *self)   { return self->vtab->next(self); }
+INLINE void      cstr_free_exact_matcher(cstr_exact_matcher *self) { self->vtab->free(self); }
 // clang-format on
 
 cstr_exact_matcher *cstr_naive_matcher(cstr_const_sslice x, cstr_const_sslice p);
@@ -441,35 +439,8 @@ cstr_exact_matcher *cstr_st_exact_search_map(cstr_suffix_tree *st, cstr_const_ss
 
 // ==== Burrows-Wheeler transform =================================
 
-uint8_t *
-cstr_bwt(long long n, uint8_t const *x, unsigned int sa[n]);
-
-struct cstr_bwt_c_table
-{
-  int asize;
-  int cumsum[];
-};
-
-struct cstr_bwt_c_table *cstr_compute_bwt_c_table(long long n, uint8_t const *x, int asize);
-void cstr_print_bwt_c_table(struct cstr_bwt_c_table const *ctab);
-INLINE long long cstr_bwt_c_tab_rank(struct cstr_bwt_c_table const *ctab, uint8_t i)
-{
-  return ctab->cumsum[i];
-}
-
-struct cstr_bwt_o_table;
-struct cstr_bwt_o_table *cstr_compute_bwt_o_table(long long n,
-                                                  uint8_t const *bwt,
-                                                  struct cstr_bwt_c_table const *ctab);
-void cstr_print_bwt_o_table(struct cstr_bwt_o_table const *otab);
-long long cstr_bwt_o_tab_rank(struct cstr_bwt_o_table const *otab, uint8_t a, long long i);
-
-void cstr_bwt_search(long long *left,
-                     long long *right,
-                     uint8_t const *x,
-                     uint8_t const *p,
-                     struct cstr_bwt_c_table const *ctab,
-                     struct cstr_bwt_o_table const *otab);
+void cstr_bwt(cstr_sslice bwt, cstr_const_sslice x, cstr_suffix_array sa);
+void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array sa);
 
 #undef INLINE
 #endif // CSTR_INCLUDED
