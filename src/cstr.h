@@ -442,5 +442,17 @@ cstr_exact_matcher *cstr_st_exact_search_map(cstr_suffix_tree *st, cstr_const_ss
 void cstr_bwt(cstr_sslice bwt, cstr_const_sslice x, cstr_suffix_array sa);
 void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array sa);
 
+typedef struct cstr_bwt_preproc cstr_bwt_preproc; // Preprocessed tables for searching using FM-index
+// Does all the preprocessing, including mapping the alphabet, building the suffix array,
+// and building the tables for searching. You could save some time, if you already did
+// some of the preprocessing elsewhere, by writing a function that does somewhat less.
+struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x);
+
+// This matcher does not assume that p is already mapped. It does assume that you have built
+// the preproc tables.
+cstr_exact_matcher *cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice p);
+
+void cstr_free_bwt_preproc(struct cstr_bwt_preproc *preproc);
+
 #undef INLINE
 #endif // CSTR_INCLUDED

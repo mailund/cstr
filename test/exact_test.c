@@ -26,7 +26,10 @@ static TL_PARAM_TEST(test_simple_cases_p, algorithm_fn f)
         }
         cstr_free_exact_matcher(m);
         
+        cstr_bv_print(expected);
+        cstr_bv_print(observed);
         assert(cstr_bv_eq(expected, observed));
+        
         free(expected);
         free(observed);
     }
@@ -259,6 +262,36 @@ static cstr_exact_matcher *mcc_st_matcher(cstr_const_sslice x, cstr_const_sslice
     return (cstr_exact_matcher *)matcher;
 }
 
+struct bwt_matcher
+{
+    cstr_exact_matcher matcher;
+    cstr_bwt_preproc *preproc;
+    cstr_exact_matcher *m;
+};
+
+static long long bwt_next(struct bwt_matcher *m)
+{
+    return cstr_exact_next_match(m->m);
+}
+
+static void bwt_free(struct bwt_matcher *m)
+{
+    cstr_free_bwt_preproc(m->preproc);
+    cstr_free_exact_matcher(m->m);
+    free(m);
+}
+
+static cstr_exact_matcher_vtab bwt_matcher_vtab = {.next = (next_f)bwt_next, .free = (free_f)bwt_free};
+
+static cstr_exact_matcher *bwt_matcher(cstr_const_sslice x, cstr_const_sslice p)
+{
+    struct bwt_matcher *m = cstr_malloc(sizeof *m);
+    m->matcher.vtab = &bwt_matcher_vtab;
+    m->preproc = cstr_bwt_preprocess(x);
+    m->m = cstr_fmindex_search(m->preproc, p);
+    return (cstr_exact_matcher *)m;
+}
+
 static TL_TEST(simple_test)
 {
     TL_BEGIN();
@@ -267,11 +300,10 @@ static TL_TEST(simple_test)
     TL_RUN_PARAM_TEST(test_simple_cases_p, "kmp", cstr_kmp_matcher);
     TL_RUN_PARAM_TEST(test_simple_cases_p, "naive-st", naive_st_matcher);
     TL_RUN_PARAM_TEST(test_simple_cases_p, "mcc-st", mcc_st_matcher);
+    TL_RUN_PARAM_TEST(test_simple_cases_p, "fmindex", bwt_matcher);
     TL_END();
 }
 
-// FIXME: need to add the sentinel to x for the random strings if I am to test
-// suffix trees and suffix arrays.
 static TL_TEST(test_random_string)
 {
     TL_BEGIN();
@@ -280,6 +312,7 @@ static TL_TEST(test_random_string)
     TL_RUN_PARAM_TEST(test_random_string_p, "kmp", cstr_kmp_matcher);
     TL_RUN_PARAM_TEST(test_random_string_p, "naive-st", naive_st_matcher);
     TL_RUN_PARAM_TEST(test_random_string_p, "mcc-st", mcc_st_matcher);
+    TL_RUN_PARAM_TEST(test_random_string_p, "fmindex", bwt_matcher);
     TL_END();
 }
 
@@ -291,6 +324,7 @@ static TL_TEST(test_prefix)
     TL_RUN_PARAM_TEST(test_prefix_p, "kmp", cstr_kmp_matcher);
     TL_RUN_PARAM_TEST(test_prefix_p, "naive-st", naive_st_matcher);
     TL_RUN_PARAM_TEST(test_prefix_p, "mcc-st", mcc_st_matcher);
+    TL_RUN_PARAM_TEST(test_prefix_p, "fmindex", bwt_matcher);
     TL_END();
 }
 
@@ -302,6 +336,7 @@ static TL_TEST(test_suffix)
     TL_RUN_PARAM_TEST(test_suffix_p, "kmp", cstr_kmp_matcher);
     TL_RUN_PARAM_TEST(test_suffix_p, "naive-st", naive_st_matcher);
     TL_RUN_PARAM_TEST(test_suffix_p, "mcc-st", mcc_st_matcher);
+    TL_RUN_PARAM_TEST(test_suffix_p, "fmindex", bwt_matcher);
     TL_END();
 }
 

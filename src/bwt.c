@@ -23,7 +23,6 @@ struct o_table
 // Correcting for implict zero row
 #define O(A, I) (((I) == 0) ? 0 : O_RAW((A), (I)-1))
 
-
 /*
  static void cstr_print_bwt_c_table(struct c_table const *ctab)
  {
@@ -100,7 +99,7 @@ void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array 
     cstr_alphabet alpha;
     cstr_init_alphabet(&alpha, bwt);
     long long sigma = alpha.size;
-    
+
     // We don't assume that the bwt string is mapped down to the alphabet here (although
     // maybe we should to save some time), so we also need to do that...
     cstr_sslice *mapped_buf = cstr_alloc_sslice(bwt.len);
@@ -119,7 +118,7 @@ void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array 
         rev.buf[j] = a;
         i = C(a) + O(a, i);
     }
-    
+
     // If the input wasn't mapped down to the alphabet, then rev isn't in the
     // right alphabet either, and so we need to map it back.
     cstr_alphabet_revmap(rev, CSTR_SLICE_CONST_CAST(rev), &alpha);
@@ -129,26 +128,118 @@ void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array 
     free(otab);
 }
 
-/*
-
-
-// FIXME: p should be a slice!
-void cstr_bwt_search(
-    long long *left, long long *right,
-    uint8_t const *x, uint8_t const *p,
-    struct cstr_bwt_c_table const *ctab,
-    struct cstr_bwt_o_table const *otab)
+struct cstr_bwt_preproc
 {
-    *left = 0, *right = otab->n;
-    int m = (int)strlen((const char *)p);
-    for (int i = m - 1; i >= 0; i--)
-    {
-        uint8_t a = p[i];
-        *left = C(a) + O(a, *left);
-        *right = C(a) + O(a, *right);
-        if (*left >= *right)
-            break;
-    }
+    cstr_alphabet alpha;
+    cstr_suffix_array *sa;
+    struct c_table *ctab;
+    struct o_table *otab;
+};
+
+struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x)
+{
+    struct cstr_bwt_preproc *preproc = cstr_malloc(sizeof *preproc);
+    cstr_init_alphabet(&preproc->alpha, x);
+
+    // We don't assume that the bwt string is mapped down to the alphabet here (although
+    // maybe we should to save some time), so we also need to do that... Anyway, the
+    // mapping is needed both for constructing the suffix array and for representing
+    // the tables.
+
+    // Map the string into an integer slice so we can build the suffix array.
+    cstr_uislice *u_buf = cstr_alloc_uislice(x.len);
+    cstr_alphabet_map_to_uint(*u_buf, x, &preproc->alpha);
+    cstr_const_uislice u = CSTR_SLICE_CONST_CAST(*u_buf);
+    
+    // Then build the suffix array
+    preproc->sa = cstr_alloc_uislice(x.len);
+    cstr_sais(*preproc->sa, u, &preproc->alpha);
+
+    // From the suffix array we can build the BWT of x
+    cstr_sslice *w_buf = cstr_alloc_sslice(x.len);
+    cstr_alphabet_map(*w_buf, x, &preproc->alpha);
+    cstr_const_sslice w = CSTR_SLICE_CONST_CAST(*w_buf);
+    
+    cstr_sslice *bwt_buf = cstr_alloc_sslice(x.len);
+    cstr_bwt(*bwt_buf, w, *preproc->sa);
+    cstr_const_sslice bwt = CSTR_SLICE_CONST_CAST(*bwt_buf);
+    
+    // With the BWT in hand, we can build the tables.
+    preproc->ctab = build_c_table(bwt, preproc->alpha.size);
+    preproc->otab = build_o_table(bwt, preproc->ctab);
+    
+    // We don't need the mapped string nor the BWT any more.
+    // The information we need is all in the tables in preproc.
+    free(bwt_buf);
+    free(w_buf);
+    free(u_buf);
+
+    return preproc;
 }
 
-*/
+void cstr_free_bwt_preproc(struct cstr_bwt_preproc *preproc)
+{
+    free(preproc->sa);
+    free(preproc->ctab);
+    free(preproc->otab);
+}
+
+typedef struct fmindex_matcher
+{
+    cstr_exact_matcher matcher;
+    cstr_bwt_preproc *preproc;
+    long long next;
+    long long end;
+} fmindex_matcher;
+
+static long long next_match(fmindex_matcher *m)
+{
+    if (m->next == m->end)
+    {
+        return -1;
+    }
+    return m->preproc->sa->buf[m->next++];
+}
+
+typedef long long (*next_f)(cstr_exact_matcher *);
+typedef void (*free_f)(cstr_exact_matcher *);
+static cstr_exact_matcher_vtab bwt_matcher_vtab = {.next = (next_f)next_match, .free = (free_f)free};
+
+cstr_exact_matcher *
+cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice raw_p)
+{
+    // If we cannot map p, this will be what we return; it is an
+    // empty interval.
+    long long left = 0, right = 0;
+    
+    cstr_sslice *p_buf = cstr_alloc_sslice(raw_p.len);
+    bool ok = cstr_alphabet_map(*p_buf, raw_p, &preproc->alpha);
+    if (ok)
+    {
+        cstr_const_sslice p = CSTR_SLICE_CONST_CAST(*p_buf);
+        struct c_table *ctab = preproc->ctab;
+        struct o_table *otab = preproc->otab;
+        
+        left = 0; right = otab->n;
+        for (long long i = p.len - 1; i >= 0; i--)
+        {
+            uint8_t a = p.buf[i];
+            left = C(a) + O(a, left);
+            right = C(a) + O(a, right);
+            if (left >= right)
+            {
+                break;
+            }
+        }
+    }
+    free(p_buf);
+    
+    fmindex_matcher *m = cstr_malloc(sizeof *m);
+    *m = (fmindex_matcher){
+        .matcher = { .vtab = &bwt_matcher_vtab },
+        .preproc = preproc,
+        .next = left, .end = right,
+    };
+    
+    return (cstr_exact_matcher *)m;
+}
