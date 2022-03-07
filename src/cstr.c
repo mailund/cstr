@@ -171,6 +171,21 @@ GEN_SLICE_LCP(const_islice)
 GEN_SLICE_LCP(uislice)
 GEN_SLICE_LCP(const_uislice)
 
+#define CSTR_GEN_REV_SLICE(STYPE, BTYPE)  \
+    void cstr_rev_##STYPE(cstr_##STYPE s) \
+    {                                     \
+        long long i = 0, j = s.len - 1;   \
+        for (; i < j; i++, j--)           \
+        {                                 \
+            BTYPE tmp = s.buf[i];         \
+            s.buf[i] = s.buf[j];          \
+            s.buf[j] = tmp;               \
+        }                                 \
+    }
+CSTR_GEN_REV_SLICE(sslice, uint8_t)
+CSTR_GEN_REV_SLICE(islice, int)
+CSTR_GEN_REV_SLICE(uislice, unsigned int)
+
 #define GEN_FPRINT_SLICE(STYPE, FMT)                                      \
     void cstr_fprint_##STYPE(FILE *f, cstr_##STYPE x)                     \
     {                                                                     \

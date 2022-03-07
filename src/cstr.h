@@ -199,6 +199,15 @@ CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
            cstr_const_uislice              \
            : cstr_##FUNC##_const_uislice)
 
+#define CSTR_SLICE_DISPATCH_MUTABLE(X, FUNC)       \
+  _Generic((X),                            \
+           cstr_sslice                     \
+           : cstr_##FUNC##_sslice,         \
+           cstr_islice                     \
+           : cstr_##FUNC##_islice,         \
+           cstr_uislice                    \
+           : cstr_##FUNC##_uislice)
+
 #define CSTR_BASE_DISPATCH(B, FUNC)        \
   _Generic((B),                            \
            uint8_t *                       \
@@ -298,6 +307,14 @@ long long cstr_lcp_const_islice(cstr_const_islice x, cstr_const_islice y);
 long long cstr_lcp_uislice(cstr_uislice x, cstr_uislice y);
 long long cstr_lcp_const_uislice(cstr_const_uislice x, cstr_const_uislice y);
 #define CSTR_SLICE_LCP(A, B) CSTR_SLICE_DISPATCH(A, lcp)(A, B)
+
+// Reversing slices
+#define CSTR_GEN_REV_SLICE_PROTOTYPE(STYPE) \
+  void cstr_rev_##STYPE(cstr_##STYPE);
+CSTR_GEN_REV_SLICE_PROTOTYPE(sslice)
+CSTR_GEN_REV_SLICE_PROTOTYPE(islice)
+CSTR_GEN_REV_SLICE_PROTOTYPE(uislice)
+#define CSTR_REV_SLICE(S) CSTR_SLICE_DISPATCH_MUTABLE(S, rev)(S)
 
 // I/O
 void cstr_fprint_sslice(FILE *f, cstr_sslice x);
@@ -448,13 +465,18 @@ typedef struct cstr_bwt_preproc cstr_bwt_preproc; // Preprocessed tables for sea
 // Does all the preprocessing, including mapping the alphabet, building the suffix array,
 // and building the tables for searching. You could save some time, if you already did
 // some of the preprocessing elsewhere, by writing a function that does somewhat less.
-struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x);
+cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x);
 
 // This matcher does not assume that p is already mapped. It does assume that you have built
 // the preproc tables.
 cstr_exact_matcher *cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice p);
 
 void cstr_free_bwt_preproc(struct cstr_bwt_preproc *preproc);
+
+// ==== Li-Durbin approximative matching ==========================
+typedef struct cstr_li_durbin_preproc cstr_li_durbin_preproc;
+cstr_li_durbin_preproc *cstr_li_durbin_preprocess(cstr_const_sslice x);
+void cstr_free_li_durbin_preproc(cstr_li_durbin_preproc *preproc);
 
 #undef INLINE
 #endif // CSTR_INCLUDED

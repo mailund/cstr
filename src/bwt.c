@@ -3,62 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cstr.h"
+#include "bwt_internal.h"
 
-struct c_table
-{
-    long long sigma;
-    unsigned int cumsum[];
-};
-#define C(A) (ctab->cumsum[A])
-
-struct o_table
-{
-    long long sigma;
-    long long n;
-    long long table[];
-};
-// Direct look-up, not compensating for row zero
-#define O_RAW(A, I) (otab->table[(I) * (otab)->sigma + (A)])
-// Correcting for implict zero row
-#define O(A, I) (((I) == 0) ? 0 : O_RAW((A), (I)-1))
-
-/*
- static void cstr_print_bwt_c_table(struct c_table const *ctab)
- {
-     printf("[ ");
-     for (long long i = 0; i < ctab->sigma; i++)
-     {
-         printf("%u ", ctab->cumsum[i]);
-     }
-     printf("]\n");
- }
-
- static void cstr_print_bwt_o_table(struct o_table const *otab)
- {
-     for (int a = 0; a < otab->sigma; a++)
-     {
-         for (int i = 0; i < otab->n; i++)
-         {
-             printf("%lld ", O_RAW(a, i));
-         }
-         printf("\n");
-     }
- }
-*/
-
-void cstr_bwt(cstr_sslice bwt, cstr_const_sslice x, cstr_suffix_array sa)
-{
-    assert(bwt.len == x.len && x.len == sa.len);
-    for (long long i = 0; i < x.len; i++)
-    {
-        // Previous index, with wrap at index zero...
-        long long j = sa.buf[i] + (sa.buf[i] == 0) * x.len;
-        bwt.buf[i] = x.buf[j - 1];
-    }
-}
-
-static struct c_table *build_c_table(cstr_const_sslice x, long long sigma)
+struct c_table *cstr_build_c_table(cstr_const_sslice x, long long sigma)
 {
     struct c_table *ctab = CSTR_MALLOC_FLEX_ARRAY(ctab, cumsum, (size_t)sigma);
     ctab->sigma = sigma;
@@ -75,7 +22,7 @@ static struct c_table *build_c_table(cstr_const_sslice x, long long sigma)
     return ctab;
 }
 
-static struct o_table *build_o_table(cstr_const_sslice bwt, struct c_table const *ctab)
+struct o_table *cstr_build_o_table(cstr_const_sslice bwt, struct c_table const *ctab)
 {
     struct o_table *otab = CSTR_MALLOC_FLEX_ARRAY(otab, table, (size_t)ctab->sigma * (size_t)bwt.len);
     otab->sigma = ctab->sigma;
@@ -89,6 +36,17 @@ static struct o_table *build_o_table(cstr_const_sslice bwt, struct c_table const
         }
     }
     return otab;
+}
+
+void cstr_bwt(cstr_sslice bwt, cstr_const_sslice x, cstr_suffix_array sa)
+{
+    assert(bwt.len == x.len && x.len == sa.len);
+    for (long long i = 0; i < x.len; i++)
+    {
+        // Previous index, with wrap at index zero...
+        long long j = sa.buf[i] + (sa.buf[i] == 0) * x.len;
+        bwt.buf[i] = x.buf[j - 1];
+    }
 }
 
 void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array sa)
@@ -106,8 +64,8 @@ void cstr_reverse_bwt(cstr_sslice rev, cstr_const_sslice bwt, cstr_suffix_array 
     cstr_alphabet_map(*mapped_buf, bwt, &alpha);
     cstr_const_sslice mapped = CSTR_SLICE_CONST_CAST(*mapped_buf);
 
-    struct c_table *ctab = build_c_table(mapped, sigma);
-    struct o_table *otab = build_o_table(mapped, ctab);
+    struct c_table *ctab = cstr_build_c_table(mapped, sigma);
+    struct o_table *otab = cstr_build_o_table(mapped, ctab);
 
     rev.buf[rev.len - 1] = 0; // Sentinel at the end of rev.
     // The sentinel is also at the beginning of row 0 in the BWT
@@ -165,8 +123,8 @@ struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x)
     cstr_const_sslice bwt = CSTR_SLICE_CONST_CAST(*bwt_buf);
 
     // With the BWT in hand, we can build the tables.
-    preproc->ctab = build_c_table(bwt, preproc->alpha.size);
-    preproc->otab = build_o_table(bwt, preproc->ctab);
+    preproc->ctab = cstr_build_c_table(bwt, preproc->alpha.size);
+    preproc->otab = cstr_build_o_table(bwt, preproc->ctab);
 
     // We don't need the mapped string nor the BWT any more.
     // The information we need is all in the tables in preproc.

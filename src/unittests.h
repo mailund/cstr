@@ -23,5 +23,8 @@ TL_TEST(st_attempted_scans);
 TL_TEST(st_dft);
 TL_TEST(st_search);
 
+// Li & Durbin
+TL_TEST(build_ld_tables);
+
 #endif // GEN_UNIT_TESTS
 #endif // CSTR_UNITTESTS_H
