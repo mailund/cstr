@@ -25,6 +25,7 @@ TL_TEST(st_search);
 
 // Li & Durbin
 TL_TEST(build_ld_tables);
+TL_TEST(ld_iterator);
 
 #endif // GEN_UNIT_TESTS
 #endif // CSTR_UNITTESTS_H
