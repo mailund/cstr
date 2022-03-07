@@ -99,11 +99,19 @@ struct ba_matcher_state
     long long ba[];
 };
 
+static inline bool mismatch(long long i, struct ba_matcher_state *s)
+{
+    // We can't have s->b == m(s) if p has a sentinel, but
+    // otherwise we could. We are not assuming a sentinel here,
+    // so we need to explicitly consider this a mismatch.
+    return (s->b == m(s)) || (x(s)[i] != p(s)[s->b]);
+}
+
 static long long ba_next(struct ba_matcher_state *s)
 {
     for (long long i = s->i; i < n(s); ++i)
     {
-        while (s->b > 0 && x(s)[i] != p(s)[s->b])
+        while (s->b > 0 && mismatch(i, s))
             s->b = s->ba[s->b - 1];
         s->b = (x(s)[i] == p(s)[s->b]) ? s->b + 1 : 0;
         if (s->b == m(s))

@@ -58,7 +58,7 @@ struct sub_pool
 {
     // Link to next sub pool in the list.
     struct sub_pool *next;
-    
+
     // The block of raw memory where we store the nodes.
     // Alignned as an inner_node but of type char * so we can manipulate
     // it as raw memory. We know how many there are (sub_pool_size), but
@@ -740,7 +740,7 @@ cstr_exact_matcher *cstr_st_exact_search(cstr_suffix_tree *st, cstr_const_sslice
         break;
 
     case NODE_MISMATCH:
-        [[fallthrough]];
+        // [[fallthrough]];
     case EDGE_MISMATCH:
         n = 0;
         break;

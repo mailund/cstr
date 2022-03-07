@@ -417,6 +417,8 @@ typedef cstr_uislice cstr_suffix_array;
 void cstr_skew(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 void cstr_sais(cstr_suffix_array sa, cstr_const_uislice x, cstr_alphabet *alpha);
 
+cstr_exact_matcher *cstr_sa_bsearch(cstr_suffix_array sa, cstr_const_sslice x, cstr_const_sslice p);
+
 // ==== Suffix trees ==============================================
 
 typedef struct cstr_suffix_tree cstr_suffix_tree;

@@ -150,7 +150,7 @@ struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x)
     cstr_uislice *u_buf = cstr_alloc_uislice(x.len);
     cstr_alphabet_map_to_uint(*u_buf, x, &preproc->alpha);
     cstr_const_uislice u = CSTR_SLICE_CONST_CAST(*u_buf);
-    
+
     // Then build the suffix array
     preproc->sa = cstr_alloc_uislice(x.len);
     cstr_sais(*preproc->sa, u, &preproc->alpha);
@@ -159,15 +159,15 @@ struct cstr_bwt_preproc *cstr_bwt_preprocess(cstr_const_sslice x)
     cstr_sslice *w_buf = cstr_alloc_sslice(x.len);
     cstr_alphabet_map(*w_buf, x, &preproc->alpha);
     cstr_const_sslice w = CSTR_SLICE_CONST_CAST(*w_buf);
-    
+
     cstr_sslice *bwt_buf = cstr_alloc_sslice(x.len);
     cstr_bwt(*bwt_buf, w, *preproc->sa);
     cstr_const_sslice bwt = CSTR_SLICE_CONST_CAST(*bwt_buf);
-    
+
     // With the BWT in hand, we can build the tables.
     preproc->ctab = build_c_table(bwt, preproc->alpha.size);
     preproc->otab = build_o_table(bwt, preproc->ctab);
-    
+
     // We don't need the mapped string nor the BWT any more.
     // The information we need is all in the tables in preproc.
     free(bwt_buf);
@@ -211,7 +211,7 @@ cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice raw_p)
     // If we cannot map p, this will be what we return; it is an
     // empty interval.
     long long left = 0, right = 0;
-    
+
     cstr_sslice *p_buf = cstr_alloc_sslice(raw_p.len);
     bool ok = cstr_alphabet_map(*p_buf, raw_p, &preproc->alpha);
     if (ok)
@@ -219,8 +219,9 @@ cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice raw_p)
         cstr_const_sslice p = CSTR_SLICE_CONST_CAST(*p_buf);
         struct c_table *ctab = preproc->ctab;
         struct o_table *otab = preproc->otab;
-        
-        left = 0; right = otab->n;
+
+        left = 0;
+        right = otab->n;
         for (long long i = p.len - 1; i >= 0; i--)
         {
             uint8_t a = p.buf[i];
@@ -233,13 +234,14 @@ cstr_fmindex_search(cstr_bwt_preproc *preproc, cstr_const_sslice raw_p)
         }
     }
     free(p_buf);
-    
+
     fmindex_matcher *m = cstr_malloc(sizeof *m);
     *m = (fmindex_matcher){
-        .matcher = { .vtab = &bwt_matcher_vtab },
+        .matcher = {.vtab = &bwt_matcher_vtab},
         .preproc = preproc,
-        .next = left, .end = right,
+        .next = left,
+        .end = right,
     };
-    
+
     return (cstr_exact_matcher *)m;
 }
