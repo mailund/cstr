@@ -6,31 +6,21 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MAX_STRING_LEN 2048
+#include <cstr.h>
 
 struct fastq_iter {
     FILE *file;
-    char *buffer;
+    cstr_sslice_buf *name;
+    cstr_sslice_buf *seq;
 };
 struct fastq_record {
-    char name[MAX_STRING_LEN];
-    uint8_t sequence[MAX_STRING_LEN];
-    char quality[MAX_STRING_LEN];
+    cstr_const_sslice name;
+    cstr_const_sslice seq;
 };
 
-// FIXME: a way to report errors if we have id:0
-// a malformed fastq file.
-void init_fastq_iter(
-    struct fastq_iter *iter,
-    FILE *file
-);
-bool next_fastq_record(
-    struct fastq_iter *iter,
-    struct fastq_record *record
-);
-void dealloc_fastq_iter(
-    struct fastq_iter *iter
-);
+void init_fastq_iter(struct fastq_iter *iter, FILE *file);
+bool next_fastq_record(struct fastq_iter *iter, struct fastq_record *record);
+void dealloc_fastq_iter(struct fastq_iter *iter);
 
 
 #endif

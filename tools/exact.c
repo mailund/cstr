@@ -41,8 +41,6 @@ int main(int argc, const char *argv[]) {
 
     struct fasta_records *chromosomes = load_fasta_records(argv[2]);
 
-    struct fasta_iter faiter;
-    struct fasta_record farec;
     struct fastq_iter fqiter;
     struct fastq_record fqrec;
     cstr_exact_matcher *matcher = 0;
@@ -52,22 +50,18 @@ int main(int argc, const char *argv[]) {
     init_fastq_iter(&fqiter, fq);
 
     while (next_fastq_record(&fqiter, &fqrec)) {
-        sprintf(cigarbuf, "%luM", strlen((const char *)fqrec.sequence));
-        init_fasta_iter(&faiter, chromosomes);
-        while (next_fasta_record(&faiter, &farec)) {
-            matcher =
-                algo(CSTR_SLICE((const uint8_t *)farec.seq, farec.seq_len),
-                     CSTR_SLICE_STRING((const char *)fqrec.sequence));
+        sprintf(cigarbuf, "%lldM", fqrec.seq.len);
+        for (struct fasta_record *farec = fasta_records(chromosomes); farec; farec = farec->next) {
+            matcher = algo(farec->seq, fqrec.seq);
             
             for (long long pos = cstr_exact_next_match(matcher); pos != -1;
                  pos = cstr_exact_next_match(matcher)) {
-                print_sam_line(stdout, fqrec.name, farec.name, pos + 1,
-                               cigarbuf, fqrec.sequence, fqrec.quality);
+                print_sam_line(stdout, (const char *)fqrec.name.buf, farec->name, pos, cigarbuf, (const char *)fqrec.seq.buf);
             }
             cstr_free_exact_matcher(matcher);
         }
-        dealloc_fasta_iter(&faiter);
     }
+    
     dealloc_fastq_iter(&fqiter);
     fclose(fq);
 

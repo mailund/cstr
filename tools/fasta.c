@@ -10,7 +10,9 @@ char *load_file(const char *fname)
 {
     FILE *f = fopen(fname, "rb");
     if (!f)
+    {
         return 0;
+    }
 
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
@@ -25,18 +27,10 @@ char *load_file(const char *fname)
     return string;
 }
 
-struct fasta_record_impl
-{
-    const char *name;
-    uint8_t *seq;
-    uint32_t seq_len;
-    uint32_t no_records;
-    struct fasta_record_impl *next;
-};
 struct fasta_records
 {
     char *buffer;
-    struct fasta_record_impl *recs;
+    struct fasta_record *recs;
 };
 
 struct packing
@@ -99,17 +93,10 @@ static void pack_seq(struct packing *pack)
     }
 }
 
-static struct fasta_record_impl *alloc_rec(const char *name, uint8_t *seq,
-                                           uint32_t seq_len,
-                                           uint32_t no_records,
-                                           struct fasta_record_impl *next)
+static struct fasta_record *alloc_rec(const char *name, cstr_const_sslice seq, struct fasta_record *next)
 {
-    struct fasta_record_impl *rec = malloc(sizeof(struct fasta_record_impl));
-    rec->name = name;
-    rec->seq = seq;
-    rec->seq_len = seq_len;
-    rec->no_records = no_records;
-    rec->next = next;
+    struct fasta_record *rec = cstr_malloc(sizeof *rec);
+    memcpy(rec, &(struct fasta_record){ .name = name, .seq = seq, .next = next }, sizeof *rec);
     return rec;
 }
 
@@ -127,7 +114,7 @@ struct fasta_records *load_fasta_records(const char *fname)
         return 0;
     }
 
-    rec = malloc(sizeof(struct fasta_records));
+    rec = cstr_malloc(sizeof *rec);
     rec->buffer = string;
     rec->recs = 0;
 
@@ -147,95 +134,30 @@ struct fasta_records *load_fasta_records(const char *fname)
         seq = pack.pack;
         pack_seq(&pack);
 
-        rec->recs =
-            alloc_rec(name, (uint8_t *)seq, (uint32_t)(pack.pack - seq - 1),
-                      (rec->recs) ? rec->recs->no_records + 1 : 1, rec->recs);
-        // fprintf(stderr, "read record %s\n", name);
+        rec->recs = alloc_rec(name, CSTR_SLICE((const uint8_t *)seq, pack.pack - seq - 1), rec->recs);
     }
 
     return rec;
 
 fail:
-    // The string is always allocated if we get here.
-    // This also means that rec->buffer is, but
-    // we should not free that because then
-    // it would be freed twice.
-    free(string);
-    if (rec)
-    {
-        struct fasta_record_impl *next, *rec_list;
-        rec_list = rec->recs;
-        while (rec_list)
-        {
-            next = rec_list->next;
-            free(rec_list);
-            rec_list = next;
-        }
-        free(rec);
-    }
+    abort(); // Rather crude error handling, but I don't care right now
     return 0;
 }
 
-void free_fasta_records(struct fasta_records *file)
+void free_fasta_records(struct fasta_records *recs)
 {
-    free(file->buffer);
-    struct fasta_record_impl *rec = file->recs, *next;
+    free(recs->buffer);
+    struct fasta_record *rec = recs->recs, *next;
     while (rec)
     {
-        next = rec->next;
+        next = (struct fasta_record *)rec->next;
         free(rec);
         rec = next;
     }
-    free(file);
+    free(recs);
 }
 
-uint32_t number_of_fasta_records(struct fasta_records *records)
+struct fasta_record *fasta_records(struct fasta_records *recs)
 {
-    return records->recs->no_records;
-}
-
-bool lookup_fasta_record_by_name(struct fasta_records *file,
-                                 const char *name,
-                                 struct fasta_record *record)
-{
-    struct fasta_record_impl *rec = file->recs;
-    while (rec)
-    {
-        if (strcmp(rec->name, name) == 0)
-        {
-            record->name = rec->name;
-            // we use uint8_t here to match the library
-            record->seq = (uint8_t *)rec->seq;
-            record->seq_len = rec->seq_len;
-            return true;
-        }
-        rec = rec->next;
-    }
-    return false;
-}
-
-void init_fasta_iter(struct fasta_iter *iter, struct fasta_records *file)
-{
-    iter->rec = file->recs;
-}
-
-bool next_fasta_record(struct fasta_iter *iter, struct fasta_record *rec)
-{
-    if (iter->rec)
-    {
-        rec->name = iter->rec->name;
-        rec->seq = iter->rec->seq;
-        rec->seq_len = iter->rec->seq_len;
-        iter->rec = iter->rec->next;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-void dealloc_fasta_iter(struct fasta_iter *iter)
-{
-    // nop
+    return recs->recs;
 }
