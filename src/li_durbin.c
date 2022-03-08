@@ -88,8 +88,8 @@ cstr_li_durbin_preprocess(cstr_const_sslice x)
 
 typedef struct approx_match
 {
-    long long pos; // -1 if no more matches
-    cstr_const_sslice cigar;
+    long long pos;     // -1 if no more matches
+    const char *cigar; // CIGAR, as a C string we can readily print.
 } approx_match;
 #define RESULT(POS, CIGAR) ((approx_match){.pos = (POS), .cigar = (CIGAR)})
 
@@ -109,6 +109,7 @@ typedef struct context
     cstr_sslice *p_buf;
     cstr_const_sslice p;
     cstr_sslice_buf *edits;
+    char *cigar;
     stack *stack;
 } context;
 
@@ -128,7 +129,7 @@ struct emit_closure
 {
     long long next;
     long long end;
-    cstr_const_sslice cigar;
+    const char *cigar;
 };
 #define EMIT_CLOSURE(NEXT, END, CIGAR) \
     (closure) { .emit_closure = {      \
@@ -273,7 +274,7 @@ static inline approx_match call_next_continuation(context *context)
 {
     if (context->stack->used == 0)
     {
-        return RESULT(-1, CSTR_SLICE_STRING((const char *)""));
+        return RESULT(-1, "");
     }
     else
     {
@@ -292,7 +293,7 @@ static approx_match rec_search(
 
 static inline approx_match emit(
     long long next, long long end,
-    cstr_const_sslice cigar, context *context);
+    const char *cigar, context *context);
 
 static inline approx_match match(
     long long left, long long right,
@@ -316,9 +317,8 @@ static approx_match emit_cont(context *context, closure *cl);
 static approx_match match_cont(context *context, closure *cl);
 static approx_match delete_cont(context *context, closure *cl);
 
-
 static inline approx_match emit(long long next, long long end,
-                                cstr_const_sslice cigar, context *context)
+                                const char *cigar, context *context)
 {
     if (next < end)
     {
@@ -402,7 +402,7 @@ static inline approx_match delete (
         // Those deletions are not interesting.
         return CALL_CONTINUATION();
     }
-    
+
     struct c_table *ctab = context->preproc->ctab;
     struct o_table *otab = context->preproc->otab;
     long long new_left = C(a) + O(a, left);
@@ -420,6 +420,29 @@ static approx_match delete_cont(context *context, closure *cl)
     return delete (dcl->left, dcl->right, dcl->i, dcl->d, dcl->a, dcl->edits, context);
 }
 
+static inline long long scan_next(long long i, cstr_const_sslice edits)
+{
+    long long j = i;
+    for (; j < edits.len; j++)
+    {
+        if (edits.buf[i] != edits.buf[j])
+        {
+            return j;
+        }
+    }
+    // If we get here, we scanned the last segment and they are all equal,
+    // so we should return one past the end
+    return edits.len;
+}
+static void edits_to_cigar(char *cigar_buf, cstr_const_sslice edits)
+{
+    for (long long i = 0, j = scan_next(i, edits); i < edits.len; i = j, j = scan_next(i, edits))
+    {
+        cigar_buf = cigar_buf + sprintf(cigar_buf, "%d%c", (int)(j - i), (char)edits.buf[i]);
+    }
+    *cigar_buf = '\0';
+}
+
 static approx_match rec_search(long long left, long long right,
                                long long i, long long d,
                                cstr_sslice_buf_slice edits,
@@ -435,8 +458,8 @@ static approx_match rec_search(long long left, long long right,
         // We have a match, so emit it
         // FIXME: make cigar. Reverse edits (without messing up the buffer, since that
         // would be bad!) and then run-lenght encode it.
-        cstr_const_sslice cigar = CSTR_SLICE_CONST_CAST(CSTR_BUF_SLICE_DEREF(edits));
-        return emit(left, right, cigar, context);
+        edits_to_cigar(context->cigar, CSTR_SLICE_CONST_CAST(CSTR_BUF_SLICE_DEREF(edits)));
+        return emit(left, right, context->cigar, context);
     }
 
     // Otherwise, continue the recursion with the next match operation.
@@ -463,6 +486,7 @@ static iterator *new_iterator(cstr_li_durbin_preproc *preproc,
     iterator *itr = cstr_malloc(sizeof *itr);
     itr->context.preproc = preproc;
     itr->context.edits = cstr_alloc_sslice_buf(0, p.len + d);
+    itr->context.cigar = cstr_malloc((size_t)(p.len + d + 1));
 
     itr->p_buf = cstr_alloc_sslice(p.len);
     itr->context.p = CSTR_SLICE_CONST_CAST(*itr->p_buf);
@@ -486,6 +510,7 @@ static void free_iterator(iterator *itr)
 {
     free(itr->p_buf);
     free(itr->context.edits);
+    free(itr->context.cigar);
     free(itr->context.stack);
     free(itr);
 }
@@ -554,9 +579,7 @@ TL_TEST(ld_iterator)
 
     for (approx_match m = iterator_next(itr); m.pos != -1; m = iterator_next(itr))
     {
-        printf("%lld: ", m.pos);
-        CSTR_SLICE_PRINT(m.cigar);
-        printf("\n");
+        printf("%lld: %s\n", m.pos, m.cigar);
     }
 
     free_iterator(itr);
