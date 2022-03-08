@@ -561,5 +561,19 @@ typedef struct cstr_li_durbin_preproc cstr_li_durbin_preproc;
 cstr_li_durbin_preproc *cstr_li_durbin_preprocess(cstr_const_sslice x);
 void cstr_free_li_durbin_preproc(cstr_li_durbin_preproc *preproc);
 
+typedef struct cstr_approx_match
+{
+  long long pos;     // -1 if no more matches
+  const char *cigar; // CIGAR, as a C string we can readily print.
+} cstr_approx_match;
+
+typedef struct cstr_approx_matcher cstr_approx_matcher;
+cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
+                                           cstr_const_sslice p, long long d);
+cstr_approx_match cstr_approx_next_match(cstr_approx_matcher *matcher);
+void cstr_free_approx_matcher(cstr_approx_matcher *matcher);
+
+
+
 #undef INLINE
 #endif // CSTR_INCLUDED

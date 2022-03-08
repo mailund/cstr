@@ -86,24 +86,19 @@ cstr_li_durbin_preprocess(cstr_const_sslice x)
 // to the stack and then call. The continuation will be called when the full processing
 // of the called function is done.
 
-typedef struct approx_match
-{
-    long long pos;     // -1 if no more matches
-    const char *cigar; // CIGAR, as a C string we can readily print.
-} approx_match;
-#define RESULT(POS, CIGAR) ((approx_match){.pos = (POS), .cigar = (CIGAR)})
+#define RESULT(POS, CIGAR) ((cstr_approx_match){.pos = (POS), .cigar = (CIGAR)})
 
 typedef struct stack stack;
 typedef struct stack_frame stack_frame;
-typedef struct context context;
 typedef union closure closure;
-typedef approx_match (*continuation)(context *context, closure *cl);
+typedef struct context context;
+typedef cstr_approx_match (*continuation)(context *context, closure *cl);
 
 static void push_frame(stack **stack, stack_frame frame);
 static stack_frame *pop_frame(stack **stack);
 
-// Data used for all search functions
-typedef struct context
+// Data used for all search functions.
+struct context
 {
     cstr_li_durbin_preproc *preproc;
     cstr_sslice *p_buf;
@@ -111,9 +106,10 @@ typedef struct context
     cstr_sslice_buf *edits;
     char *cigar;
     stack *stack;
-} context;
+};
 
-static approx_match call_next_continuation(context *context);
+static cstr_approx_match call_next_continuation(context *context);
+
 #define CALL_CONTINUATION() call_next_continuation(context)
 #define K(CONT, CL) \
     (stack_frame) { .k = (CONT), .cl = (CL) }
@@ -270,7 +266,7 @@ static inline stack_frame *pop_frame(stack **stack)
     return &(*stack)->frames[--(*stack)->used];
 }
 
-static inline approx_match call_next_continuation(context *context)
+static inline cstr_approx_match call_next_continuation(context *context)
 {
     if (context->stack->used == 0)
     {
@@ -284,41 +280,41 @@ static inline approx_match call_next_continuation(context *context)
 }
 
 // MARK: actions in the approximative search
-static approx_match rec_search(
+static cstr_approx_match rec_search(
     long long i,
     long long left, long long right,
     long long d,
     cstr_sslice_buf_slice edits,
     context *context);
 
-static inline approx_match emit(
+static inline cstr_approx_match emit(
     long long next, long long end,
     const char *cigar, context *context);
 
-static inline approx_match match(
+static inline cstr_approx_match match(
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
     context *context);
 
-static inline approx_match insert(
+static inline cstr_approx_match insert(
     long long left, long long right,
     long long i, long long d,
     cstr_sslice_buf_slice edits,
     context *context);
 
-static inline approx_match delete (
+static inline cstr_approx_match delete (
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
     context *context);
 
-static approx_match emit_cont(context *context, closure *cl);
-static approx_match match_cont(context *context, closure *cl);
-static approx_match delete_cont(context *context, closure *cl);
+static cstr_approx_match emit_cont(context *context, closure *cl);
+static cstr_approx_match match_cont(context *context, closure *cl);
+static cstr_approx_match delete_cont(context *context, closure *cl);
 
-static inline approx_match emit(long long next, long long end,
-                                const char *cigar, context *context)
+static inline cstr_approx_match emit(long long next, long long end,
+                                     const char *cigar, context *context)
 {
     if (next < end)
     {
@@ -332,14 +328,13 @@ static inline approx_match emit(long long next, long long end,
     }
 }
 
-static approx_match emit_cont(context *context, closure *cl)
+static cstr_approx_match emit_cont(context *context, closure *cl)
 {
     struct emit_closure *ecl = &cl->emit_closure;
     return emit(ecl->next, ecl->end, ecl->cigar, context);
 }
 
-static approx_match match_cont(context *context, closure *cl);
-static inline approx_match match(
+static inline cstr_approx_match match(
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
@@ -365,13 +360,13 @@ static inline approx_match match(
     }
 }
 
-static approx_match match_cont(context *context, closure *cl)
+static cstr_approx_match match_cont(context *context, closure *cl)
 {
     struct match_closure *mcl = &cl->match_closure;
     return match(mcl->left, mcl->right, mcl->i, mcl->d, mcl->a, mcl->edits, context);
 }
 
-static inline approx_match insert(
+static inline cstr_approx_match insert(
     long long left, long long right,
     long long i, long long d,
     cstr_sslice_buf_slice edits,
@@ -384,7 +379,7 @@ static inline approx_match insert(
         K(delete_cont, MATCH_CLOSURE(left, right, i, d, 1, edits)));
 }
 
-static inline approx_match delete (
+static inline cstr_approx_match delete (
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
@@ -414,7 +409,7 @@ static inline approx_match delete (
         K(delete_cont, DELETE_CLOSURE(left, right, i, d, a + 1, edits)));
 }
 
-static approx_match delete_cont(context *context, closure *cl)
+static cstr_approx_match delete_cont(context *context, closure *cl)
 {
     struct delete_closure *dcl = &cl->delete_closure;
     return delete (dcl->left, dcl->right, dcl->i, dcl->d, dcl->a, dcl->edits, context);
@@ -443,7 +438,7 @@ static void edits_to_cigar(char *cigar_buf, cstr_const_sslice edits)
     *cigar_buf = '\0';
 }
 
-static approx_match rec_search(long long left, long long right,
+static cstr_approx_match rec_search(long long left, long long right,
                                long long i, long long d,
                                cstr_sslice_buf_slice edits,
                                context *context)
@@ -456,8 +451,6 @@ static approx_match rec_search(long long left, long long right,
     if (i < 0)
     {
         // We have a match, so emit it
-        // FIXME: make cigar. Reverse edits (without messing up the buffer, since that
-        // would be bad!) and then run-lenght encode it.
         edits_to_cigar(context->cigar, CSTR_SLICE_CONST_CAST(CSTR_BUF_SLICE_DEREF(edits)));
         return emit(left, right, context->cigar, context);
     }
@@ -468,22 +461,26 @@ static approx_match rec_search(long long left, long long right,
     return match(left, right, i, d, 1, edits, context);
 }
 
-static approx_match rec_search_cont(context *context, closure *cl)
+static cstr_approx_match rec_search_cont(context *context, closure *cl)
 {
     struct rec_search_closure *rscl = &cl->rec_search_closure;
     return rec_search(rscl->left, rscl->right, rscl->i, rscl->d, rscl->edits, context);
 }
 
-typedef struct iterator
+// If I implement other approximative matcheres, then
+// this should be the Li & Durbin specific, and we need a
+// vtab as for the exact matcher to distinguish between
+// them.
+struct cstr_approx_matcher
 {
     cstr_sslice *p_buf;
     context context;
-} iterator;
+};
 
-static iterator *new_iterator(cstr_li_durbin_preproc *preproc,
-                              cstr_const_sslice p, long long d)
+cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
+                                           cstr_const_sslice p, long long d)
 {
-    iterator *itr = cstr_malloc(sizeof *itr);
+    cstr_approx_matcher *itr = cstr_malloc(sizeof *itr);
     itr->context.preproc = preproc;
     itr->context.edits = cstr_alloc_sslice_buf(0, p.len + d);
     itr->context.cigar = cstr_malloc((size_t)(p.len + d + 1));
@@ -506,18 +503,19 @@ static iterator *new_iterator(cstr_li_durbin_preproc *preproc,
     return itr;
 }
 
-static void free_iterator(iterator *itr)
+
+void cstr_free_approx_matcher(cstr_approx_matcher *matcher)
 {
-    free(itr->p_buf);
-    free(itr->context.edits);
-    free(itr->context.cigar);
-    free(itr->context.stack);
-    free(itr);
+    free(matcher->p_buf);
+    free(matcher->context.edits);
+    free(matcher->context.cigar);
+    free(matcher->context.stack);
+    free(matcher);
 }
 
-static approx_match iterator_next(iterator *itr)
+cstr_approx_match cstr_approx_next_match(cstr_approx_matcher *matcher)
 {
-    return call_next_continuation(&itr->context);
+    return call_next_continuation(&matcher->context);
 }
 
 #ifdef GEN_UNIT_TESTS // unit testing of static functions...
@@ -575,14 +573,14 @@ TL_TEST(ld_iterator)
     cstr_const_sslice p = CSTR_SLICE_STRING((const char *)"ssi");
     cstr_li_durbin_preproc *preproc = cstr_li_durbin_preprocess(x);
     long long d = 1; // FIXME: FOR NOW
-    iterator *itr = new_iterator(preproc, p, d);
+    cstr_approx_matcher *itr = cstr_li_durbin_search(preproc, p, d);
 
-    for (approx_match m = iterator_next(itr); m.pos != -1; m = iterator_next(itr))
+    for (cstr_approx_match m = cstr_approx_next_match(itr); m.pos != -1; m = cstr_approx_next_match(itr))
     {
         printf("%lld: %s\n", m.pos, m.cigar);
     }
 
-    free_iterator(itr);
+    cstr_free_approx_matcher(itr);
 
     TL_END();
 }
