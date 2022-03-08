@@ -65,24 +65,46 @@ void *cstr_malloc_buffer(size_t obj_size, size_t len)
     return cstr_malloc_header_array(0, obj_size, len);
 }
 
-#define GEN_ALLOC_SLICE(STYPE, QUAL, TYPE)                       \
-    cstr_##STYPE *cstr_alloc_##STYPE(long long len)              \
-    {                                                            \
-        struct                                                   \
-        {                                                        \
-            cstr_##STYPE slice;                                  \
-            QUAL TYPE data[];                                    \
-        } *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)len); \
-        buf->slice.len = len;                                    \
-        buf->slice.buf = buf->data;                              \
-        return (cstr_##STYPE *)buf;                              \
+#define GEN_ALLOC_SLICE_BUF(STYPE, QUAL, TYPE)                                    \
+    cstr_##STYPE##_buf *cstr_alloc_##STYPE##_buf(long long len, long long cap)    \
+    {                                                                             \
+        /* Realloc doesn't deal well with cap 0 so make it always at least 1 */   \
+        cap = (cap > 0) ? cap : 1;                                                \
+        cstr_##STYPE##_buf *buf = CSTR_MALLOC_FLEX_ARRAY(buf, data, (size_t)cap); \
+        buf->slice.len = len;                                                     \
+        buf->slice.buf = buf->data;                                               \
+        buf->cap = cap;                                                           \
+        return buf;                                                               \
     }
-GEN_ALLOC_SLICE(sslice, , uint8_t)
-GEN_ALLOC_SLICE(const_sslice, const, uint8_t)
-GEN_ALLOC_SLICE(islice, , int)
-GEN_ALLOC_SLICE(const_islice, const, int)
-GEN_ALLOC_SLICE(uislice, , unsigned int)
-GEN_ALLOC_SLICE(const_uislice, const, unsigned int)
+
+#define GEN_APPEND_SLICE_BUF(STYPE, QUAL, TYPE)                                                            \
+    cstr_##STYPE##_buf_slice cstr_append_##STYPE##_buf(cstr_##STYPE##_buf **buf, TYPE val)                 \
+    {                                                                                                      \
+        if ((*buf)->slice.len == (*buf)->cap)                                                              \
+        {                                                                                                  \
+            (*buf)->cap *= 2;                                                                              \
+            *buf = cstr_realloc_header_array(*buf, offsetof(struct cstr_##STYPE##_buf, data),              \
+                                             sizeof(*buf)->data[0], (size_t)(*buf)->cap);                  \
+            (*buf)->slice.buf = (*buf)->data;                                                              \
+        }                                                                                                  \
+        (*buf)->slice.buf[(*buf)->slice.len++] = val;                                                      \
+        return (cstr_##STYPE##_buf_slice){.buf = buf, .from = 0, .to = (*buf)->slice.len};                 \
+    }                                                                                                      \
+    cstr_##STYPE##_buf_slice cstr_append_##STYPE##_buf_slice(cstr_##STYPE##_buf_slice buf_slice, TYPE val) \
+    {                                                                                                      \
+        (*buf_slice.buf)->slice.len = buf_slice.to;                                                        \
+        return cstr_append_##STYPE##_buf(buf_slice.buf, val);                                              \
+    }
+
+GEN_ALLOC_SLICE_BUF(sslice, , uint8_t)
+GEN_APPEND_SLICE_BUF(sslice, , uint8_t)
+GEN_ALLOC_SLICE_BUF(const_sslice, const, uint8_t)
+GEN_ALLOC_SLICE_BUF(islice, , int)
+GEN_APPEND_SLICE_BUF(islice, , int)
+GEN_ALLOC_SLICE_BUF(const_islice, const, int)
+GEN_ALLOC_SLICE_BUF(uislice, , unsigned int)
+GEN_APPEND_SLICE_BUF(uislice, , unsigned int)
+GEN_ALLOC_SLICE_BUF(const_uislice, const, unsigned int)
 
 #define GEN_SLICE_EQ(STYPE)                   \
     bool cstr_eq_##STYPE(cstr_##STYPE x,      \

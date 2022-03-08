@@ -49,6 +49,8 @@ void *cstr_realloc_header_array(void *p,          // existing memory,
 // offsetof(type,member)). This ensures we get the right
 // type to match the instance. The macro destroys the
 // pointer variable by setting it to NULL, so use with care.
+// You cannot, for example, use it with a realloc operation,
+// since there you would lose the data you already have.
 #define CSTR_OFFSETOF_INST(PTR, MEMBER) (size_t)(&((PTR) = 0)->MEMBER)
 
 // Macro for allocating a struct with a flexible array
@@ -110,8 +112,37 @@ void *cstr_realloc_header_array(void *p,          // existing memory,
   }
 
 // Allocating slices containing their own buffers
-#define CSTR_GEN_ALLOC_SLICE_PROTOTYPE(STYPE, QUAL, TYPE) \
-  cstr_##STYPE *cstr_alloc_##STYPE(long long len);
+
+// A buffer is essentially just a slice that is the owner of its own memory.
+// However, we also add a capacity to it, so we can grow it with appending.
+// This requires reallocation, which will potentially invalidate any pointers
+// into a buffer, so if you store slices into a buffer that you append to,
+// you need to re-create the slice whenever you use it. That is what the
+// buffer-slice type is for; it uses a pointer to a pointer to a buffer, and that
+// extra level of indirection means that we can always get a slice back from
+// a buffer.
+
+#define CSTR_BUF_SLICE(STYPE) \
+  struct                      \
+  {                           \
+    cstr_##STYPE##_buf **buf; \
+    long long from, to;       \
+  }
+
+#define CSTR_GEN_ALLOC_SLICE_PROTOTYPE(STYPE, QUAL, TYPE)                     \
+  typedef struct cstr_##STYPE##_buf                                           \
+  {                                                                           \
+    cstr_##STYPE slice;                                                       \
+    long long cap;                                                            \
+    QUAL TYPE data[];                                                         \
+  } cstr_##STYPE##_buf;                                                       \
+                                                                              \
+  cstr_##STYPE##_buf *cstr_alloc_##STYPE##_buf(long long len, long long cap); \
+                                                                              \
+  INLINE cstr_##STYPE *cstr_alloc_##STYPE(long long len)                      \
+  {                                                                           \
+    return (cstr_##STYPE *)cstr_alloc_##STYPE##_buf(len, len);                \
+  }
 
 // Getting sub-slices.
 // -------------------
@@ -181,47 +212,50 @@ CSTR_DEFINE_SLICE(islice,             ,  int)
 CSTR_DEFINE_SLICE(const_islice,  const,  int)
 CSTR_DEFINE_SLICE(uislice,            ,  unsigned int)
 CSTR_DEFINE_SLICE(const_uislice, const,  unsigned int)
+
 // clang-format on
 
 // clang-format off
-#define CSTR_SLICE_DISPATCH(X, FUNC)       \
-  _Generic((X),                            \
-           cstr_sslice                     \
-           : cstr_##FUNC##_sslice,         \
-           cstr_const_sslice               \
-           : cstr_##FUNC##_const_sslice,   \
-           cstr_islice                     \
-           : cstr_##FUNC##_islice,         \
-           cstr_const_islice               \
-           : cstr_##FUNC##_const_islice,   \
-           cstr_uislice                    \
-           : cstr_##FUNC##_uislice,        \
-           cstr_const_uislice              \
+#define CSTR_SLICE_DISPATCH(X, FUNC)         \
+  _Generic((X),                              \
+           cstr_sslice                       \
+           : cstr_##FUNC##_sslice,           \
+           cstr_const_sslice                 \
+           : cstr_##FUNC##_const_sslice,     \
+           cstr_islice                       \
+           : cstr_##FUNC##_islice,           \
+           cstr_const_islice                 \
+           : cstr_##FUNC##_const_islice,     \
+           cstr_uislice                      \
+           : cstr_##FUNC##_uislice,          \
+           cstr_const_uislice                \
            : cstr_##FUNC##_const_uislice)
 
-#define CSTR_SLICE_DISPATCH_MUTABLE(X, FUNC)       \
-  _Generic((X),                            \
-           cstr_sslice                     \
-           : cstr_##FUNC##_sslice,         \
-           cstr_islice                     \
-           : cstr_##FUNC##_islice,         \
-           cstr_uislice                    \
+#define CSTR_SLICE_DISPATCH_MUTABLE(X, FUNC) \
+  _Generic((X),                              \
+           cstr_sslice                       \
+           : cstr_##FUNC##_sslice,           \
+           cstr_islice                       \
+           : cstr_##FUNC##_islice,           \
+           cstr_uislice                      \
            : cstr_##FUNC##_uislice)
 
-#define CSTR_BASE_DISPATCH(B, FUNC)        \
-  _Generic((B),                            \
-           uint8_t *                       \
-           : cstr_##FUNC##_sslice,         \
-           const uint8_t *                 \
-           : cstr_##FUNC##_const_sslice,   \
-           int *                           \
-           : cstr_##FUNC##_islice,         \
-           const int *                     \
-           : cstr_##FUNC##_const_islice,   \
-           unsigned int *                  \
-           : cstr_##FUNC##_uislice,        \
-           const unsigned int *            \
+#define CSTR_BASE_DISPATCH(B, FUNC)          \
+  _Generic((B),                              \
+           uint8_t *                         \
+           : cstr_##FUNC##_sslice,           \
+           const uint8_t *                   \
+           : cstr_##FUNC##_const_sslice,     \
+           int *                             \
+           : cstr_##FUNC##_islice,           \
+           const int *                       \
+           : cstr_##FUNC##_const_islice,     \
+           unsigned int *                    \
+           : cstr_##FUNC##_uislice,          \
+           const unsigned int *              \
            : cstr_##FUNC##_const_uislice)
+
+
 
 // The weird (void *) here are to silence the compiler who will warn about
 // casting to incorrectly aligned sizes. It doesn't happen, but the compiler
@@ -325,6 +359,55 @@ void cstr_fprint_const_islice(FILE *f, cstr_const_islice x);
 void cstr_fprint_const_uislice(FILE *f, cstr_const_uislice x);
 #define CSTR_SLICE_FPRINT(F, S) CSTR_SLICE_DISPATCH(S, fprint)(F, S)
 #define CSTR_SLICE_PRINT(S) CSTR_SLICE_DISPATCH(S, fprint)(stdout, S)
+
+#define CSTR_BUF_SLICE_DEREF_FUNC(STYPE, QUAL, TYPE)                                     \
+  typedef CSTR_BUF_SLICE(STYPE) cstr_##STYPE##_buf_slice;                                \
+  INLINE cstr_##STYPE cstr_deref_##STYPE##_buf_slice(cstr_##STYPE##_buf_slice buf_slice) \
+  {                                                                                      \
+    assert(buf_slice.to <= (*buf_slice.buf)->cap);                                       \
+    return CSTR_SUBSLICE((*buf_slice.buf)->slice, buf_slice.from, buf_slice.to);         \
+  }
+
+// Both appending to a buffer or a buffer slice modifies the underlying buffer.
+// If you append to a buffer, you append, well, to the buffer. If you append to a buffer
+// slice, you reduce the buffer to the end point of the slice and then append.
+#define CSTR_BUF_APPEND_PROTOTYPE(STYPE, QUAL, TYPE)                                      \
+  cstr_##STYPE##_buf_slice cstr_append_##STYPE##_buf(cstr_##STYPE##_buf **buf, TYPE val); \
+  cstr_##STYPE##_buf_slice cstr_append_##STYPE##_buf_slice(cstr_##STYPE##_buf_slice buf_slice, TYPE val);
+
+CSTR_BUF_SLICE_DEREF_FUNC(sslice,             ,  uint8_t)
+CSTR_BUF_SLICE_DEREF_FUNC(const_sslice,  const,  uint8_t)
+CSTR_BUF_SLICE_DEREF_FUNC(islice,             ,  int)
+CSTR_BUF_SLICE_DEREF_FUNC(const_islice,  const,  int)
+CSTR_BUF_SLICE_DEREF_FUNC(uislice,            ,  unsigned int)
+CSTR_BUF_SLICE_DEREF_FUNC(const_uislice, const,  unsigned int)
+
+CSTR_BUF_APPEND_PROTOTYPE(sslice,  , uint8_t)
+CSTR_BUF_APPEND_PROTOTYPE(islice,  , int)
+CSTR_BUF_APPEND_PROTOTYPE(uislice, , unsigned int)
+
+
+#define CSTR_BUF_DISPATCH_MUTABLE(X, FUNC)   \
+  _Generic((X),                              \
+           cstr_sslice_buf *                 \
+           : cstr_##FUNC##_sslice_buf,       \
+           cstr_islice_buf *                 \
+           : cstr_##FUNC##_islice_buf,       \
+           cstr_uislice_buf *                \
+           : cstr_##FUNC##_uislice_buf)
+
+#define CSTR_BUF_SLICE_DISPATCH(X, FUNC)       \
+  _Generic((X),                                \
+           cstr_sslice_buf_slice               \
+           : cstr_##FUNC##_sslice_buf_slice,   \
+           cstr_islice_buf_slice               \
+           : cstr_##FUNC##_islice_buf_slice,   \
+           cstr_uislice_buf_slice              \
+           : cstr_##FUNC##_uislice_buf_slice)
+
+#define CSTR_BUF_APPEND(B, V) CSTR_BUF_DISPATCH_MUTABLE(B, append)(&(B), V)
+#define CSTR_BUF_SLICE_APPEND(BS, V) CSTR_BUF_SLICE_DISPATCH(BS, append)(BS, V)
+#define CSTR_BUF_SLICE_DEREF(BS) CSTR_BUF_SLICE_DISPATCH(BS, deref)(BS)
 
 // clang-format on
 

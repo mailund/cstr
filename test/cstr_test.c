@@ -190,6 +190,34 @@ static TL_TEST(eq)
     TL_END();
 }
 
+static TL_TEST(buf)
+{
+    TL_BEGIN();
+
+    // Buffer with capacity 1 and length 0, ready to append to
+    cstr_sslice_buf *buf = cstr_alloc_sslice_buf(0, 1);
+    cstr_sslice_buf_slice x;
+    
+    x = CSTR_BUF_APPEND(buf, 'f');
+    assert(buf->cap == 1);
+    assert(buf->slice.len == 1);
+    assert(CSTR_SLICE_EQ(CSTR_SLICE_STRING("f"), CSTR_BUF_SLICE_DEREF(x)));
+           
+    x = CSTR_BUF_APPEND(buf, 'o');
+    assert(buf->cap == 2);
+    assert(buf->slice.len == 2);
+    assert(CSTR_SLICE_EQ(CSTR_SLICE_STRING("fo"), CSTR_BUF_SLICE_DEREF(x)));
+    
+    x = CSTR_BUF_APPEND(buf, 'o');
+    assert(buf->cap == 4);
+    assert(buf->slice.len == 3);
+    assert(CSTR_SLICE_EQ(CSTR_SLICE_STRING("foo"), CSTR_BUF_SLICE_DEREF(x)));
+    
+    free(buf);
+
+    TL_END();
+}
+
 static TL_TEST(lcp)
 {
     TL_BEGIN();
@@ -213,6 +241,7 @@ int main(void)
     TL_RUN_TEST(indexing);
     TL_RUN_TEST(slices);
     TL_RUN_TEST(eq);
+    TL_RUN_TEST(buf);
     TL_RUN_TEST(lcp);
     TL_END_SUITE();
 }
