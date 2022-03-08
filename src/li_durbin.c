@@ -73,56 +73,102 @@ cstr_li_durbin_preprocess(cstr_const_sslice x)
     return preproc;
 }
 
+// MARK: Continuation/closure boiler plate for continuation-passing-style recursion
+
 // We use continuations to avoid exhausting the call-stack. With an optimising
 // compiler, all the calls are tail-calls, optimised into jump instructions,
 // and the memory usage is all on the explicit stack. The stack contains callback functions
-// (actions) and data for them (closures). When a function cannot do anything more, it should
+// (continuation) and data for them (closures). When a function cannot do anything more, it should
 // call the next continuation (call_continuation). It is a little more primitive than
 // full continuation-passing-style, because we only need a stack, so we don't need to
 // store continuations in the closures, but can always get the next from the stack
 // instead. Thus, when we want to call with a continuation, we instead push the continuation
 // to the stack and then call. The continuation will be called when the full processing
 // of the called function is done.
+
 typedef struct stack stack;
 typedef struct stack_frame stack_frame;
+typedef struct context context;
 typedef union closure closure;
-typedef long long (*action)(cstr_li_durbin_preproc *preproc, stack **stack, closure *cl);
+typedef long long (*continuation)(context *context, closure *cl);
 
-static void push_frame(stack **stack, action f, closure cl);
+static void push_frame(stack **stack, stack_frame frame);
 static stack_frame *pop_frame(stack **stack);
 
-static long long call_continuation(cstr_li_durbin_preproc *preproc, stack **stack);
+// Data used for all search functions
+typedef struct context
+{
+    cstr_li_durbin_preproc *preproc;
+    cstr_sslice *p_buf;
+    cstr_const_sslice p;
+    stack *stack;
+} context;
 
-#define EMIT_CLOSURE(NEXT, END) (closure) { .emit_closure = { .next = (NEXT), .end = (END) } }
+static long long call_next_continuation(context *context);
+#define CALL_CONTINUATION() call_next_continuation(context)
+#define K(CONT, CL) \
+    (stack_frame) { .k = (CONT), .cl = (CL) }
+#define CALL_WITH_CONTINUATION(CALL, K) \
+    do                                  \
+    {                                   \
+        push_frame(&context->stack, K); \
+        return CALL;                    \
+    } while (0);
+
+// clang-format off
 struct emit_closure
 {
     long long next;
     long long end;
 };
+#define EMIT_CLOSURE(NEXT, END)      \
+    (closure) { .emit_closure = {    \
+        .next = (NEXT), .end = (END) \
+    } }
 
-// clang-format off
+struct match_closure
+{
+    long long left;   // Range where we have matching 
+    long long right;  // prefixes.
+    long long i;      // Index into p
+    long long d;      // Number of edits left
+    uint8_t a;        // Current letter we are matching/mismatching
+};
+#define MATCH_CLOSURE(LEFT, RIGHT, I, D, A)  \
+    (closure) { .match_closure = {           \
+        .left = (LEFT), .right = (RIGHT),    \
+        .i = (I), .d = (D), .a = (A)         \
+    } }
+
+struct rec_search_closure
+{
+    long long left;   // Range where we have matching 
+    long long right;  // prefixes.
+    long long i;      // Index into p
+    long long d;      // Number of edits left
+};
+#define REC_SEARCH_CLOSURE(LEFT, RIGHT, I, D)  \
+    (closure) { .rec_search_closure = {        \
+        .left = (LEFT), .right = (RIGHT),      \
+        .i = (I), .d = (D)                     \
+    } }
+
 union closure
 {
     struct emit_closure emit_closure;
+    struct match_closure match_closure;
+    struct rec_search_closure rec_search_closure;
 };
 // clang-format on
 
 struct stack_frame
 {
-    action f;
-    closure closure;
+    continuation k;
+    closure cl;
 };
 
-static long long emit(cstr_li_durbin_preproc *preproc, stack **stack, closure *cl)
-{
-    struct emit_closure ecl = *(struct emit_closure *)cl;
-    if (ecl.next < ecl.end)
-    {
-        push_frame(stack, emit, EMIT_CLOSURE(ecl.next + 1, ecl.end));
-        return preproc->sa->buf[ecl.next];
-    }
-    return call_continuation(preproc, stack);
-}
+// MARK: Stack used for CPS.
+// Quite simple implementation, but it suffices for what we need here.
 
 struct stack
 {
@@ -164,56 +210,158 @@ static inline stack *resize_stack(stack *stack)
                                      stack->size);
 }
 
-static void push_frame(stack **stack, action f, closure cl)
+static inline void push_frame(stack **stack, stack_frame k)
 {
     *stack = resize_stack(*stack);
-    (*stack)->frames[(*stack)->used++] =
-        (stack_frame){.f = f, .closure = cl};
+    (*stack)->frames[(*stack)->used++] = k;
 }
 
-static stack_frame *pop_frame(stack **stack)
+static inline stack_frame *pop_frame(stack **stack)
 {
     *stack = resize_stack(*stack);
     return &(*stack)->frames[--(*stack)->used];
 }
 
-static long long call_continuation(cstr_li_durbin_preproc *preproc, stack **stack)
+static inline long long call_next_continuation(context *context)
 {
-    if ((*stack)->used == 0)
+    if (context->stack->used == 0)
     {
         return -1;
     }
     else
     {
-        stack_frame *sf = pop_frame(stack);
-        return sf->f(preproc, stack, &sf->closure);
+        stack_frame *sf = pop_frame(&context->stack);
+        return sf->k(context, &sf->cl);
     }
+}
+
+// MARK: actions in the approximative search
+static long long rec_search(
+    long long i,
+    long long left, long long right,
+    long long d,
+    context *context);
+
+static long long emit_cont(context *context, closure *cl);
+static inline long long emit(long long next, long long end, context *context)
+{
+    if (next < end)
+    {
+        CALL_WITH_CONTINUATION(
+            context->preproc->sa->buf[next],
+            K(emit_cont, EMIT_CLOSURE(next + 1, end)));
+    }
+    else
+    {
+        return CALL_CONTINUATION();
+    }
+}
+
+static long long emit_cont(context *context, closure *cl)
+{
+    struct emit_closure *ecl = &cl->emit_closure;
+    return emit(ecl->next, ecl->end, context);
+}
+
+static long long match_cont(context *context, closure *cl);
+static inline long long match(
+    long long left, long long right,
+    long long i, long long d, uint8_t a,
+    context *context)
+{
+    if (a == context->preproc->alpha.size)
+    {
+        // No more match operations.
+        // FIXME: continue with insertions.
+        // For now, just finish
+        return CALL_CONTINUATION();
+    }
+    else
+    {
+        struct c_table *ctab = context->preproc->ctab;
+        struct o_table *otab = context->preproc->otab;
+        long long new_left = C(a) + O(a, left);
+        long long new_right = C(a) + O(a, right);
+        long long new_d = d - (context->p.buf[i] != a);
+        // Recurse, then continue afterwards
+        CALL_WITH_CONTINUATION(
+            rec_search(new_left, new_right, i - 1, new_d, context),
+            K(match_cont, MATCH_CLOSURE(left, right, i, d, a + 1)));
+    }
+}
+
+static long long match_cont(context *context, closure *cl)
+{
+    struct match_closure *mcl = &cl->match_closure;
+    return match(mcl->left, mcl->right, mcl->i, mcl->d, mcl->a, context);
+}
+
+static long long rec_search(long long left, long long right,
+                            long long i, long long d,
+                            context *context)
+{
+    if (left >= right || d < 0)
+    {
+        // Nothing to be found here, try the next continuation
+        return CALL_CONTINUATION();
+    }
+    if (i < 0)
+    {
+        // We have a match, so emit it
+        return emit(left, right, context);
+    }
+
+    // Otherwise, continue the recursion with the next match operation.
+    // The match operation starts with a == 1 because we don't want
+    // the sentinel.
+    return match(left, right, i, d, 1, context);
+}
+
+static long long rec_search_cont(context *context, closure *cl)
+{
+    struct rec_search_closure *rscl = &cl->rec_search_closure;
+    return rec_search(rscl->left, rscl->right, rscl->i, rscl->d, context);
 }
 
 typedef struct iterator
 {
-    cstr_li_durbin_preproc *preproc; // Don't free
-    stack *stack;
+    cstr_sslice *p_buf;
+    context context;
 } iterator;
 
-static iterator *new_iterator(cstr_li_durbin_preproc *preproc)
+static iterator *new_iterator(cstr_li_durbin_preproc *preproc,
+                              cstr_const_sslice p, long long d)
 {
     iterator *itr = cstr_malloc(sizeof *itr);
-    itr->preproc = preproc;
-    itr->stack = new_stack();
-    push_frame(&itr->stack, emit, EMIT_CLOSURE(0, 10));
+    itr->context.preproc = preproc;
+    
+    itr->p_buf = cstr_alloc_sslice(p.len);
+    itr->context.p = CSTR_SLICE_CONST_CAST(*itr->p_buf);
+    bool map_ok = cstr_alphabet_map(*itr->p_buf, p, &preproc->alpha);
+    itr->context.stack = new_stack();
+    
+    if (map_ok)
+    {
+        // If mapping failed, we leave the stack empty. Then the iterator will
+        // return no matches, but it will still be in a state where we can free
+        // it as per usual.
+        push_frame(&itr->context.stack,
+                   K(rec_search_cont, REC_SEARCH_CLOSURE(0, preproc->sa->len, p.len - 1, d)));
+    }
+    
     return itr;
 }
 
 static void free_iterator(iterator *itr)
 {
-    free(itr->stack);
+    free(itr->p_buf);
+    free(itr->context.stack);
     free(itr);
 }
 
 static long long iterator_next(iterator *itr)
 {
-    return call_continuation(itr->preproc, &itr->stack);
+    return call_next_continuation(&itr->context);
 }
 
 #ifdef GEN_UNIT_TESTS // unit testing of static functions...
@@ -268,9 +416,11 @@ TL_TEST(ld_iterator)
     TL_BEGIN();
 
     cstr_const_sslice x = CSTR_SLICE_STRING0((const char *)"mississippi");
+    cstr_const_sslice p = CSTR_SLICE_STRING((const char *)"is");
     cstr_li_durbin_preproc *preproc = cstr_li_durbin_preprocess(x);
-    iterator *itr = new_iterator(preproc);
-    
+    long long d = 1; // FIXME: FOR NOW
+    iterator *itr = new_iterator(preproc, p, d);
+
     for (long long i = iterator_next(itr); i != -1; i = iterator_next(itr))
     {
         printf("%lld\n", i);
