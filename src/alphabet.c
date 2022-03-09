@@ -11,7 +11,7 @@ const uint16_t UNDEFINED = HIGH_BIT_MASK;
 const uint16_t DEFINED = LOW_BIT_MASK; // Where we use this one, we just don't want high bits
 static inline bool is_undef(uint16_t b) { return b & HIGH_BIT_MASK; } // undef if high bits
 static inline bool is_def(uint16_t b)   { return !is_undef(b); }      // otherwise defined
-static inline uint8_t byte(uint16_t b)  { return b & LOW_BIT_MASK; }
+static inline uint8_t byte(uint16_t b)  { return (uint8_t)(b & LOW_BIT_MASK); }
 
 #define CHECK_VALID(b) if (is_undef(b)) goto error;
 // clang-format on

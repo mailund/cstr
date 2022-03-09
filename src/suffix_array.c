@@ -32,7 +32,7 @@ static long long lower(long long lo, long long hi, long long offset,
 static inline long long upper(long long lo, long long hi, long long offset,
                               uint8_t a, cstr_const_sslice x, cstr_suffix_array sa)
 {
-    return lower(lo, hi, offset, a + 1, x, sa);
+    return lower(lo, hi, offset, (uint8_t)(a + 1), x, sa);
 }
 
 static inline void update_block(long long *lo, long long *hi, long long *offset,
@@ -75,6 +75,6 @@ cstr_exact_matcher *cstr_sa_bsearch(cstr_suffix_array sa, cstr_const_sslice x, c
             break;
         }
     }
-    
+
     return (cstr_exact_matcher *)m;
 }

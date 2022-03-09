@@ -85,17 +85,18 @@ cstr_li_durbin_preprocess(cstr_const_sslice x)
 // instead. Thus, when we want to call with a continuation, we instead push the continuation
 // to the stack and then call. The continuation will be called when the full processing
 // of the called function is done.
+union closure;
+struct context;
+struct stack;
+struct stack_frame;
+typedef cstr_approx_match (*continuation)(struct context *context, union closure *cl);
 
 #define RESULT(POS, CIGAR) ((cstr_approx_match){.pos = (POS), .cigar = (CIGAR)})
 
-typedef struct stack stack;
-typedef struct stack_frame stack_frame;
-typedef union closure closure;
-typedef struct context context;
-typedef cstr_approx_match (*continuation)(context *context, closure *cl);
+typedef cstr_approx_match (*continuation)(struct context *context, union closure *cl);
 
-static void push_frame(stack **stack, stack_frame frame);
-static stack_frame *pop_frame(stack **stack);
+static void push_frame(struct stack **stack, struct stack_frame frame);
+static struct stack_frame *pop_frame(struct stack **stack);
 
 // Data used for all search functions.
 struct context
@@ -105,14 +106,14 @@ struct context
     cstr_const_sslice p;
     cstr_sslice_buf *edits;
     char *cigar;
-    stack *stack;
+    struct stack *stack;
 };
 
-static cstr_approx_match call_next_continuation(context *context);
+static cstr_approx_match call_next_continuation(struct context *context);
 
 #define CALL_CONTINUATION() call_next_continuation(context)
 #define K(CONT, CL) \
-    (stack_frame) { .k = (CONT), .cl = (CL) }
+    (struct stack_frame) { .k = (CONT), .cl = (CL) }
 #define CALL_WITH_CONTINUATION(CALL, K) \
     do                                  \
     {                                   \
@@ -127,10 +128,10 @@ struct emit_closure
     long long end;
     const char *cigar;
 };
-#define EMIT_CLOSURE(NEXT, END, CIGAR) \
-    (closure) { .emit_closure = {      \
-        .next = (NEXT), .end = (END),  \
-        .cigar = (CIGAR)               \
+#define EMIT_CLOSURE(NEXT, END, CIGAR)   \
+    (union closure) { .emit_closure = {  \
+        .next = (NEXT), .end = (END),    \
+        .cigar = (CIGAR)                 \
     } }
 
 struct match_closure
@@ -143,7 +144,7 @@ struct match_closure
     cstr_sslice_buf_slice edits; // Edit operations so far
 };
 #define MATCH_CLOSURE(LEFT, RIGHT, I, D, A, EDITS)  \
-    (closure) { .match_closure = {                  \
+    (union closure) { .match_closure = {            \
         .left = (LEFT), .right = (RIGHT),           \
         .i = (I), .d = (D), .a = (A),               \
         .edits = (EDITS)                            \
@@ -158,7 +159,7 @@ struct insert_closure
     cstr_sslice_buf_slice edits; // Edit operations so far
 };
 #define INSERT_CLOSURE(LEFT, RIGHT, I, D, A, EDITS) \
-    (closure) { .insert_closure = {                 \
+    (union closure) { .insert_closure = {           \
         .left = (LEFT), .right = (RIGHT),           \
         .i = (I), .d = (D),                         \
         .edits = (EDITS)                            \
@@ -174,7 +175,7 @@ struct delete_closure
     cstr_sslice_buf_slice edits; // Edit operations so far
 };
 #define DELETE_CLOSURE(LEFT, RIGHT, I, D, A, EDITS)  \
-    (closure) { .delete_closure = {                  \
+    (union closure) { .delete_closure = {            \
         .left = (LEFT), .right = (RIGHT),            \
         .i = (I), .d = (D), .a = (A),                \
         .edits = (EDITS)                             \
@@ -189,7 +190,7 @@ struct rec_search_closure
     cstr_sslice_buf_slice edits; // Edit operations so far
 };
 #define REC_SEARCH_CLOSURE(LEFT, RIGHT, I, D, EDITS)  \
-    (closure) { .rec_search_closure = {               \
+    (union closure) { .rec_search_closure = {         \
         .left = (LEFT), .right = (RIGHT),             \
         .i = (I), .d = (D),                           \
         .edits = (EDITS)                              \
@@ -208,7 +209,7 @@ union closure
 struct stack_frame
 {
     continuation k;
-    closure cl;
+    union closure cl;
 };
 
 // MARK: Stack used for CPS.
@@ -218,21 +219,21 @@ struct stack
 {
     size_t size;
     size_t used;
-    stack_frame frames[];
+    struct stack_frame frames[];
 };
 
 // We only shrink a stack when it is 1/4 used, and then only to 1/2 size,
 // so memory we pop off is still available until the next stack action.
 #define MIN_STACK_SIZE 128
-static stack *new_stack(void)
+static struct stack *new_stack(void)
 {
-    stack *stack = CSTR_MALLOC_FLEX_ARRAY(stack, frames, MIN_STACK_SIZE);
+    struct stack *stack = CSTR_MALLOC_FLEX_ARRAY(stack, frames, MIN_STACK_SIZE);
     stack->size = MIN_STACK_SIZE;
     stack->used = 0;
     return stack;
 }
 
-static inline stack *resize_stack(stack *stack)
+static inline struct stack *resize_stack(struct stack *stack)
 {
     if (stack->size / 4 < stack->used && stack->used < stack->size)
     {
@@ -254,19 +255,19 @@ static inline stack *resize_stack(stack *stack)
                                      stack->size);
 }
 
-static inline void push_frame(stack **stack, stack_frame k)
+static inline void push_frame(struct stack **stack, struct stack_frame k)
 {
     *stack = resize_stack(*stack);
     (*stack)->frames[(*stack)->used++] = k;
 }
 
-static inline stack_frame *pop_frame(stack **stack)
+static inline struct stack_frame *pop_frame(struct stack **stack)
 {
     *stack = resize_stack(*stack);
     return &(*stack)->frames[--(*stack)->used];
 }
 
-static inline cstr_approx_match call_next_continuation(context *context)
+static inline cstr_approx_match call_next_continuation(struct context *context)
 {
     if (context->stack->used == 0)
     {
@@ -274,7 +275,7 @@ static inline cstr_approx_match call_next_continuation(context *context)
     }
     else
     {
-        stack_frame *sf = pop_frame(&context->stack);
+        struct stack_frame *sf = pop_frame(&context->stack);
         return sf->k(context, &sf->cl);
     }
 }
@@ -285,36 +286,38 @@ static cstr_approx_match rec_search(
     long long left, long long right,
     long long d,
     cstr_sslice_buf_slice edits,
-    context *context);
+    struct context *context);
 
 static inline cstr_approx_match emit(
     long long next, long long end,
-    const char *cigar, context *context);
+    const char *cigar,
+    struct context *context);
 
 static inline cstr_approx_match match(
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
-    context *context);
+    struct context *context);
 
 static inline cstr_approx_match insert(
     long long left, long long right,
     long long i, long long d,
     cstr_sslice_buf_slice edits,
-    context *context);
+    struct context *context);
 
 static inline cstr_approx_match delete (
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
-    context *context);
+    struct context *context);
 
-static cstr_approx_match emit_cont(context *context, closure *cl);
-static cstr_approx_match match_cont(context *context, closure *cl);
-static cstr_approx_match delete_cont(context *context, closure *cl);
+static cstr_approx_match emit_cont(struct context *context, union closure *cl);
+static cstr_approx_match match_cont(struct context *context, union closure *cl);
+static cstr_approx_match delete_cont(struct context *context, union closure *cl);
 
 static inline cstr_approx_match emit(long long next, long long end,
-                                     const char *cigar, context *context)
+                                     const char *cigar,
+                                     struct context *context)
 {
     if (next < end)
     {
@@ -328,7 +331,7 @@ static inline cstr_approx_match emit(long long next, long long end,
     }
 }
 
-static cstr_approx_match emit_cont(context *context, closure *cl)
+static cstr_approx_match emit_cont(struct context *context, union closure *cl)
 {
     struct emit_closure *ecl = &cl->emit_closure;
     return emit(ecl->next, ecl->end, ecl->cigar, context);
@@ -338,7 +341,7 @@ static inline cstr_approx_match match(
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
-    context *context)
+    struct context *context)
 {
     if (a == context->preproc->alpha.size)
     {
@@ -356,11 +359,11 @@ static inline cstr_approx_match match(
         CALL_WITH_CONTINUATION(
             rec_search(new_left, new_right, i - 1, new_d,
                        CSTR_BUF_SLICE_APPEND(edits, 'M'), context),
-            K(match_cont, MATCH_CLOSURE(left, right, i, d, a + 1, edits)));
+            K(match_cont, MATCH_CLOSURE(left, right, i, d, (uint8_t)(a + 1), edits)));
     }
 }
 
-static cstr_approx_match match_cont(context *context, closure *cl)
+static cstr_approx_match match_cont(struct context *context, union closure *cl)
 {
     struct match_closure *mcl = &cl->match_closure;
     return match(mcl->left, mcl->right, mcl->i, mcl->d, mcl->a, mcl->edits, context);
@@ -370,20 +373,20 @@ static inline cstr_approx_match insert(
     long long left, long long right,
     long long i, long long d,
     cstr_sslice_buf_slice edits,
-    context *context)
+    struct context *context)
 {
     // Recurse, then continue with deletion afterwards
     CALL_WITH_CONTINUATION(
         rec_search(left, right, i - 1, d - 1,
                    CSTR_BUF_SLICE_APPEND(edits, 'I'), context),
-        K(delete_cont, MATCH_CLOSURE(left, right, i, d, 1, edits)));
+        K(delete_cont, DELETE_CLOSURE(left, right, i, d, (uint8_t)1, edits)));
 }
 
 static inline cstr_approx_match delete (
     long long left, long long right,
     long long i, long long d, uint8_t a,
     cstr_sslice_buf_slice edits,
-    context *context)
+    struct context *context)
 {
     if (a == context->preproc->alpha.size)
     {
@@ -406,10 +409,10 @@ static inline cstr_approx_match delete (
     CALL_WITH_CONTINUATION(
         rec_search(new_left, new_right, i, d - 1,
                    CSTR_BUF_SLICE_APPEND(edits, 'D'), context),
-        K(delete_cont, DELETE_CLOSURE(left, right, i, d, a + 1, edits)));
+        K(delete_cont, DELETE_CLOSURE(left, right, i, d, (uint8_t)(a + 1), edits)));
 }
 
-static cstr_approx_match delete_cont(context *context, closure *cl)
+static cstr_approx_match delete_cont(struct context *context, union closure *cl)
 {
     struct delete_closure *dcl = &cl->delete_closure;
     return delete (dcl->left, dcl->right, dcl->i, dcl->d, dcl->a, dcl->edits, context);
@@ -431,17 +434,20 @@ static inline long long scan_next(long long i, cstr_const_sslice edits)
 }
 static void edits_to_cigar(char *cigar_buf, cstr_const_sslice edits)
 {
+    size_t space_left = 2 * (size_t)edits.len + 1; // We allocated at least this much
     for (long long i = 0, j = scan_next(i, edits); i < edits.len; i = j, j = scan_next(i, edits))
     {
-        cigar_buf = cigar_buf + sprintf(cigar_buf, "%d%c", (int)(j - i), (char)edits.buf[i]);
+        int used = snprintf(cigar_buf, space_left, "%d%c", (int)(j - i), (char)edits.buf[i]);
+        cigar_buf = cigar_buf + used;
+        space_left -= (size_t)used;
     }
     *cigar_buf = '\0';
 }
 
 static cstr_approx_match rec_search(long long left, long long right,
-                               long long i, long long d,
-                               cstr_sslice_buf_slice edits,
-                               context *context)
+                                    long long i, long long d,
+                                    cstr_sslice_buf_slice edits,
+                                    struct context *context)
 {
     if (left >= right || d < 0)
     {
@@ -451,6 +457,7 @@ static cstr_approx_match rec_search(long long left, long long right,
     if (i < 0)
     {
         // We have a match, so emit it
+        context->cigar = cstr_realloc(context->cigar, (size_t)(2 * context->edits->cap + 1));
         edits_to_cigar(context->cigar, CSTR_SLICE_CONST_CAST(CSTR_BUF_SLICE_DEREF(edits)));
         return emit(left, right, context->cigar, context);
     }
@@ -461,7 +468,7 @@ static cstr_approx_match rec_search(long long left, long long right,
     return match(left, right, i, d, 1, edits, context);
 }
 
-static cstr_approx_match rec_search_cont(context *context, closure *cl)
+static cstr_approx_match rec_search_cont(struct context *context, union closure *cl)
 {
     struct rec_search_closure *rscl = &cl->rec_search_closure;
     return rec_search(rscl->left, rscl->right, rscl->i, rscl->d, rscl->edits, context);
@@ -474,7 +481,7 @@ static cstr_approx_match rec_search_cont(context *context, closure *cl)
 struct cstr_approx_matcher
 {
     cstr_sslice *p_buf;
-    context context;
+    struct context context;
 };
 
 cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
@@ -483,7 +490,7 @@ cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
     cstr_approx_matcher *itr = cstr_malloc(sizeof *itr);
     itr->context.preproc = preproc;
     itr->context.edits = cstr_alloc_sslice_buf(0, p.len + d);
-    itr->context.cigar = cstr_malloc((size_t)(p.len + d + 1));
+    itr->context.cigar = 0; // We (re)alloc when we need it
 
     itr->p_buf = cstr_alloc_sslice(p.len);
     itr->context.p = CSTR_SLICE_CONST_CAST(*itr->p_buf);
@@ -502,7 +509,6 @@ cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
 
     return itr;
 }
-
 
 void cstr_free_approx_matcher(cstr_approx_matcher *matcher)
 {
