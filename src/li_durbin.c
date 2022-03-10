@@ -12,6 +12,9 @@ struct cstr_li_durbin_preproc
     struct o_table *rotab;
 };
 
+#define RO_RAW(A, I) (rotab->table[(I)*rotab->sigma + (A)])
+#define RO(A, I) (((I) == 0) ? 0 : RO_RAW((A), (I)-1))
+
 void cstr_free_li_durbin_preproc(cstr_li_durbin_preproc *preproc)
 {
     free(preproc->sa);
@@ -102,6 +105,7 @@ static struct stack_frame *pop_frame(struct stack **stack);
 struct context
 {
     cstr_li_durbin_preproc *preproc;
+    long long *needed_edits; // D table from Li & Durbin
     cstr_sslice *p_buf;
     cstr_const_sslice p;
     cstr_sslice_buf *edits;
@@ -484,11 +488,36 @@ struct cstr_approx_matcher
     struct context context;
 };
 
+static void build_edits_needed(struct context *context)
+{
+    cstr_const_sslice p = context->p;
+    // Pull these into scope so we can use macros
+    struct c_table *ctab = context->preproc->ctab;
+    struct o_table *rotab = context->preproc->rotab;
+
+    long long min_edits = 0;
+    long long left = 0, right = context->preproc->sa->len;
+    for (long long i = 0; i < p.len; ++i)
+    {
+        uint8_t a = p.buf[i];
+        left = C(a) + RO(a, left);
+        right = C(a) + RO(a, right);
+        if (left >= right)
+        {
+            min_edits++;
+            left = 0;
+            right = context->preproc->sa->len;
+        }
+        context->needed_edits[i] = min_edits;
+    }
+}
+
 cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
                                            cstr_const_sslice p, long long d)
 {
     cstr_approx_matcher *itr = cstr_malloc(sizeof *itr);
     itr->context.preproc = preproc;
+    itr->context.needed_edits = cstr_malloc((size_t)p.len * sizeof itr->context.needed_edits[0]);
     itr->context.edits = cstr_alloc_sslice_buf(0, p.len + d);
     itr->context.cigar = 0; // We (re)alloc when we need it
 
@@ -499,6 +528,9 @@ cstr_approx_matcher *cstr_li_durbin_search(cstr_li_durbin_preproc *preproc,
 
     if (map_ok)
     {
+        // Build the D table to cut short search paths that won't lead anywhere.
+        build_edits_needed(&itr->context);
+
         // If mapping failed, we leave the stack empty. Then the iterator will
         // return no matches, but it will still be in a state where we can free
         // it as per usual.
@@ -514,6 +546,7 @@ void cstr_free_approx_matcher(cstr_approx_matcher *matcher)
 {
     free(matcher->p_buf);
     free(matcher->context.edits);
+    free(matcher->context.needed_edits);
     free(matcher->context.cigar);
     free(matcher->context.stack);
     free(matcher);
